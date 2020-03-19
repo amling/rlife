@@ -74,3 +74,40 @@ impl<N, R> DfsResConfig for &dyn DfsResVtable<N=N, R=R> {
         zelf.reduce(r1, r2)
     }
 }
+
+struct DfsResCollect<N> {
+    cycles: Vec<(Vec<N>, Vec<N>)>,
+    ends: Vec<Vec<N>>,
+}
+
+impl<N> DfsResType for DfsResCollect<N> {
+    type N = N;
+    type R = Self;
+
+    fn empty() -> Self {
+        DfsResCollect {
+            cycles: vec![],
+            ends: vec![],
+        }
+    }
+
+    fn map_cycle(path: Vec<N>, cycle: Vec<N>) -> Self {
+        DfsResCollect {
+            cycles: vec![(path, cycle)],
+            ends: vec![],
+        }
+    }
+
+    fn map_end(path: Vec<N>) -> Self {
+        DfsResCollect {
+            cycles: vec![],
+            ends: vec![path],
+        }
+    }
+
+    fn reduce(mut r1: Self, mut r2: Self) -> Self::R {
+        r1.cycles.append(&mut r2.cycles);
+        r1.ends.append(&mut r2.ends);
+        r1
+    }
+}
