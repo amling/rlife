@@ -1,4 +1,4 @@
-trait DfsConfig {
+trait DfsGraphConfig {
     type E;
     type N;
 
@@ -7,7 +7,7 @@ trait DfsConfig {
     fn end(e: Self::E, n: &Self::N) -> bool;
 }
 
-trait DfsType {
+trait DfsGraphType {
     type N;
 
     fn start() -> Self::N;
@@ -15,7 +15,7 @@ trait DfsType {
     fn end(n: &Self::N) -> bool;
 }
 
-impl<N, T: DfsType<N=N>> DfsConfig for T {
+impl<N, T: DfsGraphType<N=N>> DfsGraphConfig for T {
     type E = ();
     type N = N;
 
@@ -32,7 +32,7 @@ impl<N, T: DfsType<N=N>> DfsConfig for T {
     }
 }
 
-trait DfsVtable {
+trait DfsGraphVtable {
     type N;
 
     fn start(&self) -> Self::N;
@@ -40,7 +40,7 @@ trait DfsVtable {
     fn end(&self, n: &Self::N) -> bool;
 }
 
-impl<N> DfsConfig for &dyn DfsVtable<N=N> {
+impl<N> DfsGraphConfig for &dyn DfsGraphVtable<N=N> {
     type E = Self;
     type N = N;
 
