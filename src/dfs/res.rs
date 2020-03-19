@@ -8,7 +8,7 @@ trait DfsResConfig {
         Self::empty(e)
     }
     fn map_end(e: Self::E, path: Vec<Self::N>) -> Self::R;
-    fn reduce(e: Self::E, r1: Self::R, r2: Self::R);
+    fn reduce(e: Self::E, r1: Self::R, r2: Self::R) -> Self::R;
 }
 
 trait DfsResType {
@@ -18,7 +18,7 @@ trait DfsResType {
     fn empty() -> Self::R;
     fn map_cycle(path: Vec<Self::N>, cycle: Vec<Self::N>) -> Self::R;
     fn map_end(path: Vec<Self::N>) -> Self::R;
-    fn reduce(r1: Self::R, r2: Self::R);
+    fn reduce(r1: Self::R, r2: Self::R) -> Self::R;
 }
 
 impl<T: DfsResType> DfsResConfig for T {
@@ -38,7 +38,7 @@ impl<T: DfsResType> DfsResConfig for T {
         T::map_end(path)
     }
 
-    fn reduce(_e: Self::E, r1: Self::R, r2: Self::R) {
+    fn reduce(_e: Self::E, r1: Self::R, r2: Self::R) -> Self::R {
         T::reduce(r1, r2)
     }
 }
@@ -50,7 +50,7 @@ trait DfsResVtable {
     fn empty(&self) -> Self::R;
     fn map_cycle(&self, path: Vec<Self::N>, cycle: Vec<Self::N>) -> Self::R;
     fn map_end(&self, path: Vec<Self::N>) -> Self::R;
-    fn reduce(&self, r1: Self::R, r2: Self::R);
+    fn reduce(&self, r1: Self::R, r2: Self::R) -> Self::R;
 }
 
 impl<N, R> DfsResConfig for &dyn DfsResVtable<N=N, R=R> {
@@ -70,7 +70,7 @@ impl<N, R> DfsResConfig for &dyn DfsResVtable<N=N, R=R> {
         zelf.map_end(path)
     }
 
-    fn reduce(zelf: Self, r1: R, r2: R) {
+    fn reduce(zelf: Self, r1: R, r2: R) -> R {
         zelf.reduce(r1, r2)
     }
 }
