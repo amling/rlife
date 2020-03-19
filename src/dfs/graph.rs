@@ -15,19 +15,19 @@ trait DfsGraphType {
     fn end(n: &Self::N) -> bool;
 }
 
-impl<N, T: DfsGraphType<N=N>> DfsGraphConfig for T {
+impl<T: DfsGraphType> DfsGraphConfig for T {
     type E = ();
-    type N = N;
+    type N = T::N;
 
-    fn start(_e: ()) -> N {
+    fn start(_e: ()) -> Self::N {
         T::start()
     }
 
-    fn expand(_e: (), n: &N) -> Vec<N> {
+    fn expand(_e: (), n: &Self::N) -> Vec<Self::N> {
         T::expand(n)
     }
 
-    fn end(_e: (), n: &N) -> bool {
+    fn end(_e: (), n: &Self::N) -> bool {
         T::end(n)
     }
 }
