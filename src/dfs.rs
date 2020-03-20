@@ -61,8 +61,9 @@ enum TreeStatus<N> {
 pub fn sdfs<N: Clone + Hash + Eq, R, GE: DfsGraph<N>, RE: DfsRes<N, R>, LE: DfsLifecycle<R>>(ge: &GE, re: &RE, le: &LE) {
     let stop = AtomicBool::new(false);
     let n0 = ge.start();
-    let mut tree = Tree(n0, TreeStatus::Unopened);
+    let mut tree = Tree(n0.clone(), TreeStatus::Unopened);
     let mut path = Path::new();
+    path.push(&n0);
     let mut res = re.empty();
 
     dfs_single_thread(ge, re, &stop, &mut tree, &mut path, &mut res);
@@ -151,10 +152,12 @@ fn collapse<N>(tree: &mut Tree<N>) -> bool {
 
 fn find_unopened<'a, N: Eq + Hash + Clone>(unopened: &mut Vec<(&'a mut Tree<N>, Path<N>)>, tree: &'a mut Tree<N>, path: &mut Path<N>) {
     match tree {
-        Tree(_, TreeStatus::Unopened) => {
+        Tree(n, TreeStatus::Unopened) => {
             // I'm amazed borrow checker figures this one out.  Unfortunately it does not figure it
             // out if we match on &mut tree.1 instead...
+            path.push(n);
             unopened.push((tree, path.clone()));
+            path.pop();
         }
         Tree(n, TreeStatus::Opened(children)) => {
             path.push(n);
