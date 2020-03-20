@@ -13,7 +13,7 @@ pub struct GolLifecycle<'a> {
     pub recollect_ms: u64,
 }
 
-impl<'a, B: Bits> DfsLifecycle<DfsResVec<(B, B)>> for GolLifecycle<'a> {
+impl<'a, B: Bits> DfsLifecycle<(B, B), DfsResVec<(B, B)>> for GolLifecycle<'a> {
     fn threads(&self) -> usize {
         return self.threads;
     }

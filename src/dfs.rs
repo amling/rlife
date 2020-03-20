@@ -58,7 +58,7 @@ enum TreeStatus<N> {
     Closed,
 }
 
-pub fn sdfs<N: Clone + Hash + Eq, R, GE: DfsGraph<N>, RE: DfsRes<N, R>, LE: DfsLifecycle<R>>(ge: &GE, re: &RE, le: &LE) {
+pub fn sdfs<N: Clone + Hash + Eq, R, GE: DfsGraph<N>, RE: DfsRes<N, R>, LE: DfsLifecycle<N, R>>(ge: &GE, re: &RE, le: &LE) {
     let stop = AtomicBool::new(false);
     let n0 = ge.start();
     let mut tree = Tree(n0.clone(), TreeStatus::Unopened);
@@ -66,12 +66,12 @@ pub fn sdfs<N: Clone + Hash + Eq, R, GE: DfsGraph<N>, RE: DfsRes<N, R>, LE: DfsL
     path.push(&n0);
     let mut res = re.empty();
 
-    dfs_single_thread(ge, re, &stop, &mut tree, &mut path, &mut res);
+    dfs_single_thread(ge, re, le, &stop, &mut tree, &mut path, &mut res);
 
     le.on_recollect(res);
 }
 
-pub fn dfs<N: Clone + Hash + Eq + Send, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N, R> + Sync, LE: DfsLifecycle<R>>(ge: &GE, re: &RE, le: &LE) {
+pub fn dfs<N: Clone + Hash + Eq + Send, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N, R> + Sync, LE: DfsLifecycle<N, R> + Sync>(ge: &GE, re: &RE, le: &LE) {
     let n0 = ge.start();
     let mut root = Tree(n0, TreeStatus::Unopened);
 
@@ -108,7 +108,7 @@ pub fn dfs<N: Clone + Hash + Eq + Send, R: Send, GE: DfsGraph<N> + Sync, RE: Dfs
                                 }
                             };
 
-                            dfs_single_thread(ge, re, stop, tree, &mut path, res);
+                            dfs_single_thread(ge, re, le, stop, tree, &mut path, res);
                         }
                     });
                 }
@@ -171,7 +171,7 @@ fn find_unopened<'a, N: Eq + Hash + Clone>(unopened: &mut Vec<(&'a mut Tree<N>, 
     };
 }
 
-fn dfs_single_thread<N: Clone + Eq + Hash, R, GE: DfsGraph<N>, RE: DfsRes<N, R>>(ge: &GE, re: &RE, stop: &AtomicBool, t1: &mut Tree<N>, path: &mut Path<N>, r: &mut R) -> bool {
+fn dfs_single_thread<N: Clone + Eq + Hash, R, GE: DfsGraph<N>, RE: DfsRes<N, R>, LE: DfsLifecycle<N, R>>(ge: &GE, re: &RE, le: &LE, stop: &AtomicBool, t1: &mut Tree<N>, path: &mut Path<N>, r: &mut R) -> bool {
     if stop.load(Ordering::Relaxed) {
         return false;
     }
@@ -201,7 +201,7 @@ fn dfs_single_thread<N: Clone + Eq + Hash, R, GE: DfsGraph<N>, RE: DfsRes<N, R>>
                 }
 
                 let mut t2 = Tree(n2, TreeStatus::Unopened);
-                if !dfs_single_thread(ge, re, stop, &mut t2, path, r) {
+                if !dfs_single_thread(ge, re, le, stop, &mut t2, path, r) {
                     finished = false;
                 }
                 if let TreeStatus::Closed = t2.1 {
