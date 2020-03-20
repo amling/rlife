@@ -23,6 +23,7 @@ fn main1<B: Bits>() {
     let re = DfsResToVec();
 
     let le = GolLifecycle {
+        ge: &ge,
         threads: 4,
         recollect_ms: 1000,
     };
