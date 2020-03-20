@@ -6,15 +6,15 @@ use crate::dfs;
 use bits::Bits;
 use dfs::graph::DfsGraphConfig;
 
-struct GolGraphEnv {
-    mt: usize,
-    mx: usize,
+pub struct GolGraphEnv {
+    pub mt: usize,
+    pub mx: usize,
 
-    ox: isize,
-    oy: isize,
+    pub ox: isize,
+    pub oy: isize,
 }
 
-struct GolGraphConfig<B> {
+pub struct GolGraphConfig<B> {
     _b: PhantomData<B>,
 }
 
