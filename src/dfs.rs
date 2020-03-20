@@ -27,38 +27,74 @@ pub fn dfs<N: Send, R: Send, GE: Send + Sync + Copy, GC: DfsGraphConfig<E=GE, N=
     let mut root = Tree(n0, TreeStatus::Unopened);
 
     loop {
+        if collapse(&mut root) {
+            return;
+        }
+
         let mut unopened = Vec::new();
         find_unopened(&mut unopened, &mut root);
 
         let mut results: Vec<_> = unopened.iter().map(|_| RC::empty(re)).collect();
-        let q = SegQueue::new();
-        for pair in unopened.into_iter().zip(results.iter_mut()) {
-            q.push(pair);
-        }
 
-        let stop = AtomicBool::new(false);
-        let stop = &stop;
-
-        crossbeam::scope(|sc| {
-            for _ in 0..LC::threads(le) {
-                sc.spawn(|_| {
-                    loop {
-                        let (tree, res) = match q.pop() {
-                            Result::Ok(pair) => pair,
-                            Result::Err(PopError) => {
-                                return;
-                            }
-                        };
-
-                        dfs_single_thread::<N, R, GE, GC, RE, RC>(ge, re, stop, tree, res);
-                    }
-                });
+        {
+            let q = SegQueue::new();
+            for pair in unopened.into_iter().zip(results.iter_mut()) {
+                q.push(pair);
             }
 
-            std::thread::sleep(Duration::from_millis(LC::recollect_ms(le)));
+            let stop = AtomicBool::new(false);
+            let stop = &stop;
 
-            stop.store(true, Ordering::Relaxed);
-        });
+            crossbeam::scope(|sc| {
+                for _ in 0..LC::threads(le) {
+                    sc.spawn(|_| {
+                        loop {
+                            let (tree, res) = match q.pop() {
+                                Result::Ok(pair) => pair,
+                                Result::Err(PopError) => {
+                                    return;
+                                }
+                            };
+
+                            dfs_single_thread::<N, R, GE, GC, RE, RC>(ge, re, stop, tree, res);
+                        }
+                    });
+                }
+
+                std::thread::sleep(Duration::from_millis(LC::recollect_ms(le)));
+
+                stop.store(true, Ordering::Relaxed);
+            });
+        }
+
+        let mut res = RC::empty(re);
+        for res1 in results {
+            res = RC::reduce(re, res, res1);
+        }
+
+        if !LC::on_recollect(le, res) {
+            return;
+        }
+    }
+}
+
+fn collapse<N>(tree: &mut Tree<N>) -> bool {
+    let status = &mut tree.1;
+    match status {
+        TreeStatus::Unopened => false,
+        TreeStatus::Opened(children) => {
+            let mut finished = true;
+            for child in children.iter_mut() {
+                if !collapse(child) {
+                    finished = false;
+                }
+            }
+            if finished {
+                *status = TreeStatus::Closed;
+            }
+            finished
+        },
+        TreeStatus::Closed => true,
     }
 }
 
