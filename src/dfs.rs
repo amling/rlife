@@ -79,5 +79,28 @@ fn find_unopened<'a, N>(unopened: &mut Vec<&'a mut Tree<N>>, tree: &'a mut Tree<
     };
 }
 
-fn dfs_single_thread<N, R, GE, GC: DfsGraphConfig<E=GE, N=N>, RE, RC: DfsResConfig<E=RE, N=N, R=R>>(ge: GE, re: RE, stop: &AtomicBool, tree: &mut Tree<N>, r: &mut R) {
+fn dfs_single_thread<N, R, GE: Copy, GC: DfsGraphConfig<E=GE, N=N>, RE: Copy, RC: DfsResConfig<E=RE, N=N, R=R>>(ge: GE, re: RE, stop: &AtomicBool, t1: &mut Tree<N>, r: &mut R) -> bool {
+    if stop.load(Ordering::Relaxed) {
+        return false;
+    }
+
+    match t1 {
+        Tree(n1, s1 @ TreeStatus::Unopened) => {
+            let mut finished = true;
+            let mut children = Vec::new();
+            for n2 in GC::expand(ge, n1) {
+                let mut t2 = Tree(n2, TreeStatus::Unopened);
+                if !dfs_single_thread::<N, R, GE, GC, RE, RC>(ge, re, stop, &mut t2, r) {
+                    finished = false;
+                }
+                children.push(t2);
+            }
+            *s1 = match finished {
+                true => TreeStatus::Closed,
+                false => TreeStatus::Opened(children),
+            };
+            return finished;
+        }
+        _ => panic!()
+    };
 }
