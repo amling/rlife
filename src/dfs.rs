@@ -65,7 +65,7 @@ pub fn sdfs<N: Clone + Hash + Eq, R, GE: DfsGraph<N>, RE: DfsRes<N, R>, LE: DfsL
     let mut path = Path::new();
     let mut res = RE::empty(re);
 
-    dfs_single_thread::<N, R, GE, RE>(ge, re, &stop, &mut tree, &mut path, &mut res);
+    dfs_single_thread(ge, re, &stop, &mut tree, &mut path, &mut res);
 
     LE::on_recollect(le, res);
 }
@@ -107,7 +107,7 @@ pub fn dfs<N: Clone + Hash + Eq + Send, R: Send, GE: DfsGraph<N> + Sync, RE: Dfs
                                 }
                             };
 
-                            dfs_single_thread::<N, R, GE, RE>(ge, re, stop, tree, &mut path, res);
+                            dfs_single_thread(ge, re, stop, tree, &mut path, res);
                         }
                     });
                 }
@@ -198,7 +198,7 @@ fn dfs_single_thread<N: Clone + Eq + Hash, R, GE: DfsGraph<N>, RE: DfsRes<N, R>>
                 }
 
                 let mut t2 = Tree(n2, TreeStatus::Unopened);
-                if !dfs_single_thread::<N, R, GE, RE>(ge, re, stop, &mut t2, path, r) {
+                if !dfs_single_thread(ge, re, stop, &mut t2, path, r) {
                     finished = false;
                 }
                 if let TreeStatus::Closed = t2.1 {
