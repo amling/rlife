@@ -1,4 +1,5 @@
 trait Bits {
+    fn zero() -> Self;
     fn size() -> usize;
     fn get_bit(&self, n: usize) -> bool;
     fn set_bit(&mut self, n: usize, v: bool);
@@ -9,6 +10,10 @@ trait Bits {
 macro_rules! uxx_bits_impl {
     ($t:ty, $n:expr) => {
         impl Bits for $t {
+            fn zero() -> Self {
+                0
+            }
+
             fn size() -> usize {
                 $n
             }
@@ -32,6 +37,10 @@ uxx_bits_impl!(u64, 64);
 uxx_bits_impl!(u128, 128);
 
 impl<A: Bits, B: Bits> Bits for (A, B) {
+    fn zero() -> Self {
+        (A::zero(), B::zero())
+    }
+
     fn size() -> usize {
         A::size() + B::size()
     }
