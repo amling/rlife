@@ -210,6 +210,8 @@ fn dfs_single_thread<N: Clone + Eq + Hash, R, GE: DfsGraph<N>, RE: DfsRes<N, R>,
                 }
                 if let TreeStatus::Closed = t2.1 {
                     // ditto, no need to save Closed nodes
+                }
+                else {
                     children.push(t2);
                 }
 
