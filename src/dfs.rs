@@ -1,4 +1,8 @@
+use crossbeam::queue::PopError;
 use crossbeam::queue::SegQueue;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
+use std::time::Duration;
 
 mod graph;
 mod lifecycle;
@@ -18,7 +22,7 @@ enum TreeStatus<N> {
     Closed,
 }
 
-pub fn dfs<N, R, GE, GC: DfsGraphConfig<E=GE, N=N>, RE: Copy, RC: DfsResConfig<E=RE, N=N, R=R>, LE: Copy, LC: DfsLifecycleConfig<E=LE, R=R>>(ge: GE, re: RE, le: LE) {
+pub fn dfs<N: Send, R: Send, GE: Send + Sync + Copy, GC: DfsGraphConfig<E=GE, N=N>, RE: Send + Sync + Copy, RC: DfsResConfig<E=RE, N=N, R=R>, LE: Sync + Copy, LC: DfsLifecycleConfig<E=LE, R=R>>(ge: GE, re: RE, le: LE) {
     let n0 = GC::start(ge);
     let mut root = Tree(n0, TreeStatus::Unopened);
 
@@ -32,11 +36,28 @@ pub fn dfs<N, R, GE, GC: DfsGraphConfig<E=GE, N=N>, RE: Copy, RC: DfsResConfig<E
             q.push(pair);
         }
 
+        let stop = AtomicBool::new(false);
+        let stop = &stop;
+
         crossbeam::scope(|sc| {
             for _ in 0..LC::threads(le) {
                 sc.spawn(|_| {
+                    loop {
+                        let (tree, res) = match q.pop() {
+                            Result::Ok(pair) => pair,
+                            Result::Err(PopError) => {
+                                return;
+                            }
+                        };
+
+                        dfs_single_thread::<N, R, GE, GC, RE, RC>(ge, re, stop, tree, res);
+                    }
                 });
             }
+
+            std::thread::sleep(Duration::from_millis(LC::recollect_ms(le)));
+
+            stop.store(true, Ordering::Relaxed);
         });
     }
 }
@@ -56,4 +77,7 @@ fn find_unopened<'a, N>(unopened: &mut Vec<&'a mut Tree<N>>, tree: &'a mut Tree<
         Tree(_, TreeStatus::Closed) => {
         }
     };
+}
+
+fn dfs_single_thread<N, R, GE, GC: DfsGraphConfig<E=GE, N=N>, RE, RC: DfsResConfig<E=RE, N=N, R=R>>(ge: GE, re: RE, stop: &AtomicBool, tree: &mut Tree<N>, r: &mut R) {
 }
