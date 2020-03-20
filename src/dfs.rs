@@ -68,7 +68,7 @@ pub fn sdfs<N: Clone + Hash + Eq, R, GE: DfsGraph<N>, RE: DfsRes<N, R>, LE: DfsL
 
     dfs_single_thread(ge, re, le, &stop, &mut tree, &mut path, &mut res);
 
-    le.on_recollect(res);
+    le.on_recollect(vec![], res);
 }
 
 pub fn dfs<N: Clone + Hash + Eq + Send, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N, R> + Sync, LE: DfsLifecycle<N, R> + Sync>(ge: &GE, re: &RE, le: &LE) {
@@ -124,7 +124,9 @@ pub fn dfs<N: Clone + Hash + Eq + Send, R: Send, GE: DfsGraph<N> + Sync, RE: Dfs
             res = re.reduce(res, res1);
         }
 
-        if !le.on_recollect(res) {
+        let deepest = find_deepest(&root);
+
+        if !le.on_recollect(deepest, res) {
             return;
         }
     }
@@ -169,6 +171,22 @@ fn find_unopened<'a, N: Eq + Hash + Clone>(unopened: &mut Vec<(&'a mut Tree<N>, 
         Tree(_, TreeStatus::Closed) => {
         }
     };
+}
+
+fn find_deepest<N: Clone>(tree: &Tree<N>) -> Vec<N> {
+    let mut deepest = find_deepest_aux(tree);
+    deepest.reverse();
+    deepest
+}
+
+fn find_deepest_aux<N: Clone>(tree: &Tree<N>) -> Vec<N> {
+    let mut r = match tree.1 {
+        TreeStatus::Unopened => vec![],
+        TreeStatus::Opened(ref children) => children.iter().map(|child| find_deepest(child)).max_by_key(|path| path.len()).unwrap_or_else(|| vec![]),
+        TreeStatus::Closed => vec![],
+    };
+    r.push(tree.0.clone());
+    r
 }
 
 fn dfs_single_thread<N: Clone + Eq + Hash, R, GE: DfsGraph<N>, RE: DfsRes<N, R>, LE: DfsLifecycle<N, R>>(ge: &GE, re: &RE, le: &LE, stop: &AtomicBool, t1: &mut Tree<N>, path: &mut Path<N>, r: &mut R) -> bool {

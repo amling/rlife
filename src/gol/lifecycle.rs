@@ -38,10 +38,11 @@ impl<'a, B: Bits> DfsLifecycle<(B, B), DfsResVec<(B, B)>> for GolLifecycle<'a> {
         return self.recollect_ms;
     }
 
-    fn on_recollect(&self, r: DfsResVec<(B, B)>) -> bool {
+    fn on_recollect(&self, deepest: Vec<(B, B)>, r: DfsResVec<(B, B)>) -> bool {
         println!("Recollect...");
 
-        // TODO: actual status
+        println!("Deepest");
+        self.ge.print_rows(&deepest);
 
         for cycle in &r.cycles {
             self.print_cycle(&cycle.0, &cycle.1);
