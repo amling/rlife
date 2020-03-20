@@ -1,4 +1,4 @@
-trait DfsReportConfig {
+trait DfsLifecycleConfig {
     type E;
     type R;
 
@@ -6,14 +6,14 @@ trait DfsReportConfig {
     fn on_recollect(e: Self::E, r: Self::R) -> bool;
 }
 
-trait DfsReportType {
+trait DfsLifecycleType {
     type R;
 
     fn recollect_ms() -> usize;
     fn on_recollect(r: Self::R) -> bool;
 }
 
-impl<T: DfsReportType> DfsReportConfig for T {
+impl<T: DfsLifecycleType> DfsLifecycleConfig for T {
     type E = ();
     type R = T::R;
 
@@ -26,14 +26,14 @@ impl<T: DfsReportType> DfsReportConfig for T {
     }
 }
 
-trait DfsReportVtable {
+trait DfsLifecycleVtable {
     type R;
 
     fn recollect_ms(&self) -> usize;
     fn on_recollect(&self, r: Self::R) -> bool;
 }
 
-impl<R> DfsReportConfig for &dyn DfsReportVtable<R=R> {
+impl<R> DfsLifecycleConfig for &dyn DfsLifecycleVtable<R=R> {
     type E = Self;
     type R = R;
 
