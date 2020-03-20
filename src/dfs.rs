@@ -1,6 +1,6 @@
 use crossbeam::queue::PopError;
 use crossbeam::queue::SegQueue;
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::hash::Hash;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
@@ -19,29 +19,34 @@ use dfs::res::DfsResConfig;
 #[derive(Clone)]
 struct Path<N> {
     vec: Vec<N>,
-    set: HashSet<N>,
+    map: HashMap<N, usize>,
 }
 
 impl<N: Clone + Hash + Eq> Path<N> {
     fn new() -> Self {
         Path {
             vec: Vec::new(),
-            set: HashSet::new(),
+            map: HashMap::new(),
         }
     }
 
-    fn push(&mut self, n: &N) -> bool {
-        if !self.set.insert(n.clone()) {
-            return false;
+    fn find_or_push(&mut self, n: &N) -> Option<usize> {
+        if let Some(idx) = self.map.get(n) {
+            return Some(*idx);
         }
+        self.map.insert(n.clone(), self.vec.len());
         self.vec.push(n.clone());
-        return true;
+        return None;
+    }
+
+    fn push(&mut self, n: &N) -> bool {
+        return !self.find_or_push(n).is_some();
     }
 
     fn pop(&mut self) {
         let n = self.vec.pop().unwrap();
-        let r = self.set.remove(&n);
-        assert!(r);
+        let r = self.map.remove(&n);
+        assert_eq!(Some(self.vec.len()), r);
     }
 }
 
@@ -98,7 +103,7 @@ pub fn dfs<N: Clone + Hash + Eq + Send, R: Send, GE: Send + Sync + Copy, GC: Dfs
                 std::thread::sleep(Duration::from_millis(LC::recollect_ms(le)));
 
                 stop.store(true, Ordering::Relaxed);
-            });
+            }).unwrap();
         }
 
         let mut res = RC::empty(re);
@@ -156,24 +161,38 @@ fn dfs_single_thread<N: Clone + Eq + Hash, R, GE: Copy, GC: DfsGraphConfig<E=GE,
         return false;
     }
 
+    let add_result = |r: &mut R, r1| {
+        let r0 = std::mem::replace(r, RC::empty(re));
+        *r = RC::reduce(re, r0, r1);
+    };
+
     match t1 {
         Tree(n1, s1 @ TreeStatus::Unopened) => {
             let mut finished = true;
             let mut children = Vec::new();
             for n2 in GC::expand(ge, n1) {
                 if GC::end(ge, &n2) {
-                    unimplemented!();
+                    let mut path = path.vec.clone();
+                    path.push(n2);
+                    add_result(r, RC::map_end(re, path));
+                    // could add Closed node, but doesn't affect anything
+                    continue;
                 }
 
-                if !path.push(&n2) {
-                    unimplemented!();
+                if let Some(idx) = path.find_or_push(&n2) {
+                    let (path, cycle) = ((&path.vec[0..idx]).to_vec(), (&path.vec[idx..]).to_vec());
+                    add_result(r, RC::map_cycle(re, path, cycle));
+                    continue;
                 }
 
                 let mut t2 = Tree(n2, TreeStatus::Unopened);
                 if !dfs_single_thread::<N, R, GE, GC, RE, RC>(ge, re, stop, &mut t2, path, r) {
                     finished = false;
                 }
-                children.push(t2);
+                if let TreeStatus::Closed = t2.1 {
+                    // ditto, no need to save Closed nodes
+                    children.push(t2);
+                }
 
                 path.pop();
             }
