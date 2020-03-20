@@ -156,8 +156,8 @@ fn check_compat<B: Bits>(e: &GolGraph, cp: PartialRow<B>, c: PartialRow<B>, cn: 
         },
     };
 
-    match fs {
-        true => match cs {
+    match cs {
+        true => match fs {
             true => {
                 // need 2 or 3
                 cts.living <= 3 && cts.dead <= 6
@@ -167,7 +167,7 @@ fn check_compat<B: Bits>(e: &GolGraph, cp: PartialRow<B>, c: PartialRow<B>, cn: 
                 cts.living <= 1 || cts.dead <= 4
             },
         },
-        false => match cs {
+        false => match fs {
             true => {
                 // need 3
                 cts.living <= 3 && cts.dead <= 5
