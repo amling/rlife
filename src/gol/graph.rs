@@ -1,21 +1,15 @@
-use std::marker::PhantomData;
-
 use crate::bits;
 use crate::dfs;
 
 use bits::Bits;
-use dfs::graph::DfsGraphConfig;
+use dfs::graph::DfsGraph;
 
-pub struct GolGraphEnv {
+pub struct GolGraph {
     pub mt: usize,
     pub mx: usize,
 
     pub ox: isize,
     pub oy: isize,
-}
-
-pub struct GolGraphConfig<B> {
-    _b: PhantomData<B>,
 }
 
 #[derive(Clone)]
@@ -33,7 +27,7 @@ impl<B: Bits> PartialRow<B> {
         }
     }
 
-    fn full(e: &GolGraphEnv, bits: B) -> Self {
+    fn full(e: &GolGraph, bits: B) -> Self {
         Self::new(bits, e.mx * e.mt)
     }
 
@@ -41,7 +35,7 @@ impl<B: Bits> PartialRow<B> {
         Self::new(B::zero(), 0)
     }
 
-    fn get(&self, e: &GolGraphEnv, t: usize, x: isize) -> Option<bool> {
+    fn get(&self, e: &GolGraph, t: usize, x: isize) -> Option<bool> {
         assert!(t < e.mt);
 
         if x < 0 || x >= (e.mx as isize) {
@@ -56,7 +50,7 @@ impl<B: Bits> PartialRow<B> {
         return Some(Bits::get_bit(&self.bits, idx));
     }
 
-    fn get_cts(&self, e: &GolGraphEnv, t: usize, x: isize) -> CellCounts {
+    fn get_cts(&self, e: &GolGraph, t: usize, x: isize) -> CellCounts {
         match self.get(e, t, x) {
             Some(true) => CellCounts::new(1, 0),
             Some(false) => CellCounts::new(0, 1),
@@ -96,7 +90,7 @@ impl std::ops::AddAssign for CellCounts {
     }
 }
 
-fn check_compat<B: Bits>(e: &GolGraphEnv, cp: PartialRow<B>, c: PartialRow<B>, cn: PartialRow<B>, ct: usize, cx: isize, f: PartialRow<B>, ft: usize, fx: isize) -> bool {
+fn check_compat<B: Bits>(e: &GolGraph, cp: PartialRow<B>, c: PartialRow<B>, cn: PartialRow<B>, ct: usize, cx: isize, f: PartialRow<B>, ft: usize, fx: isize) -> bool {
     let mut cts = CellCounts::new(0, 0);
 
     cts += cp.get_cts(e, ct, cx - 1);
@@ -146,7 +140,7 @@ fn check_compat<B: Bits>(e: &GolGraphEnv, cp: PartialRow<B>, c: PartialRow<B>, c
     }
 }
 
-fn expand_srch<B: Bits>(e: &GolGraphEnv, n1: &(B, B), n2s: &mut Vec<(B, B)>, n2b: &mut B, mut x: usize, mut t: usize) {
+fn expand_srch<B: Bits>(e: &GolGraph, n1: &(B, B), n2s: &mut Vec<(B, B)>, n2b: &mut B, mut x: usize, mut t: usize) {
     if t == e.mt {
         t = 0;
         x += 1;
@@ -219,23 +213,20 @@ fn expand_srch<B: Bits>(e: &GolGraphEnv, n1: &(B, B), n2s: &mut Vec<(B, B)>, n2b
     }
 }
 
-impl<B: Bits> DfsGraphConfig for GolGraphConfig<B> {
-    type E = GolGraphEnv;
-    type N = (B, B);
-
-    fn start(e: &GolGraphEnv) -> (B, B) {
-        assert!(e.mt * e.mx <= B::size());
+impl<B: Bits> DfsGraph<(B, B)> for GolGraph {
+    fn start(&self) -> (B, B) {
+        assert!(self.mt * self.mx <= B::size());
         <(B, B)>::zero()
     }
 
-    fn expand(e: &GolGraphEnv, n1: &(B, B)) -> Vec<(B, B)> {
+    fn expand(&self, n1: &(B, B)) -> Vec<(B, B)> {
         let mut n2b = B::zero();
         let mut n2s = Vec::new();
-        expand_srch(e, n1, &mut n2s, &mut n2b, 0, 0);
+        expand_srch(self, n1, &mut n2s, &mut n2b, 0, 0);
         n2s
     }
 
-    fn end(_e: &GolGraphEnv, n: &(B, B)) -> bool {
+    fn end(&self, n: &(B, B)) -> bool {
         return *n == <(B, B)>::zero();
     }
 }
