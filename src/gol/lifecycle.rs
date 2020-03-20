@@ -44,7 +44,7 @@ impl<'a, B: Bits> DfsLifecycle<(B, B), DfsResVec<(B, B)>> for GolLifecycle<'a> {
     }
 
     fn debug_enter(&self, path: &Vec<(B, B)>) {
-        println!("Enter search");
-        self.ge.print_rows(path);
+        //println!("Enter search");
+        //self.ge.print_rows(path);
     }
 }
