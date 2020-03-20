@@ -1,4 +1,4 @@
-trait DfsLifecycleConfig {
+pub trait DfsLifecycleConfig {
     type E;
     type R;
 
@@ -6,7 +6,7 @@ trait DfsLifecycleConfig {
     fn on_recollect(e: Self::E, r: Self::R) -> bool;
 }
 
-trait DfsLifecycleType {
+pub trait DfsLifecycleType {
     type R;
 
     fn recollect_ms() -> usize;
@@ -26,7 +26,7 @@ impl<T: DfsLifecycleType> DfsLifecycleConfig for T {
     }
 }
 
-trait DfsLifecycleVtable {
+pub trait DfsLifecycleVtable {
     type R;
 
     fn recollect_ms(&self) -> usize;

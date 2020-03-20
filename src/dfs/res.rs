@@ -1,4 +1,4 @@
-trait DfsResConfig {
+pub trait DfsResConfig {
     type E;
     type N;
     type R;
@@ -11,7 +11,7 @@ trait DfsResConfig {
     fn reduce(e: Self::E, r1: Self::R, r2: Self::R) -> Self::R;
 }
 
-trait DfsResType {
+pub trait DfsResType {
     type N;
     type R;
 
@@ -43,7 +43,7 @@ impl<T: DfsResType> DfsResConfig for T {
     }
 }
 
-trait DfsResVtable {
+pub trait DfsResVtable {
     type N;
     type R;
 
@@ -75,9 +75,9 @@ impl<N, R> DfsResConfig for &dyn DfsResVtable<N=N, R=R> {
     }
 }
 
-struct DfsResCollect<N> {
-    cycles: Vec<(Vec<N>, Vec<N>)>,
-    ends: Vec<Vec<N>>,
+pub struct DfsResCollect<N> {
+    pub cycles: Vec<(Vec<N>, Vec<N>)>,
+    pub ends: Vec<Vec<N>>,
 }
 
 impl<N> DfsResType for DfsResCollect<N> {
