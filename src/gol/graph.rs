@@ -30,6 +30,24 @@ impl GolGraph {
         println!("{}", r);
     }
 
+    pub fn print_prow<B: Bits>(&self, row: PartialRow<B>) {
+        let mut r = String::new();
+        for t in 0..self.mt {
+            if t != 0 {
+                r.push(' ');
+            }
+
+            for x in 0..self.mx {
+                r.push(match row.get(self, t, x as isize) {
+                    Some(true) => '*',
+                    Some(false) => '.',
+                    None => '?',
+                });
+            }
+        }
+        println!("{}", r);
+    }
+
     pub fn print_rows<B: Bits>(&self, rows: &Vec<(B, B)>) {
         for row in rows {
             self.print_row(row.1);
