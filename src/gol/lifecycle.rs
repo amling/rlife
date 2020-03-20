@@ -62,9 +62,15 @@ impl<'a, B: Bits> DfsLifecycle<(B, B), DfsResVec<(B, B)>> for GolLifecycle<'a> {
 
     fn debug_cycle(&self, path: &Vec<(B, B)>, cycle: &Vec<(B, B)>) {
         self.print_cycle(path, cycle);
+        if path.len() + cycle.len() > 2 {
+            panic!();
+        }
     }
 
     fn debug_end(&self, path: &Vec<(B, B)>) {
         self.print_end(path);
+        if path.len() > 2 {
+            panic!();
+        }
     }
 }
