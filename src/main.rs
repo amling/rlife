@@ -28,6 +28,4 @@ fn main1<B: Bits>() {
     };
 
     dfs::dfs::<(B, B), _, _, _, _>(&ge, &re, &le);
-
-    println!("Hello, world!!!");
 }

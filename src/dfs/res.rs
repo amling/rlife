@@ -7,6 +7,7 @@ pub trait DfsRes<N, R> {
     fn reduce(&self, r1: R, r2: R) -> R;
 }
 
+#[derive(Debug)]
 pub struct DfsResVec<N> {
     pub cycles: Vec<(Vec<N>, Vec<N>)>,
     pub ends: Vec<Vec<N>>,

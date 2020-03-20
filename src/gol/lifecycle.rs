@@ -23,6 +23,7 @@ impl<B: Bits> DfsLifecycle<DfsResVec<(B, B)>> for GolLifecycle {
         println!("Recollect...");
 
         // TODO: actual status
+        println!("{:?}", r);
 
         return true;
     }

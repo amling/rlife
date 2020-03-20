@@ -1,6 +1,7 @@
+use std::fmt::Debug;
 use std::hash::Hash;
 
-pub trait Bits: Copy + Send + Sync + Hash + Eq {
+pub trait Bits: Copy + Send + Sync + Hash + Eq + Debug {
     fn zero() -> Self;
     fn size() -> usize;
     fn get_bit(&self, n: usize) -> bool;
