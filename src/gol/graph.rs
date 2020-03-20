@@ -141,7 +141,7 @@ impl<B: Bits> DfsGraphConfig for GolGraphConfig<B> {
         let mut n2b = B::zero();
         let mut n2s = Vec::new();
         expand_srch(e, n1, &mut n2s, &mut n2b, 0, 0);
-        unimplemented!();
+        n2s
     }
 
     fn end(_e: &GolGraphEnv, n: &(B, B)) -> bool {
