@@ -13,7 +13,7 @@ pub mod res;
 use crate::dfs;
 
 use dfs::graph::DfsGraph;
-use dfs::lifecycle::DfsLifecycleConfig;
+use dfs::lifecycle::DfsLifecycle;
 use dfs::res::DfsRes;
 
 #[derive(Clone)]
@@ -58,7 +58,7 @@ enum TreeStatus<N> {
     Closed,
 }
 
-pub fn dfs<N: Clone + Hash + Eq + Send, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N, R> + Sync, LE: Sync, LC: DfsLifecycleConfig<E=LE, R=R>>(ge: &GE, re: &RE, le: &LE) {
+pub fn dfs<N: Clone + Hash + Eq + Send, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N, R> + Sync, LE: DfsLifecycle<R>>(ge: &GE, re: &RE, le: &LE) {
     let n0 = GE::start(ge);
     let mut root = Tree(n0, TreeStatus::Unopened);
 
@@ -85,7 +85,7 @@ pub fn dfs<N: Clone + Hash + Eq + Send, R: Send, GE: DfsGraph<N> + Sync, RE: Dfs
             let stop = &stop;
 
             crossbeam::scope(|sc| {
-                for _ in 0..LC::threads(le) {
+                for _ in 0..LE::threads(le) {
                     sc.spawn(|_| {
                         loop {
                             let ((tree, mut path), res) = match q.pop() {
@@ -100,7 +100,7 @@ pub fn dfs<N: Clone + Hash + Eq + Send, R: Send, GE: DfsGraph<N> + Sync, RE: Dfs
                     });
                 }
 
-                std::thread::sleep(Duration::from_millis(LC::recollect_ms(le)));
+                std::thread::sleep(Duration::from_millis(LE::recollect_ms(le)));
 
                 stop.store(true, Ordering::Relaxed);
             }).unwrap();
@@ -111,7 +111,7 @@ pub fn dfs<N: Clone + Hash + Eq + Send, R: Send, GE: DfsGraph<N> + Sync, RE: Dfs
             res = RE::reduce(re, res, res1);
         }
 
-        if !LC::on_recollect(le, res) {
+        if !LE::on_recollect(le, res) {
             return;
         }
     }
