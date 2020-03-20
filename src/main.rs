@@ -28,5 +28,5 @@ fn main1<B: Bits>() {
         recollect_ms: 1000,
     };
 
-    dfs::dfs::<(B, B), _, _, _, _>(&ge, &re, &le);
+    dfs::sdfs::<(B, B), _, _, _, _>(&ge, &re, &le);
 }

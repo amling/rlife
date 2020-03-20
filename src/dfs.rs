@@ -58,6 +58,18 @@ enum TreeStatus<N> {
     Closed,
 }
 
+pub fn sdfs<N: Clone + Hash + Eq, R, GE: DfsGraph<N>, RE: DfsRes<N, R>, LE: DfsLifecycle<R>>(ge: &GE, re: &RE, le: &LE) {
+    let stop = AtomicBool::new(false);
+    let n0 = GE::start(ge);
+    let mut tree = Tree(n0, TreeStatus::Unopened);
+    let mut path = Path::new();
+    let mut res = RE::empty(re);
+
+    dfs_single_thread::<N, R, GE, RE>(ge, re, &stop, &mut tree, &mut path, &mut res);
+
+    LE::on_recollect(le, res);
+}
+
 pub fn dfs<N: Clone + Hash + Eq + Send, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N, R> + Sync, LE: DfsLifecycle<R>>(ge: &GE, re: &RE, le: &LE) {
     let n0 = GE::start(ge);
     let mut root = Tree(n0, TreeStatus::Unopened);
