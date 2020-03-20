@@ -3,12 +3,12 @@ pub trait DfsResConfig {
     type N;
     type R;
 
-    fn empty(e: Self::E) -> Self::R;
-    fn map_cycle(e: Self::E, _path: Vec<Self::N>, _cycle: Vec<Self::N>) -> Self::R {
+    fn empty(e: &Self::E) -> Self::R;
+    fn map_cycle(e: &Self::E, _path: Vec<Self::N>, _cycle: Vec<Self::N>) -> Self::R {
         Self::empty(e)
     }
-    fn map_end(e: Self::E, path: Vec<Self::N>) -> Self::R;
-    fn reduce(e: Self::E, r1: Self::R, r2: Self::R) -> Self::R;
+    fn map_end(e: &Self::E, path: Vec<Self::N>) -> Self::R;
+    fn reduce(e: &Self::E, r1: Self::R, r2: Self::R) -> Self::R;
 }
 
 pub trait DfsResType {
@@ -26,19 +26,19 @@ impl<T: DfsResType> DfsResConfig for T {
     type N = T::N;
     type R = T::R;
 
-    fn empty(_e: Self::E) -> Self::R {
+    fn empty(_: &()) -> Self::R {
         T::empty()
     }
 
-    fn map_cycle(_e: Self::E, path: Vec<Self::N>, cycle: Vec<Self::N>) -> Self::R {
+    fn map_cycle(_: &(), path: Vec<Self::N>, cycle: Vec<Self::N>) -> Self::R {
         T::map_cycle(path, cycle)
     }
 
-    fn map_end(_e: Self::E, path: Vec<Self::N>) -> Self::R {
+    fn map_end(_: &(), path: Vec<Self::N>) -> Self::R {
         T::map_end(path)
     }
 
-    fn reduce(_e: Self::E, r1: Self::R, r2: Self::R) -> Self::R {
+    fn reduce(_: &(), r1: Self::R, r2: Self::R) -> Self::R {
         T::reduce(r1, r2)
     }
 }
@@ -58,19 +58,19 @@ impl<N, R> DfsResConfig for &dyn DfsResVtable<N=N, R=R> {
     type N = N;
     type R = R;
 
-    fn empty(zelf: Self) -> R {
+    fn empty(zelf: &Self) -> R {
         zelf.empty()
     }
 
-    fn map_cycle(zelf: Self, path: Vec<N>, cycle: Vec<N>) -> R {
+    fn map_cycle(zelf: &Self, path: Vec<N>, cycle: Vec<N>) -> R {
         zelf.map_cycle(path, cycle)
     }
 
-    fn map_end(zelf: Self, path: Vec<N>) -> R {
+    fn map_end(zelf: &Self, path: Vec<N>) -> R {
         zelf.map_end(path)
     }
 
-    fn reduce(zelf: Self, r1: R, r2: R) -> R {
+    fn reduce(zelf: &Self, r1: R, r2: R) -> R {
         zelf.reduce(r1, r2)
     }
 }

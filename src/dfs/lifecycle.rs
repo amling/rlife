@@ -2,9 +2,9 @@ pub trait DfsLifecycleConfig {
     type E;
     type R;
 
-    fn threads(e: Self::E) -> usize;
-    fn recollect_ms(e: Self::E) -> u64;
-    fn on_recollect(e: Self::E, r: Self::R) -> bool;
+    fn threads(e: &Self::E) -> usize;
+    fn recollect_ms(e: &Self::E) -> u64;
+    fn on_recollect(e: &Self::E, r: Self::R) -> bool;
 }
 
 pub trait DfsLifecycleType {
@@ -19,15 +19,15 @@ impl<T: DfsLifecycleType> DfsLifecycleConfig for T {
     type E = ();
     type R = T::R;
 
-    fn threads(_e: ()) -> usize {
+    fn threads(_: &()) -> usize {
         T::threads()
     }
 
-    fn recollect_ms(_e: ()) -> u64 {
+    fn recollect_ms(_: &()) -> u64 {
         T::recollect_ms()
     }
 
-    fn on_recollect(_e: (), r: T::R) -> bool {
+    fn on_recollect(_: &(), r: T::R) -> bool {
         T::on_recollect(r)
     }
 }
@@ -44,15 +44,15 @@ impl<R> DfsLifecycleConfig for &dyn DfsLifecycleVtable<R=R> {
     type E = Self;
     type R = R;
 
-    fn threads(zelf: Self) -> usize {
+    fn threads(zelf: &Self) -> usize {
         zelf.threads()
     }
 
-    fn recollect_ms(zelf: Self) -> u64 {
+    fn recollect_ms(zelf: &Self) -> u64 {
         zelf.recollect_ms()
     }
 
-    fn on_recollect(zelf: Self, r: Self::R) -> bool {
+    fn on_recollect(zelf: &Self, r: Self::R) -> bool {
         zelf.on_recollect(r)
     }
 }

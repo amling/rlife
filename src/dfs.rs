@@ -58,7 +58,7 @@ enum TreeStatus<N> {
     Closed,
 }
 
-pub fn dfs<N: Clone + Hash + Eq + Send, R: Send, GE: Send + Sync + Copy, GC: DfsGraphConfig<E=GE, N=N>, RE: Send + Sync + Copy, RC: DfsResConfig<E=RE, N=N, R=R>, LE: Sync + Copy, LC: DfsLifecycleConfig<E=LE, R=R>>(ge: GE, re: RE, le: LE) {
+pub fn dfs<N: Clone + Hash + Eq + Send, R: Send, GE: Send + Sync, GC: DfsGraphConfig<E=GE, N=N>, RE: Send + Sync, RC: DfsResConfig<E=RE, N=N, R=R>, LE: Sync, LC: DfsLifecycleConfig<E=LE, R=R>>(ge: &GE, re: &RE, le: &LE) {
     let n0 = GC::start(ge);
     let mut root = Tree(n0, TreeStatus::Unopened);
 
@@ -156,7 +156,7 @@ fn find_unopened<'a, N: Eq + Hash + Clone>(unopened: &mut Vec<(&'a mut Tree<N>, 
     };
 }
 
-fn dfs_single_thread<N: Clone + Eq + Hash, R, GE: Copy, GC: DfsGraphConfig<E=GE, N=N>, RE: Copy, RC: DfsResConfig<E=RE, N=N, R=R>>(ge: GE, re: RE, stop: &AtomicBool, t1: &mut Tree<N>, path: &mut Path<N>, r: &mut R) -> bool {
+fn dfs_single_thread<N: Clone + Eq + Hash, R, GE, GC: DfsGraphConfig<E=GE, N=N>, RE, RC: DfsResConfig<E=RE, N=N, R=R>>(ge: &GE, re: &RE, stop: &AtomicBool, t1: &mut Tree<N>, path: &mut Path<N>, r: &mut R) -> bool {
     if stop.load(Ordering::Relaxed) {
         return false;
     }
