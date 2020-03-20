@@ -43,7 +43,12 @@ impl<B: Bits> PartialRow<B> {
 }
 
 fn compute_shift(t: usize, mt: usize, o: isize) -> isize {
-    unimplemented!();
+    // cumulative shift after t steps can be floor(o * t / mt) so we diff cumulatives
+    let t = t as isize;
+    let mt = mt as isize;
+    let before = (o * t) / mt;
+    let after = (o * (t + 1)) / mt;
+    return after - before;
 }
 
 fn check_compat<B: Bits>(e: &GolGraphEnv, cp: PartialRow<B>, c: PartialRow<B>, cn: PartialRow<B>, ct: usize, cx: isize, f: PartialRow<B>, ft: usize, fx: isize) -> bool {
