@@ -13,11 +13,11 @@ fn main() {
 
 fn main1<B: Bits>() {
     let ge = GolGraph {
-        mt: 1,
+        mt: 4,
         mx: 3,
 
-        ox: 0,
-        oy: 0,
+        ox: 1,
+        oy: 1,
     };
 
     let re = DfsResToVec();
