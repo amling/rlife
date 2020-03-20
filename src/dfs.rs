@@ -28,7 +28,9 @@ pub fn dfs<N, R, GE, GC: DfsGraphConfig<E=GE, N=N>, RE, RC: DfsResConfig<E=RE, N
 
 fn find_unopened<'a, N>(unopened: &mut Vec<&'a mut Tree<N>>, tree: &'a mut Tree<N>) {
     match tree {
-        tree @ Tree(_, TreeStatus::Unopened) => {
+        Tree(_, TreeStatus::Unopened) => {
+            // I'm amazed borrow checker figures this one out.  Unfortunately it does not figure it
+            // out if we match on &mut tree.1 instead...
             unopened.push(tree);
         }
         Tree(_, TreeStatus::Opened(children)) => {
