@@ -100,7 +100,7 @@ fn compute_shift(t: usize, mt: usize, o: isize) -> isize {
     let mt = mt as isize;
     let before = (o * t) / mt;
     let after = (o * (t + 1)) / mt;
-    return after - before;
+    after - before
 }
 
 #[derive(Default)]
