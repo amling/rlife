@@ -1,5 +1,7 @@
 use crossbeam::queue::PopError;
 use crossbeam::queue::SegQueue;
+use std::collections::HashSet;
+use std::hash::Hash;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
@@ -22,7 +24,7 @@ enum TreeStatus<N> {
     Closed,
 }
 
-pub fn dfs<N: Send, R: Send, GE: Send + Sync + Copy, GC: DfsGraphConfig<E=GE, N=N>, RE: Send + Sync + Copy, RC: DfsResConfig<E=RE, N=N, R=R>, LE: Sync + Copy, LC: DfsLifecycleConfig<E=LE, R=R>>(ge: GE, re: RE, le: LE) {
+pub fn dfs<N: Clone + Hash + Eq + Send, R: Send, GE: Send + Sync + Copy, GC: DfsGraphConfig<E=GE, N=N>, RE: Send + Sync + Copy, RC: DfsResConfig<E=RE, N=N, R=R>, LE: Sync + Copy, LC: DfsLifecycleConfig<E=LE, R=R>>(ge: GE, re: RE, le: LE) {
     let n0 = GC::start(ge);
     let mut root = Tree(n0, TreeStatus::Unopened);
 
@@ -32,7 +34,10 @@ pub fn dfs<N: Send, R: Send, GE: Send + Sync + Copy, GC: DfsGraphConfig<E=GE, N=
         }
 
         let mut unopened = Vec::new();
-        find_unopened(&mut unopened, &mut root);
+        {
+            let mut already = HashSet::new();
+            find_unopened(&mut unopened, &mut root, &mut already);
+        }
 
         let mut results: Vec<_> = unopened.iter().map(|_| RC::empty(re)).collect();
 
@@ -49,14 +54,14 @@ pub fn dfs<N: Send, R: Send, GE: Send + Sync + Copy, GC: DfsGraphConfig<E=GE, N=
                 for _ in 0..LC::threads(le) {
                     sc.spawn(|_| {
                         loop {
-                            let (tree, res) = match q.pop() {
+                            let ((tree, mut already), res) = match q.pop() {
                                 Result::Ok(pair) => pair,
                                 Result::Err(PopError) => {
                                     return;
                                 }
                             };
 
-                            dfs_single_thread::<N, R, GE, GC, RE, RC>(ge, re, stop, tree, res);
+                            dfs_single_thread::<N, R, GE, GC, RE, RC>(ge, re, stop, tree, &mut already, res);
                         }
                     });
                 }
@@ -98,24 +103,26 @@ fn collapse<N>(tree: &mut Tree<N>) -> bool {
     }
 }
 
-fn find_unopened<'a, N>(unopened: &mut Vec<&'a mut Tree<N>>, tree: &'a mut Tree<N>) {
+fn find_unopened<'a, N: Eq + Hash + Clone>(unopened: &mut Vec<(&'a mut Tree<N>, HashSet<N>)>, tree: &'a mut Tree<N>, already: &mut HashSet<N>) {
     match tree {
         Tree(_, TreeStatus::Unopened) => {
             // I'm amazed borrow checker figures this one out.  Unfortunately it does not figure it
             // out if we match on &mut tree.1 instead...
-            unopened.push(tree);
+            unopened.push((tree, already.clone()));
         }
-        Tree(_, TreeStatus::Opened(children)) => {
+        Tree(n, TreeStatus::Opened(children)) => {
+            already.insert(n.clone());
             for child in children.iter_mut() {
-                find_unopened(unopened, child);
+                find_unopened(unopened, child, already);
             }
+            already.remove(n);
         }
         Tree(_, TreeStatus::Closed) => {
         }
     };
 }
 
-fn dfs_single_thread<N, R, GE: Copy, GC: DfsGraphConfig<E=GE, N=N>, RE: Copy, RC: DfsResConfig<E=RE, N=N, R=R>>(ge: GE, re: RE, stop: &AtomicBool, t1: &mut Tree<N>, r: &mut R) -> bool {
+fn dfs_single_thread<N: Clone + Eq + Hash, R, GE: Copy, GC: DfsGraphConfig<E=GE, N=N>, RE: Copy, RC: DfsResConfig<E=RE, N=N, R=R>>(ge: GE, re: RE, stop: &AtomicBool, t1: &mut Tree<N>, already: &mut HashSet<N>, r: &mut R) -> bool {
     if stop.load(Ordering::Relaxed) {
         return false;
     }
@@ -125,10 +132,18 @@ fn dfs_single_thread<N, R, GE: Copy, GC: DfsGraphConfig<E=GE, N=N>, RE: Copy, RC
             let mut finished = true;
             let mut children = Vec::new();
             for n2 in GC::expand(ge, n1) {
+                if GC::end(ge, &n2) {
+                    unimplemented!();
+                }
+
+                if already.insert(n2.clone()) {
+                    unimplemented!();
+                }
                 let mut t2 = Tree(n2, TreeStatus::Unopened);
-                if !dfs_single_thread::<N, R, GE, GC, RE, RC>(ge, re, stop, &mut t2, r) {
+                if !dfs_single_thread::<N, R, GE, GC, RE, RC>(ge, re, stop, &mut t2, already, r) {
                     finished = false;
                 }
+                already.remove(&t2.0);
                 children.push(t2);
             }
             *s1 = match finished {
