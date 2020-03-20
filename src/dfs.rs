@@ -191,6 +191,7 @@ fn dfs_single_thread<N: Clone + Eq + Hash, R, GE: DfsGraph<N>, RE: DfsRes<N, R>,
                 if ge.end(&n2) {
                     let mut path = path.vec.clone();
                     path.push(n2);
+                    le.debug_end(&path);
                     add_result(r, re.map_end(path));
                     // could add Closed node, but doesn't affect anything
                     continue;
@@ -198,6 +199,7 @@ fn dfs_single_thread<N: Clone + Eq + Hash, R, GE: DfsGraph<N>, RE: DfsRes<N, R>,
 
                 if let Some(idx) = path.find_or_push(&n2) {
                     let (path, cycle) = ((&path.vec[0..idx]).to_vec(), (&path.vec[idx..]).to_vec());
+                    le.debug_cycle(&path, &cycle);
                     add_result(r, re.map_cycle(path, cycle));
                     continue;
                 }
