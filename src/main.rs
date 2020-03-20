@@ -14,7 +14,7 @@ fn main() {
 fn main1<B: Bits>() {
     let ge = GolGraph {
         mt: 3,
-        mx: 8,
+        mx: 6,
 
         ox: 1,
         oy: 0,
