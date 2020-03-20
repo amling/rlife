@@ -17,7 +17,7 @@ fn main1<B: Bits>() {
         mx: 5,
 
         ox: 0,
-        oy: 1,
+        oy: 2,
     };
 
     let re = DfsResToVec();
