@@ -13,11 +13,11 @@ fn main() {
 
 fn main1<B: Bits>() {
     let ge = GolGraph {
-        mt: 4,
-        mx: 5,
+        mt: 3,
+        mx: 8,
 
-        ox: 0,
-        oy: 2,
+        ox: 1,
+        oy: 0,
     };
 
     let re = DfsResToVec();
@@ -28,5 +28,5 @@ fn main1<B: Bits>() {
         recollect_ms: 1000,
     };
 
-    dfs::sdfs::<(B, B), _, _, _, _>(&ge, &re, &le);
+    dfs::dfs::<(B, B), _, _, _, _>(&ge, &re, &le);
 }
