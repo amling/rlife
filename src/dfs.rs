@@ -14,7 +14,7 @@ use crate::dfs;
 
 use dfs::graph::DfsGraph;
 use dfs::lifecycle::DfsLifecycleConfig;
-use dfs::res::DfsResConfig;
+use dfs::res::DfsRes;
 
 #[derive(Clone)]
 struct Path<N> {
@@ -58,7 +58,7 @@ enum TreeStatus<N> {
     Closed,
 }
 
-pub fn dfs<N: Clone + Hash + Eq + Send, R: Send, GE: DfsGraph<N> + Sync, RE: Send + Sync, RC: DfsResConfig<E=RE, N=N, R=R>, LE: Sync, LC: DfsLifecycleConfig<E=LE, R=R>>(ge: &GE, re: &RE, le: &LE) {
+pub fn dfs<N: Clone + Hash + Eq + Send, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N, R> + Sync, LE: Sync, LC: DfsLifecycleConfig<E=LE, R=R>>(ge: &GE, re: &RE, le: &LE) {
     let n0 = GE::start(ge);
     let mut root = Tree(n0, TreeStatus::Unopened);
 
@@ -73,7 +73,7 @@ pub fn dfs<N: Clone + Hash + Eq + Send, R: Send, GE: DfsGraph<N> + Sync, RE: Sen
             find_unopened(&mut unopened, &mut root, &mut path);
         }
 
-        let mut results: Vec<_> = unopened.iter().map(|_| RC::empty(re)).collect();
+        let mut results: Vec<_> = unopened.iter().map(|_| RE::empty(re)).collect();
 
         {
             let q = SegQueue::new();
@@ -95,7 +95,7 @@ pub fn dfs<N: Clone + Hash + Eq + Send, R: Send, GE: DfsGraph<N> + Sync, RE: Sen
                                 }
                             };
 
-                            dfs_single_thread::<N, R, GE, RE, RC>(ge, re, stop, tree, &mut path, res);
+                            dfs_single_thread::<N, R, GE, RE>(ge, re, stop, tree, &mut path, res);
                         }
                     });
                 }
@@ -106,9 +106,9 @@ pub fn dfs<N: Clone + Hash + Eq + Send, R: Send, GE: DfsGraph<N> + Sync, RE: Sen
             }).unwrap();
         }
 
-        let mut res = RC::empty(re);
+        let mut res = RE::empty(re);
         for res1 in results {
-            res = RC::reduce(re, res, res1);
+            res = RE::reduce(re, res, res1);
         }
 
         if !LC::on_recollect(le, res) {
@@ -156,14 +156,14 @@ fn find_unopened<'a, N: Eq + Hash + Clone>(unopened: &mut Vec<(&'a mut Tree<N>, 
     };
 }
 
-fn dfs_single_thread<N: Clone + Eq + Hash, R, GE: DfsGraph<N>, RE, RC: DfsResConfig<E=RE, N=N, R=R>>(ge: &GE, re: &RE, stop: &AtomicBool, t1: &mut Tree<N>, path: &mut Path<N>, r: &mut R) -> bool {
+fn dfs_single_thread<N: Clone + Eq + Hash, R, GE: DfsGraph<N>, RE: DfsRes<N, R>>(ge: &GE, re: &RE, stop: &AtomicBool, t1: &mut Tree<N>, path: &mut Path<N>, r: &mut R) -> bool {
     if stop.load(Ordering::Relaxed) {
         return false;
     }
 
     let add_result = |r: &mut R, r1| {
-        let r0 = std::mem::replace(r, RC::empty(re));
-        *r = RC::reduce(re, r0, r1);
+        let r0 = std::mem::replace(r, RE::empty(re));
+        *r = RE::reduce(re, r0, r1);
     };
 
     match t1 {
@@ -174,19 +174,19 @@ fn dfs_single_thread<N: Clone + Eq + Hash, R, GE: DfsGraph<N>, RE, RC: DfsResCon
                 if GE::end(ge, &n2) {
                     let mut path = path.vec.clone();
                     path.push(n2);
-                    add_result(r, RC::map_end(re, path));
+                    add_result(r, RE::map_end(re, path));
                     // could add Closed node, but doesn't affect anything
                     continue;
                 }
 
                 if let Some(idx) = path.find_or_push(&n2) {
                     let (path, cycle) = ((&path.vec[0..idx]).to_vec(), (&path.vec[idx..]).to_vec());
-                    add_result(r, RC::map_cycle(re, path, cycle));
+                    add_result(r, RE::map_cycle(re, path, cycle));
                     continue;
                 }
 
                 let mut t2 = Tree(n2, TreeStatus::Unopened);
-                if !dfs_single_thread::<N, R, GE, RE, RC>(ge, re, stop, &mut t2, path, r) {
+                if !dfs_single_thread::<N, R, GE, RE>(ge, re, stop, &mut t2, path, r) {
                     finished = false;
                 }
                 if let TreeStatus::Closed = t2.1 {
