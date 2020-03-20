@@ -1,3 +1,5 @@
+use crossbeam::queue::SegQueue;
+
 mod graph;
 mod lifecycle;
 mod res;
@@ -16,13 +18,26 @@ enum TreeStatus<N> {
     Closed,
 }
 
-pub fn dfs<N, R, GE, GC: DfsGraphConfig<E=GE, N=N>, RE, RC: DfsResConfig<E=RE, N=N, R=R>, LE, LC: DfsLifecycleConfig<E=LE, R=R>>(ge: GE, re: RE, le: LE) {
+pub fn dfs<N, R, GE, GC: DfsGraphConfig<E=GE, N=N>, RE: Copy, RC: DfsResConfig<E=RE, N=N, R=R>, LE: Copy, LC: DfsLifecycleConfig<E=LE, R=R>>(ge: GE, re: RE, le: LE) {
     let n0 = GC::start(ge);
-    let mut tree = Tree(n0, TreeStatus::Unopened);
+    let mut root = Tree(n0, TreeStatus::Unopened);
 
     loop {
         let mut unopened = Vec::new();
-        find_unopened(&mut unopened, &mut tree);
+        find_unopened(&mut unopened, &mut root);
+
+        let mut results: Vec<_> = unopened.iter().map(|_| RC::empty(re)).collect();
+        let q = SegQueue::new();
+        for pair in unopened.into_iter().zip(results.iter_mut()) {
+            q.push(pair);
+        }
+
+        crossbeam::scope(|sc| {
+            for _ in 0..LC::threads(le) {
+                sc.spawn(|_| {
+                });
+            }
+        });
     }
 }
 
