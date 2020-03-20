@@ -24,7 +24,7 @@ fn main1<B: Bits>() {
 
     let le = GolLifecycle {
         ge: &ge,
-        threads: 4,
+        threads: 8,
         recollect_ms: 1000,
     };
 
