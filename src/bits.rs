@@ -1,4 +1,6 @@
-pub trait Bits: Copy + Eq {
+use std::hash::Hash;
+
+pub trait Bits: Copy + Send + Sync + Hash + Eq {
     fn zero() -> Self;
     fn size() -> usize;
     fn get_bit(&self, n: usize) -> bool;
