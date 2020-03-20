@@ -40,6 +40,29 @@ impl<B: Bits> PartialRow<B> {
     fn empty() -> Self {
         Self::new(B::zero(), 0)
     }
+
+    fn get(&self, e: &GolGraphEnv, t: usize, x: isize) -> Option<bool> {
+        assert!(t < e.mt);
+
+        if x < 0 || x >= (e.mx as isize) {
+            return Some(false);
+        }
+
+        let idx = (x as usize) * e.mt + t;
+        if idx >= self.len {
+            return None;
+        }
+
+        return Some(Bits::get_bit(&self.bits, idx));
+    }
+
+    fn get_cts(&self, e: &GolGraphEnv, t: usize, x: isize) -> CellCounts {
+        match self.get(e, t, x) {
+            Some(true) => CellCounts::new(1, 0),
+            Some(false) => CellCounts::new(0, 1),
+            None => CellCounts::new(0, 0),
+        }
+    }
 }
 
 fn compute_shift(t: usize, mt: usize, o: isize) -> isize {
@@ -51,8 +74,76 @@ fn compute_shift(t: usize, mt: usize, o: isize) -> isize {
     return after - before;
 }
 
+#[derive(Default)]
+struct CellCounts {
+    living: usize,
+    dead: usize,
+}
+
+impl CellCounts {
+    fn new(living: usize, dead: usize) -> Self {
+        CellCounts {
+            living: living,
+            dead: dead,
+        }
+    }
+}
+
+impl std::ops::AddAssign for CellCounts {
+    fn add_assign(&mut self, rhs: Self) {
+        self.living += rhs.living;
+        self.dead += rhs.dead;
+    }
+}
+
 fn check_compat<B: Bits>(e: &GolGraphEnv, cp: PartialRow<B>, c: PartialRow<B>, cn: PartialRow<B>, ct: usize, cx: isize, f: PartialRow<B>, ft: usize, fx: isize) -> bool {
-    unimplemented!();
+    let mut cts = CellCounts::new(0, 0);
+
+    cts += cp.get_cts(e, ct, cx - 1);
+    cts += cp.get_cts(e, ct, cx);
+    cts += cp.get_cts(e, ct, cx + 1);
+    cts += c.get_cts(e, ct, cx - 1);
+    cts += c.get_cts(e, ct, cx + 1);
+    cts += cn.get_cts(e, ct, cx - 1);
+    cts += cn.get_cts(e, ct, cx);
+    cts += cn.get_cts(e, ct, cx + 1);
+
+    let fs = match f.get(e, ft, fx) {
+        Some(fs) => fs,
+        None => {
+            return true;
+        }
+    };
+
+    let cs = match c.get(e, ct, cx) {
+        Some(cs) => cs,
+        None => {
+            // need 2 or 3
+            return cts.living <= 3 && cts.dead <= 6;
+        },
+    };
+
+    match fs {
+        true => match cs {
+            true => {
+                // need 2 or 3
+                cts.living <= 3 && cts.dead <= 6
+            },
+            false => {
+                // need 0, 1, or 4+
+                cts.living <= 1 || cts.dead <= 4
+            },
+        },
+        false => match cs {
+            true => {
+                // need 3
+                cts.living <= 3 && cts.dead <= 5
+            },
+            false => {
+                cts.living <= 2 || cts.dead <= 4
+            },
+        },
+    }
 }
 
 fn expand_srch<B: Bits>(e: &GolGraphEnv, n1: &(B, B), n2s: &mut Vec<(B, B)>, n2b: &mut B, mut x: usize, mut t: usize) {
