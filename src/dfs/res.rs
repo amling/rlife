@@ -12,7 +12,7 @@ pub struct DfsResVec<N> {
     pub ends: Vec<Vec<N>>,
 }
 
-struct DfsResToVec();
+pub struct DfsResToVec();
 
 impl<N> DfsRes<N, DfsResVec<N>> for DfsResToVec {
     fn empty(&self) -> DfsResVec<N> {
