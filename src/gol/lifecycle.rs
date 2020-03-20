@@ -55,15 +55,15 @@ impl<'a, B: Bits> DfsLifecycle<(B, B), DfsResVec<(B, B)>> for GolLifecycle<'a> {
     }
 
     fn debug_enter(&self, path: &Vec<(B, B)>) {
-        //println!("Enter search");
+        //println!("Enter search {}", path.len());
         //self.ge.print_rows(path);
     }
 
     fn debug_cycle(&self, path: &Vec<(B, B)>, cycle: &Vec<(B, B)>) {
-        //self.print_cycle(path, cycle);
+        self.print_cycle(path, cycle);
     }
 
     fn debug_end(&self, path: &Vec<(B, B)>) {
-        //self.print_end(path);
+        self.print_end(path);
     }
 }
