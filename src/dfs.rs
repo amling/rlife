@@ -6,9 +6,9 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 
-mod graph;
-mod lifecycle;
-mod res;
+pub mod graph;
+pub mod lifecycle;
+pub mod res;
 
 use crate::dfs;
 

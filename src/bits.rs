@@ -1,4 +1,4 @@
-trait Bits {
+pub trait Bits {
     fn zero() -> Self;
     fn size() -> usize;
     fn get_bit(&self, n: usize) -> bool;
