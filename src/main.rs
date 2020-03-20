@@ -8,16 +8,16 @@ use gol::graph::GolGraph;
 use gol::lifecycle::GolLifecycle;
 
 fn main() {
-    main1::<u32>();
+    main1::<u64>();
 }
 
 fn main1<B: Bits>() {
     let ge = GolGraph {
-        mt: 4,
-        mx: 5,
+        mt: 8,
+        mx: 6,
 
         ox: 0,
-        oy: 2,
+        oy: 1,
     };
 
     let re = DfsResToVec();
