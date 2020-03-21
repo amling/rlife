@@ -16,6 +16,7 @@ pub struct GolLifecycle<'a> {
 impl<'a> GolLifecycle<'a> {
     fn print_cycle<B: Bits>(&self, path: &Vec<(B, B, B, usize)>, cycle: &Vec<(B, B, B, usize)>) {
         println!("Cycle:");
+        // TODO: nope, need to handle start of path and start of cycle differently...
         self.ge.print_rows(&path);
         self.ge.print_dash_row();
         self.ge.print_rows(&cycle);
