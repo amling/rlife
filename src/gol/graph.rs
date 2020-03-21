@@ -197,24 +197,18 @@ fn check_compat<B: Bits>(e: &GolGraph, cp: PartialRow<B>, c: PartialRow<B>, cn: 
     }
 }
 
-fn expand_srch<B: Bits>(e: &GolGraph, n1: &(B, B, B, usize), n2s: &mut Vec<(B, B, B, usize)>, n2b: &mut B, mut x: usize, mut t: usize) {
-    if t == e.mt {
-        t = 0;
-        x += 1;
+fn expand_srch<B: Bits>(e: &GolGraph, n1: &(B, B, B, usize), n2s: &mut Vec<(B, B, B, usize)>) {
+    let idx = n1.3;
+    let x = idx / e.mt;
+    let t = idx % e.mt;
 
-        if x == e.mx {
-            n2s.push((n1.1, *n2b));
-            return;
-        }
-    }
-
+    let mut n2 = n1.clone();
     for &v in &[true, false] {
-        let idx = x * e.mt + t;
-        Bits::set_bit(n2b, idx, v);
+        Bits::set_bit(&mut n2.2, idx, v);
 
-        let n10r = PartialRow::full(e, n1.0);
-        let n11r = PartialRow::full(e, n1.1);
-        let n2br = PartialRow::new(*n2b, idx + 1);
+        let r0 = PartialRow::full(e, n2.0);
+        let r1 = PartialRow::full(e, n2.1);
+        let r2 = PartialRow::new(n2.2, idx + 1);
         let er = PartialRow::empty();
 
         let ix = x as isize;
@@ -235,8 +229,8 @@ fn expand_srch<B: Bits>(e: &GolGraph, n1: &(B, B, B, usize), n2s: &mut Vec<(B, B
 
         // check past cell if there is one (y shifts backwards!)
         ok &= match syp {
-            1 => check_compat(e, n10r, n11r, n2br, pt, px, n2br, t, ix),
-            0 => check_compat(e, n11r, n2br, er, pt, px, n2br, t, ix),
+            1 => check_compat(e, r0, r1, r2, pt, px, r2, t, ix),
+            0 => check_compat(e, r1, r2, er, pt, px, r2, t, ix),
             -1 => true,
             _ => panic!(),
         };
@@ -247,43 +241,40 @@ fn expand_srch<B: Bits>(e: &GolGraph, n1: &(B, B, B, usize), n2s: &mut Vec<(B, B
 
             // check cell centered in n1.1
             ok &= match sy {
-                -1 => check_compat(e, n10r, n11r, n2br, t, ix, n10r, ft, fx),
-                0 => check_compat(e, n10r, n11r, n2br, t, ix, n11r, ft, fx),
-                1 => check_compat(e, n10r, n11r, n2br, t, ix, n2br, ft, fx),
+                -1 => check_compat(e, r0, r1, r2, t, ix, r0, ft, fx),
+                0 => check_compat(e, r0, r1, r2, t, ix, r1, ft, fx),
+                1 => check_compat(e, r0, r1, r2, t, ix, r2, ft, fx),
                 _ => panic!(),
             };
 
             // check cell centered in n2b
             ok &= match sy {
-                -1 => check_compat(e, n11r, n2br, er, t, ix, n11r, ft, fx),
-                0 => check_compat(e, n11r, n2br, er, t, ix, n2br, ft, fx),
+                -1 => check_compat(e, r1, r2, er, t, ix, r1, ft, fx),
+                0 => check_compat(e, r1, r2, er, t, ix, r2, ft, fx),
                 1 => true,
                 _ => panic!(),
             };
         }
 
-        if !ok {
-            continue;
+        if ok {
+            n2s.push(n2);
         }
-
-        expand_srch(e, n1, n2s, n2b, x, t + 1);
     }
 }
 
 impl<B: Bits> DfsGraph<(B, B, B, usize)> for GolGraph {
     fn start(&self) -> (B, B, B, usize) {
         assert!(self.mt * self.mx <= B::size());
-        <(B, B)>::zero()
+        (B::zero(), B::zero(), B::zero(), 0)
     }
 
     fn expand(&self, n1: &(B, B, B, usize)) -> Vec<(B, B, B, usize)> {
-        let mut n2b = B::zero();
         let mut n2s = Vec::new();
-        expand_srch(self, n1, &mut n2s, &mut n2b, 0, 0);
+        expand_srch(self, n1, &mut n2s);
         n2s
     }
 
     fn end(&self, n: &(B, B, B, usize)) -> bool {
-        return *n == <(B, B)>::zero();
+        return (n.3 == self.mt * self.mx) && n.1 == B::zero() && n.2 == B::zero();
     }
 }
