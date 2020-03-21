@@ -14,7 +14,7 @@ pub struct GolLifecycle<'a> {
 }
 
 impl<'a> GolLifecycle<'a> {
-    fn print_cycle<B: Bits>(&self, path: &Vec<(B, B)>, cycle: &Vec<(B, B)>) {
+    fn print_cycle<B: Bits>(&self, path: &Vec<(B, B, B, usize)>, cycle: &Vec<(B, B, B, usize)>) {
         println!("Cycle:");
         self.ge.print_rows(&path);
         self.ge.print_dash_row();
@@ -22,14 +22,14 @@ impl<'a> GolLifecycle<'a> {
         println!("");
     }
 
-    fn print_end<B: Bits>(&self, path: &Vec<(B, B)>) {
+    fn print_end<B: Bits>(&self, path: &Vec<(B, B, B, usize)>) {
         println!("End:");
         self.ge.print_rows(path);
         println!("");
     }
 }
 
-impl<'a, B: Bits> DfsLifecycle<(B, B), DfsResVec<(B, B)>> for GolLifecycle<'a> {
+impl<'a, B: Bits> DfsLifecycle<(B, B, B, usize), DfsResVec<(B, B, B, usize)>> for GolLifecycle<'a> {
     fn threads(&self) -> usize {
         return self.threads;
     }
@@ -38,7 +38,7 @@ impl<'a, B: Bits> DfsLifecycle<(B, B), DfsResVec<(B, B)>> for GolLifecycle<'a> {
         return self.recollect_ms;
     }
 
-    fn on_recollect(&self, deepest: Vec<(B, B)>, r: DfsResVec<(B, B)>) -> bool {
+    fn on_recollect(&self, deepest: Vec<(B, B, B, usize)>, r: DfsResVec<(B, B, B, usize)>) -> bool {
         println!("Recollect...");
 
         println!("Deepest");
@@ -55,19 +55,19 @@ impl<'a, B: Bits> DfsLifecycle<(B, B), DfsResVec<(B, B)>> for GolLifecycle<'a> {
         return true;
     }
 
-    fn debug_enter(&self, path: &Vec<(B, B)>) {
+    fn debug_enter(&self, path: &Vec<(B, B, B, usize)>) {
         //println!("Enter search {}", path.len());
         //self.ge.print_rows(path);
     }
 
-    fn debug_cycle(&self, path: &Vec<(B, B)>, cycle: &Vec<(B, B)>) {
+    fn debug_cycle(&self, path: &Vec<(B, B, B, usize)>, cycle: &Vec<(B, B, B, usize)>) {
         self.print_cycle(path, cycle);
         if path.len() + cycle.len() > 2 {
             panic!();
         }
     }
 
-    fn debug_end(&self, path: &Vec<(B, B)>) {
+    fn debug_end(&self, path: &Vec<(B, B, B, usize)>) {
         self.print_end(path);
         if path.len() > 2 {
             panic!();

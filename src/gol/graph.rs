@@ -48,7 +48,7 @@ impl GolGraph {
         println!("{}", r);
     }
 
-    pub fn print_rows<B: Bits>(&self, rows: &Vec<(B, B)>) {
+    pub fn print_rows<B: Bits>(&self, rows: &Vec<(B, B, B, usize)>) {
         for row in rows {
             self.print_row(row.1);
         }
@@ -197,7 +197,7 @@ fn check_compat<B: Bits>(e: &GolGraph, cp: PartialRow<B>, c: PartialRow<B>, cn: 
     }
 }
 
-fn expand_srch<B: Bits>(e: &GolGraph, n1: &(B, B), n2s: &mut Vec<(B, B)>, n2b: &mut B, mut x: usize, mut t: usize) {
+fn expand_srch<B: Bits>(e: &GolGraph, n1: &(B, B, B, usize), n2s: &mut Vec<(B, B, B, usize)>, n2b: &mut B, mut x: usize, mut t: usize) {
     if t == e.mt {
         t = 0;
         x += 1;
@@ -270,20 +270,20 @@ fn expand_srch<B: Bits>(e: &GolGraph, n1: &(B, B), n2s: &mut Vec<(B, B)>, n2b: &
     }
 }
 
-impl<B: Bits> DfsGraph<(B, B)> for GolGraph {
-    fn start(&self) -> (B, B) {
+impl<B: Bits> DfsGraph<(B, B, B, usize)> for GolGraph {
+    fn start(&self) -> (B, B, B, usize) {
         assert!(self.mt * self.mx <= B::size());
         <(B, B)>::zero()
     }
 
-    fn expand(&self, n1: &(B, B)) -> Vec<(B, B)> {
+    fn expand(&self, n1: &(B, B, B, usize)) -> Vec<(B, B, B, usize)> {
         let mut n2b = B::zero();
         let mut n2s = Vec::new();
         expand_srch(self, n1, &mut n2s, &mut n2b, 0, 0);
         n2s
     }
 
-    fn end(&self, n: &(B, B)) -> bool {
+    fn end(&self, n: &(B, B, B, usize)) -> bool {
         return *n == <(B, B)>::zero();
     }
 }
