@@ -13,10 +13,10 @@ fn main() {
 
 fn main1<B: Bits>() {
     let ge = GolGraph {
-        mt: 8,
-        mx: 6,
+        mt: 4,
+        mx: 3,
 
-        ox: 0,
+        ox: 1,
         oy: 1,
     };
 
