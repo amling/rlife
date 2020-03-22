@@ -30,7 +30,7 @@ impl GolGraph {
         println!("{}", r);
     }
 
-    pub fn print_prow<B: Bits>(&self, row: PartialRow<B>) {
+    pub fn format_prow<B: Bits>(&self, row: PartialRow<B>) -> String {
         let mut r = String::new();
         for t in 0..self.mt {
             if t != 0 {
@@ -45,19 +45,27 @@ impl GolGraph {
                 });
             }
         }
-        println!("{}", r);
+        r
     }
 
-    pub fn print_rows<B: Bits>(&self, rows: &Vec<(B, B, B, usize)>) {
-        // TODO: nope, more complicated since we actually repeat everything once per bit
-        self.print_row(rows[0].0);
-        self.print_row(rows[0].1);
-        for row in rows {
-            self.print_prow(PartialRow::new(row.2, row.3));
+    pub fn format_rows<B: Bits>(&self, rows: &Vec<(B, B, B, usize)>) -> Vec<String> {
+        let ret = Vec::new();
+        ret.push(self.format_row(rows[0].0));
+        ret.push(self.format_row(rows[0].1));
+        for (n, row) in rows.iter().enumerate() {
+            if row.3 == self.mt * self.mx {
+                // as rows complete, dump them
+                ret.push(self.format_row(row.2));
+            }
+            else if n == rows.len() - 1 {
+                // output last row even if partial
+                ret.push(self.format_prow(PartialRow::new(row.2, row.3)));
+            }
         }
+        ret
     }
 
-    pub fn print_dash_row(&self) {
+    fn format_dash_row(&self) {
         let mut r = String::new();
         for t in 0..self.mt {
             if t != 0 {
@@ -68,7 +76,11 @@ impl GolGraph {
                 r.push('-');
             }
         }
-        println!("{}", r);
+        r
+    }
+
+    pub fn format_cycle_rows<B: Bits>(&self, path: &Vec<(B, B, B, usize)>, cycle: &Vec<(B, B, B, usize)>) -> Vec<String> {
+        // TODO: path, dashes, cycle, etc.
     }
 }
 
