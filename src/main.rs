@@ -5,6 +5,7 @@ mod gol;
 use bits::Bits;
 use dfs::res::DfsResToVec;
 use gol::graph::GolGraph;
+use gol::graph::GolNode;
 use gol::lifecycle::GolLifecycle;
 
 fn main() {
@@ -28,5 +29,5 @@ fn main1<B: Bits>() {
         recollect_ms: 1000,
     };
 
-    dfs::dfs::<(B, B, B, usize), _, _, _, _>(&ge, &re, &le);
+    dfs::dfs::<GolNode<B>, _, _, _, _>(&ge, &re, &le);
 }

@@ -6,6 +6,7 @@ use bits::Bits;
 use dfs::lifecycle::DfsLifecycle;
 use dfs::res::DfsResVec;
 use gol::graph::GolGraph;
+use gol::graph::GolNode;
 
 pub struct GolLifecycle<'a> {
     pub ge: &'a GolGraph,
@@ -14,7 +15,7 @@ pub struct GolLifecycle<'a> {
 }
 
 impl<'a> GolLifecycle<'a> {
-    fn print_cycle<B: Bits>(&self, path: &Vec<(B, B, B, usize)>, cycle: &Vec<(B, B, B, usize)>) {
+    fn print_cycle<B: Bits>(&self, path: &Vec<GolNode<B>>, cycle: &Vec<GolNode<B>>) {
         println!("Cycle:");
         for line in self.ge.format_cycle_rows(path, cycle) {
             println!("{}", line);
@@ -22,7 +23,7 @@ impl<'a> GolLifecycle<'a> {
         println!("");
     }
 
-    fn print_end<B: Bits>(&self, path: &Vec<(B, B, B, usize)>) {
+    fn print_end<B: Bits>(&self, path: &Vec<GolNode<B>>) {
         println!("End:");
         for line in self.ge.format_rows(path) {
             println!("{}", line);
@@ -31,7 +32,7 @@ impl<'a> GolLifecycle<'a> {
     }
 }
 
-impl<'a, B: Bits> DfsLifecycle<(B, B, B, usize), DfsResVec<(B, B, B, usize)>> for GolLifecycle<'a> {
+impl<'a, B: Bits> DfsLifecycle<GolNode<B>, DfsResVec<GolNode<B>>> for GolLifecycle<'a> {
     fn threads(&self) -> usize {
         return self.threads;
     }
@@ -40,7 +41,7 @@ impl<'a, B: Bits> DfsLifecycle<(B, B, B, usize), DfsResVec<(B, B, B, usize)>> fo
         return self.recollect_ms;
     }
 
-    fn on_recollect(&self, firstest: Vec<(B, B, B, usize)>, r: DfsResVec<(B, B, B, usize)>) -> bool {
+    fn on_recollect(&self, firstest: Vec<GolNode<B>>, r: DfsResVec<GolNode<B>>) -> bool {
         eprintln!("Recollect...");
 
         eprintln!("Firstest");
@@ -59,21 +60,21 @@ impl<'a, B: Bits> DfsLifecycle<(B, B, B, usize), DfsResVec<(B, B, B, usize)>> fo
         return true;
     }
 
-    fn debug_enter(&self, path: &Vec<(B, B, B, usize)>) {
+    fn debug_enter(&self, path: &Vec<GolNode<B>>) {
         //eprintln!("Enter search {}", path.len());
         //for line in self.ge.format_rows(path) {
         //    eprintln!("{}", line);
         //}
     }
 
-    fn debug_cycle(&self, path: &Vec<(B, B, B, usize)>, cycle: &Vec<(B, B, B, usize)>) {
+    fn debug_cycle(&self, path: &Vec<GolNode<B>>, cycle: &Vec<GolNode<B>>) {
         self.print_cycle(path, cycle);
         //if path.len() + cycle.len() > 2 {
         //    panic!();
         //}
     }
 
-    fn debug_end(&self, path: &Vec<(B, B, B, usize)>) {
+    fn debug_end(&self, path: &Vec<GolNode<B>>) {
         self.print_end(path);
         //if path.len() > 2 {
         //    panic!();

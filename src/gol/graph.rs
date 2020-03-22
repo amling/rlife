@@ -4,6 +4,17 @@ use crate::dfs;
 use bits::Bits;
 use dfs::graph::DfsGraph;
 
+#[derive(Clone)]
+#[derive(Eq)]
+#[derive(Hash)]
+#[derive(PartialEq)]
+pub struct GolNode<B> {
+    r0: B,
+    r1: B,
+    r2: B,
+    r2l: usize,
+}
+
 pub struct GolGraph {
     pub mt: usize,
     pub mx: usize,
@@ -60,18 +71,18 @@ impl GolGraph {
         r
     }
 
-    pub fn format_rows<B: Bits>(&self, rows: &Vec<(B, B, B, usize)>) -> Vec<String> {
+    pub fn format_rows<B: Bits>(&self, rows: &Vec<GolNode<B>>) -> Vec<String> {
         let mut ret = Vec::new();
         for (n, row) in rows.iter().enumerate() {
             if n == rows.len() - 1 {
                 // last, output everything even if partial
-                ret.push(self.format_row(row.0));
-                ret.push(self.format_row(row.1));
-                ret.push(self.format_prow(PartialRow::new(row.2, row.3)));
+                ret.push(self.format_row(row.r0));
+                ret.push(self.format_row(row.r1));
+                ret.push(self.format_prow(PartialRow::new(row.r2, row.r2l)));
             }
-            else if row.3 == self.mt * self.mx {
+            else if row.r2l == self.mt * self.mx {
                 // output each first row before that exactly once (as third row fills)
-                ret.push(self.format_row(row.0));
+                ret.push(self.format_row(row.r0));
             }
         }
         ret
@@ -91,19 +102,19 @@ impl GolGraph {
         r
     }
 
-    pub fn format_cycle_rows<B: Bits>(&self, path: &Vec<(B, B, B, usize)>, cycle: &Vec<(B, B, B, usize)>) -> Vec<String> {
+    pub fn format_cycle_rows<B: Bits>(&self, path: &Vec<GolNode<B>>, cycle: &Vec<GolNode<B>>) -> Vec<String> {
         // Just need to output each first row once (since cycle continues forever).  Either third
         // row empty or full would do, but empty is easier.
         let mut ret = Vec::new();
         for row in path.iter() {
-            if row.3 == 0 {
-                ret.push(self.format_row(row.0));
+            if row.r2l == 0 {
+                ret.push(self.format_row(row.r0));
             }
         }
         ret.push(self.format_dash_row());
         for row in cycle.iter() {
-            if row.3 == 0 {
-                ret.push(self.format_row(row.0));
+            if row.r2l == 0 {
+                ret.push(self.format_row(row.r0));
             }
         }
         ret
@@ -244,24 +255,34 @@ fn check_compat1<B: Bits>(e: &GolGraph, cp: PartialRow<B>, c: PartialRow<B>, cn:
     }
 }
 
-fn expand_srch<B: Bits>(e: &GolGraph, n1: &(B, B, B, usize), n2s: &mut Vec<(B, B, B, usize)>) {
-    let idx = n1.3;
+fn expand_srch<B: Bits>(e: &GolGraph, n1: &GolNode<B>, n2s: &mut Vec<GolNode<B>>) {
+    let idx = n1.r2l;
 
     if idx == e.mt * e.mx {
-        n2s.push((n1.1, n1.2, B::zero(), 0));
+        n2s.push(GolNode {
+            r0: n1.r1,
+            r1: n1.r2,
+            r2: B::zero(),
+            r2l: 0,
+        });
         return;
     }
 
     let x = e.x_from_idx(idx);
     let t = e.t_from_idx(idx);
 
-    let mut n2 = (n1.0, n1.1, n1.2, n1.3 + 1);
+    let mut n2 = GolNode {
+        r0: n1.r0,
+        r1: n1.r1,
+        r2: n1.r2,
+        r2l: n1.r2l + 1,
+    };
     for &v in &[false, true] {
-        Bits::set_bit(&mut n2.2, idx, v);
+        Bits::set_bit(&mut n2.r2, idx, v);
 
-        let r0 = PartialRow::full(e, n2.0);
-        let r1 = PartialRow::full(e, n2.1);
-        let r2 = PartialRow::new(n2.2, idx + 1);
+        let r0 = PartialRow::full(e, n2.r0);
+        let r1 = PartialRow::full(e, n2.r1);
+        let r2 = PartialRow::new(n2.r2, idx + 1);
         let er = PartialRow::empty();
 
         let ix = x as isize;
@@ -310,24 +331,29 @@ fn expand_srch<B: Bits>(e: &GolGraph, n1: &(B, B, B, usize), n2s: &mut Vec<(B, B
         }
 
         if ok {
-            n2s.push(n2);
+            n2s.push(n2.clone());
         }
     }
 }
 
-impl<B: Bits> DfsGraph<(B, B, B, usize)> for GolGraph {
-    fn start(&self) -> (B, B, B, usize) {
+impl<B: Bits> DfsGraph<GolNode<B>> for GolGraph {
+    fn start(&self) -> GolNode<B> {
         assert!(self.mt * self.mx <= B::size());
-        (B::zero(), B::zero(), B::zero(), 0)
+        GolNode {
+            r0: B::zero(),
+            r1: B::zero(),
+            r2: B::zero(),
+            r2l: 0,
+        }
     }
 
-    fn expand(&self, n1: &(B, B, B, usize)) -> Vec<(B, B, B, usize)> {
+    fn expand(&self, n1: &GolNode<B>) -> Vec<GolNode<B>> {
         let mut n2s = Vec::new();
         expand_srch(self, n1, &mut n2s);
         n2s
     }
 
-    fn end(&self, n: &(B, B, B, usize)) -> bool {
-        return (n.3 == self.mt * self.mx) && n.1 == B::zero() && n.2 == B::zero();
+    fn end(&self, n: &GolNode<B>) -> bool {
+        (n.r2l == self.mt * self.mx) && (n.r1 == B::zero()) && (n.r2 == B::zero())
     }
 }
