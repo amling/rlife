@@ -13,6 +13,18 @@ pub struct GolGraph {
 }
 
 impl GolGraph {
+    fn to_idx(&self, x: usize, t: usize) -> usize {
+        x * self.mt + t
+    }
+
+    fn x_from_idx(&self, idx: usize) -> usize {
+        idx / self.mt
+    }
+
+    fn t_from_idx(&self, idx: usize) -> usize {
+        idx % self.mt
+    }
+
     pub fn format_row<B: Bits>(&self, row: B) -> String {
         let mut r = String::new();
         for t in 0..self.mt {
@@ -21,7 +33,7 @@ impl GolGraph {
             }
 
             for x in 0..self.mx {
-                r.push(match B::get_bit(&row, x * self.mt + t) {
+                r.push(match B::get_bit(&row, self.to_idx(x, t)) {
                     true => '*',
                     false => '.',
                 });
@@ -128,7 +140,7 @@ impl<B: Bits> PartialRow<B> {
             return Some(false);
         }
 
-        let idx = (x as usize) * e.mt + t;
+        let idx = e.to_idx(x as usize, t);
         if idx >= self.len {
             return None;
         }
@@ -240,8 +252,8 @@ fn expand_srch<B: Bits>(e: &GolGraph, n1: &(B, B, B, usize), n2s: &mut Vec<(B, B
         return;
     }
 
-    let x = idx / e.mt;
-    let t = idx % e.mt;
+    let x = e.x_from_idx(idx);
+    let t = e.t_from_idx(idx);
 
     let mut n2 = (n1.0, n1.1, n1.2, n1.3 + 1);
     for &v in &[true, false] {
