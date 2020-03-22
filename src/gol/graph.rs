@@ -14,15 +14,15 @@ pub struct GolGraph {
 
 impl GolGraph {
     fn to_idx(&self, x: usize, t: usize) -> usize {
-        x * self.mt + t
+        t * self.mx + x
     }
 
     fn x_from_idx(&self, idx: usize) -> usize {
-        idx / self.mt
+        idx % self.mx
     }
 
     fn t_from_idx(&self, idx: usize) -> usize {
-        idx % self.mt
+        idx / self.mx
     }
 
     pub fn format_row<B: Bits>(&self, row: B) -> String {
