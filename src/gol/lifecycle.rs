@@ -16,16 +16,17 @@ pub struct GolLifecycle<'a> {
 impl<'a> GolLifecycle<'a> {
     fn print_cycle<B: Bits>(&self, path: &Vec<(B, B, B, usize)>, cycle: &Vec<(B, B, B, usize)>) {
         println!("Cycle:");
-        // TODO: nope, need to handle start of path and start of cycle differently...
-        self.ge.print_rows(&path);
-        self.ge.print_dash_row();
-        self.ge.print_rows(&cycle);
+        for line in self.ge.format_cycle_rows(path, cycle) {
+            println!("{}", line);
+        }
         println!("");
     }
 
     fn print_end<B: Bits>(&self, path: &Vec<(B, B, B, usize)>) {
         println!("End:");
-        self.ge.print_rows(path);
+        for line in self.ge.format_rows(path) {
+            println!("{}", line);
+        }
         println!("");
     }
 }
@@ -40,10 +41,12 @@ impl<'a, B: Bits> DfsLifecycle<(B, B, B, usize), DfsResVec<(B, B, B, usize)>> fo
     }
 
     fn on_recollect(&self, deepest: Vec<(B, B, B, usize)>, r: DfsResVec<(B, B, B, usize)>) -> bool {
-        println!("Recollect...");
+        eprintln!("Recollect...");
 
-        println!("Deepest");
-        self.ge.print_rows(&deepest);
+        eprintln!("Deepest");
+        for line in self.ge.format_rows(&deepest) {
+            eprintln!("{}", line);
+        }
 
         for cycle in &r.cycles {
             self.print_cycle(&cycle.0, &cycle.1);
@@ -57,8 +60,10 @@ impl<'a, B: Bits> DfsLifecycle<(B, B, B, usize), DfsResVec<(B, B, B, usize)>> fo
     }
 
     fn debug_enter(&self, path: &Vec<(B, B, B, usize)>) {
-        //println!("Enter search {}", path.len());
-        //self.ge.print_rows(path);
+        //eprintln!("Enter search {}", path.len());
+        //for line in self.ge.format_rows(path) {
+        //    eprintln!("{}", line);
+        //}
     }
 
     fn debug_cycle(&self, path: &Vec<(B, B, B, usize)>, cycle: &Vec<(B, B, B, usize)>) {

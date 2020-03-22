@@ -13,7 +13,7 @@ pub struct GolGraph {
 }
 
 impl GolGraph {
-    pub fn print_row<B: Bits>(&self, row: B) {
+    pub fn format_row<B: Bits>(&self, row: B) -> String {
         let mut r = String::new();
         for t in 0..self.mt {
             if t != 0 {
@@ -27,7 +27,7 @@ impl GolGraph {
                 });
             }
         }
-        println!("{}", r);
+        r
     }
 
     pub fn format_prow<B: Bits>(&self, row: PartialRow<B>) -> String {
@@ -49,8 +49,8 @@ impl GolGraph {
     }
 
     pub fn format_rows<B: Bits>(&self, rows: &Vec<(B, B, B, usize)>) -> Vec<String> {
-        let ret = Vec::new();
-        for (n, rows) in rows.iter().enumerate() {
+        let mut ret = Vec::new();
+        for (n, row) in rows.iter().enumerate() {
             if n == rows.len() - 1 {
                 // last, output everything even if partial
                 ret.push(self.format_row(row.0));
@@ -65,7 +65,7 @@ impl GolGraph {
         ret
     }
 
-    fn format_dash_row(&self) {
+    fn format_dash_row(&self) -> String {
         let mut r = String::new();
         for t in 0..self.mt {
             if t != 0 {
@@ -80,7 +80,21 @@ impl GolGraph {
     }
 
     pub fn format_cycle_rows<B: Bits>(&self, path: &Vec<(B, B, B, usize)>, cycle: &Vec<(B, B, B, usize)>) -> Vec<String> {
-        // TODO: path, dashes, cycle, etc.
+        // Just need to output each first row once (since cycle continues forever).  Either third
+        // row empty or full would do, but empty is easier.
+        let mut ret = Vec::new();
+        for row in path.iter() {
+            if row.3 == 0 {
+                ret.push(self.format_row(row.0));
+            }
+        }
+        ret.push(self.format_dash_row());
+        for row in cycle.iter() {
+            if row.3 == 0 {
+                ret.push(self.format_row(row.0));
+            }
+        }
+        ret
     }
 }
 
