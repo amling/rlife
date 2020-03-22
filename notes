@@ -12,3 +12,14 @@ checkpoint to disk?
     maybe take directory to run in, dump results there, resume/checkpoint state there, etc.
 
 optimize...
+
+symmetries
+    right space
+        even, odd, gutter
+    top space?
+        initial symmetric is kind of hard but could make sense with x-only shift
+    horiz time flip
+    vert time flip?
+        initial is difficult again
+    a lot of these make sense individually, but many combinations are nonsense
+        also not sure how to model these in code...
