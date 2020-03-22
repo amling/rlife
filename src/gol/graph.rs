@@ -50,16 +50,16 @@ impl GolGraph {
 
     pub fn format_rows<B: Bits>(&self, rows: &Vec<(B, B, B, usize)>) -> Vec<String> {
         let ret = Vec::new();
-        ret.push(self.format_row(rows[0].0));
-        ret.push(self.format_row(rows[0].1));
-        for (n, row) in rows.iter().enumerate() {
-            if row.3 == self.mt * self.mx {
-                // as rows complete, dump them
-                ret.push(self.format_row(row.2));
-            }
-            else if n == rows.len() - 1 {
-                // output last row even if partial
+        for (n, rows) in rows.iter().enumerate() {
+            if n == rows.len() - 1 {
+                // last, output everything even if partial
+                ret.push(self.format_row(row.0));
+                ret.push(self.format_row(row.1));
                 ret.push(self.format_prow(PartialRow::new(row.2, row.3)));
+            }
+            else if row.3 == self.mt * self.mx {
+                // output each first row before that exactly once (as third row fills)
+                ret.push(self.format_row(row.0));
             }
         }
         ret
