@@ -40,11 +40,11 @@ impl<'a, B: Bits> DfsLifecycle<(B, B, B, usize), DfsResVec<(B, B, B, usize)>> fo
         return self.recollect_ms;
     }
 
-    fn on_recollect(&self, deepest: Vec<(B, B, B, usize)>, r: DfsResVec<(B, B, B, usize)>) -> bool {
+    fn on_recollect(&self, firstest: Vec<(B, B, B, usize)>, r: DfsResVec<(B, B, B, usize)>) -> bool {
         eprintln!("Recollect...");
 
-        eprintln!("Deepest");
-        for line in self.ge.format_rows(&deepest) {
+        eprintln!("Firstest");
+        for line in self.ge.format_rows(&firstest) {
             eprintln!("{}", line);
         }
 

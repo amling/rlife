@@ -124,9 +124,9 @@ pub fn dfs<N: Clone + Hash + Eq + Send, R: Send, GE: DfsGraph<N> + Sync, RE: Dfs
             res = re.reduce(res, res1);
         }
 
-        let deepest = find_deepest(&root);
+        let firstest = find_firstest(&root);
 
-        if !le.on_recollect(deepest, res) {
+        if !le.on_recollect(firstest, res) {
             return;
         }
     }
@@ -173,20 +173,30 @@ fn find_unopened<'a, N: Eq + Hash + Clone>(unopened: &mut Vec<(&'a mut Tree<N>, 
     };
 }
 
-fn find_deepest<N: Clone>(tree: &Tree<N>) -> Vec<N> {
-    let mut deepest = find_deepest_aux(tree);
-    deepest.reverse();
-    deepest
+fn find_firstest<N: Clone>(tree: &Tree<N>) -> Vec<N> {
+    let mut r = Vec::new();
+    find_firstest_aux(tree, &mut r);
+    r
 }
 
-fn find_deepest_aux<N: Clone>(tree: &Tree<N>) -> Vec<N> {
-    let mut r = match tree.1 {
-        TreeStatus::Unopened => vec![],
-        TreeStatus::Opened(ref children) => children.iter().map(|child| find_deepest(child)).max_by_key(|path| path.len()).unwrap_or_else(|| vec![]),
-        TreeStatus::Closed => vec![],
+fn find_firstest_aux<N: Clone>(tree: &Tree<N>, acc: &mut Vec<N>) -> bool {
+    acc.push(tree.0.clone());
+    match &tree.1 {
+        TreeStatus::Unopened => {
+            return true;
+        }
+        TreeStatus::Opened(children) => {
+            for child in children {
+                if find_firstest_aux(child, acc) {
+                    return true;
+                }
+            }
+        }
+        TreeStatus::Closed => {
+        }
     };
-    r.push(tree.0.clone());
-    r
+    acc.pop();
+    false
 }
 
 fn dfs_single_thread<N: Clone + Eq + Hash, R, GE: DfsGraph<N>, RE: DfsRes<N, R>, LE: DfsLifecycle<N, R>>(ge: &GE, re: &RE, le: &LE, stop: &AtomicBool, t1: &mut Tree<N>, path: &mut Path<N>, r: &mut R) -> bool {
