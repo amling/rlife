@@ -1,0 +1,10 @@
+adaptive shift?
+    the idea would be to allow the search window to shift +x/-x as some rows are thin
+    width of any given row would be limited
+    unsure how to avoid finding the same essential next row with different shift values
+    could generate all possible next row windows (even shorter) and insist each result "fill" its window (refuse when row finishes if it didn't fill its window?)
+
+checkpoint to disk?
+    tree structure is generally resumable
+    unclear how to manage lifecycle in CLI...
+    maybe take directory to run in, dump results there, resume/checkpoint state there, etc.
