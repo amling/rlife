@@ -256,7 +256,7 @@ fn expand_srch<B: Bits>(e: &GolGraph, n1: &(B, B, B, usize), n2s: &mut Vec<(B, B
     let t = e.t_from_idx(idx);
 
     let mut n2 = (n1.0, n1.1, n1.2, n1.3 + 1);
-    for &v in &[true, false] {
+    for &v in &[false, true] {
         Bits::set_bit(&mut n2.2, idx, v);
 
         let r0 = PartialRow::full(e, n2.0);
