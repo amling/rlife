@@ -243,7 +243,7 @@ fn expand_srch<B: Bits>(e: &GolGraph, n1: &(B, B, B, usize), n2s: &mut Vec<(B, B
     let x = idx / e.mt;
     let t = idx % e.mt;
 
-    let mut n2 = n1.clone();
+    let mut n2 = (n1.0, n1.1, n1.2, n1.3 + 1);
     for &v in &[true, false] {
         Bits::set_bit(&mut n2.2, idx, v);
 
