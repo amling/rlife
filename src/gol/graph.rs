@@ -42,7 +42,7 @@ impl GolGraph {
         r
     }
 
-    pub fn format_prow<B: Bits>(&self, row: PartialRow<B>) -> String {
+    fn format_prow<B: Bits>(&self, row: PartialRow<B>) -> String {
         let mut r = String::new();
         for t in 0..self.mt {
             if t != 0 {
