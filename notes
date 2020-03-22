@@ -3,6 +3,8 @@ adaptive shift?
     width of any given row would be limited
     unsure how to avoid finding the same essential next row with different shift values
     could generate all possible next row windows (even shorter) and insist each result "fill" its window (refuse when row finishes if it didn't fill its window?)
+    as a very cheap version of this we could have fixed shifts computed from center of last row's bounding box
+        this way there's no forking in window so no overlap problem
 
 checkpoint to disk?
     tree structure is generally resumable
