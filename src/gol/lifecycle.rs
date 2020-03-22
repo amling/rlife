@@ -68,15 +68,15 @@ impl<'a, B: Bits> DfsLifecycle<(B, B, B, usize), DfsResVec<(B, B, B, usize)>> fo
 
     fn debug_cycle(&self, path: &Vec<(B, B, B, usize)>, cycle: &Vec<(B, B, B, usize)>) {
         self.print_cycle(path, cycle);
-        if path.len() + cycle.len() > 2 {
-            panic!();
-        }
+        //if path.len() + cycle.len() > 2 {
+        //    panic!();
+        //}
     }
 
     fn debug_end(&self, path: &Vec<(B, B, B, usize)>) {
         self.print_end(path);
-        if path.len() > 2 {
-            panic!();
-        }
+        //if path.len() > 2 {
+        //    panic!();
+        //}
     }
 }
