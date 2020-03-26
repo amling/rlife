@@ -235,8 +235,13 @@ fn check_compat1<B: Bits>(e: &GolGraph, cp: PartialRow<B>, c: PartialRow<B>, cn:
     let cs = match c.get(e, ct, cx) {
         Some(cs) => cs,
         None => {
-            // need 2 or 3
-            return cts.living <= 3 && cts.dead <= 6;
+            return match fs {
+                // need 2 or 3
+                true => cts.living <= 3 && cts.dead <= 6,
+
+                // need not exactly 3
+                false => cts.living != 3 || cts.dead != 5,
+            };
         },
     };
 
