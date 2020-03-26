@@ -70,7 +70,9 @@ pub fn sdfs<N: Clone + Hash + Eq, R, GE: DfsGraph<N>, RE: DfsRes<N, R>, LE: DfsL
     for (tree, mut path) in unopened {
         let mut res = re.empty();
         dfs_single_thread(ge, re, le, &stop, tree, &mut path, &mut res);
-        le.on_recollect(vec![], res);
+        if !le.on_recollect_results(res) {
+            break;
+        }
     }
 }
 
@@ -125,8 +127,9 @@ pub fn dfs<N: Clone + Hash + Eq + Send, R: Send, GE: DfsGraph<N> + Sync, RE: Dfs
         }
 
         let firstest = find_firstest(root);
+        le.on_recollect_firstest(firstest);
 
-        if !le.on_recollect(firstest, res) {
+        if !le.on_recollect_results(res) {
             return;
         }
     }

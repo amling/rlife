@@ -41,14 +41,14 @@ impl<'a, B: Bits> DfsLifecycle<GolNode<B>, DfsResVec<GolNode<B>>> for GolLifecyc
         return self.recollect_ms;
     }
 
-    fn on_recollect(&self, firstest: Vec<GolNode<B>>, r: DfsResVec<GolNode<B>>) -> bool {
-        eprintln!("Recollect...");
-
-        eprintln!("Firstest");
+    fn on_recollect_firstest(&self, firstest: Vec<GolNode<B>>) {
+        eprintln!("Recollect firstest...");
         for line in self.ge.format_rows(&firstest) {
             eprintln!("{}", line);
         }
+    }
 
+    fn on_recollect_results(&self, r: DfsResVec<GolNode<B>>) -> bool {
         for cycle in &r.cycles {
             self.print_cycle(&cycle.0, &cycle.1);
         }

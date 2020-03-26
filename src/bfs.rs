@@ -75,6 +75,9 @@ pub fn sbfs<N: Clone + Hash + Eq, R, GE: DfsGraph<N>, RE: DfsRes<N, R>, LE: DfsL
             },
             None => vec![],
         };
-        le.on_recollect(firstest, r);
+        le.on_recollect_firstest(firstest);
+        if !le.on_recollect_results(r) {
+            break;
+        }
     }
 }
