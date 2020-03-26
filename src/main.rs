@@ -1,3 +1,4 @@
+mod bfs;
 mod bits;
 mod dfs;
 mod gol;
@@ -14,11 +15,11 @@ fn main() {
 
 fn main1<B: Bits>() {
     let ge = GolGraph {
-        mt: 3,
-        mx: 12,
+        mt: 1,
+        mx: 19,
 
-        ox: 0,
-        oy: 1,
+        ox: 9,
+        oy: 0,
     };
 
     let re = DfsResToVec();
@@ -29,5 +30,5 @@ fn main1<B: Bits>() {
         recollect_ms: 1000,
     };
 
-    dfs::dfs::<GolNode<B>, _, _, _, _>(&ge, &re, &le);
+    bfs::sbfs::<GolNode<B>, _, _, _, _>(&ge, &re, &le);
 }

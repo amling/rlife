@@ -147,9 +147,11 @@ impl<B: Bits> PartialRow<B> {
     fn get(&self, e: &GolGraph, t: usize, x: isize) -> Option<bool> {
         assert!(t < e.mt);
 
-        if x < 0 || x >= (e.mx as isize) {
-            return Some(false);
+        let mut x = x;
+        while x < 0 {
+            x += (e.mx as isize);
         }
+        x %= (e.mx as isize);
 
         let idx = e.to_idx(x as usize, t);
         if idx >= self.len {
