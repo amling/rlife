@@ -129,7 +129,11 @@ pub fn dfs<N: Clone + Hash + Eq + Send, R: Send, GE: DfsGraph<N> + Sync, RE: Dfs
         let firstest = find_firstest(root);
         le.on_recollect_firstest(firstest);
 
-        if !le.on_recollect_results(res) {
+        let cont = le.on_recollect_results(res);
+
+        le.debug_checkpoint(root);
+
+        if !cont {
             return;
         }
     }

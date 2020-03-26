@@ -1,3 +1,7 @@
+use crate::dfs;
+
+use dfs::Tree;
+
 pub trait DfsLifecycle<N, R> {
     fn threads(&self) -> usize;
     fn recollect_ms(&self) -> u64;
@@ -11,5 +15,8 @@ pub trait DfsLifecycle<N, R> {
     }
 
     fn debug_end(&self, _path: &Vec<N>) {
+    }
+
+    fn debug_checkpoint(&self, _tree: &Tree<N>) {
     }
 }
