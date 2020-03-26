@@ -19,4 +19,7 @@ pub trait DfsLifecycle<N, R> {
 
     fn debug_checkpoint(&self, _tree: &Tree<N>) {
     }
+
+    fn debug_longest(&self, _path: &Vec<N>) {
+    }
 }

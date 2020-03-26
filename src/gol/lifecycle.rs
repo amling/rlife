@@ -80,4 +80,11 @@ impl<'a, B: Bits> DfsLifecycle<GolNode<B>, DfsResVec<GolNode<B>>> for GolLifecyc
         //    panic!();
         //}
     }
+
+    fn debug_longest(&self, path: &Vec<GolNode<B>>) {
+        eprintln!("New longest {}", path.len());
+        for line in self.ge.format_rows(path) {
+            eprintln!("{}", line);
+        }
+    }
 }

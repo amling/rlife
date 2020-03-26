@@ -69,7 +69,7 @@ pub fn sdfs<N: Clone + Hash + Eq, R, GE: DfsGraph<N>, RE: DfsRes<N, R>, LE: DfsL
 
     for (tree, mut path) in unopened {
         let mut res = re.empty();
-        dfs_single_thread(ge, re, le, &stop, tree, &mut path, &mut res);
+        dfs_single_thread(ge, re, le, &stop, tree, &mut path, &mut res, &mut |_| {});
         if !le.on_recollect_results(res) {
             break;
         }
@@ -77,6 +77,8 @@ pub fn sdfs<N: Clone + Hash + Eq, R, GE: DfsGraph<N>, RE: DfsRes<N, R>, LE: DfsL
 }
 
 pub fn dfs<N: Clone + Hash + Eq + Send, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N, R> + Sync, LE: DfsLifecycle<N, R> + Sync>(root: &mut Tree<N>, ge: &GE, re: &RE, le: &LE) {
+    let mut very_longest: Option<Vec<N>> = None;
+
     loop {
         if collapse(root) {
             return;
@@ -89,11 +91,12 @@ pub fn dfs<N: Clone + Hash + Eq + Send, R: Send, GE: DfsGraph<N> + Sync, RE: Dfs
         }
 
         let mut results: Vec<_> = unopened.iter().map(|_| re.empty()).collect();
+        let mut longests: Vec<Option<Vec<N>>> = unopened.iter().map(|_| None).collect();
 
         {
             let q = SegQueue::new();
-            for pair in unopened.into_iter().zip(results.iter_mut()) {
-                q.push(pair);
+            for tuple in unopened.into_iter().zip(results.iter_mut()).zip(longests.iter_mut()) {
+                q.push(tuple);
             }
 
             let stop = AtomicBool::new(false);
@@ -103,14 +106,22 @@ pub fn dfs<N: Clone + Hash + Eq + Send, R: Send, GE: DfsGraph<N> + Sync, RE: Dfs
                 for _ in 0..le.threads() {
                     sc.spawn(|_| {
                         loop {
-                            let ((tree, mut path), res) = match q.pop() {
-                                Result::Ok(pair) => pair,
+                            let (((tree, mut path), res), longest) = match q.pop() {
+                                Result::Ok(tuple) => tuple,
                                 Result::Err(PopError) => {
                                     return;
                                 }
                             };
 
-                            dfs_single_thread(ge, re, le, stop, tree, &mut path, res);
+                            dfs_single_thread(ge, re, le, stop, tree, &mut path, res, &mut |path| {
+                                let replace = match longest {
+                                    Some(longest) => path.len() > longest.len(),
+                                    None => true,
+                                };
+                                if replace {
+                                    *longest = Some(path.clone());
+                                }
+                            });
                         }
                     });
                 }
@@ -124,6 +135,19 @@ pub fn dfs<N: Clone + Hash + Eq + Send, R: Send, GE: DfsGraph<N> + Sync, RE: Dfs
         let mut res = re.empty();
         for res1 in results {
             res = re.reduce(res, res1);
+        }
+
+        for longest in longests {
+            if let Some(longest) = longest {
+                let replace = match very_longest {
+                    Some(ref very_longest) => longest.len() > very_longest.len(),
+                    None => true,
+                };
+                if replace {
+                    le.debug_longest(&longest);
+                    very_longest = Some(longest);
+                }
+            }
         }
 
         let firstest = find_firstest(root);
@@ -206,8 +230,9 @@ fn find_firstest_aux<N: Clone>(tree: &Tree<N>, acc: &mut Vec<N>) -> bool {
     false
 }
 
-fn dfs_single_thread<N: Clone + Eq + Hash, R, GE: DfsGraph<N>, RE: DfsRes<N, R>, LE: DfsLifecycle<N, R>>(ge: &GE, re: &RE, le: &LE, stop: &AtomicBool, t1: &mut Tree<N>, path: &mut Path<N>, r: &mut R) -> bool {
+fn dfs_single_thread<N: Clone + Eq + Hash, R, GE: DfsGraph<N>, RE: DfsRes<N, R>, LE: DfsLifecycle<N, R>>(ge: &GE, re: &RE, le: &LE, stop: &AtomicBool, t1: &mut Tree<N>, path: &mut Path<N>, r: &mut R, on_enter: &mut impl FnMut(&Vec<N>)) -> bool {
     le.debug_enter(&path.vec);
+    on_enter(&path.vec);
 
     if stop.load(Ordering::Relaxed) {
         return false;
@@ -240,7 +265,7 @@ fn dfs_single_thread<N: Clone + Eq + Hash, R, GE: DfsGraph<N>, RE: DfsRes<N, R>,
                 }
 
                 let mut t2 = Tree(n2, TreeStatus::Unopened);
-                if !dfs_single_thread(ge, re, le, stop, &mut t2, path, r) {
+                if !dfs_single_thread(ge, re, le, stop, &mut t2, path, r, on_enter) {
                     finished = false;
                 }
                 if let TreeStatus::Closed = t2.1 {
