@@ -9,10 +9,10 @@ use dfs::graph::DfsGraph;
 #[derive(Hash)]
 #[derive(PartialEq)]
 pub struct GolNode<B> {
-    r0: B,
-    r1: B,
-    r2: B,
-    r2l: usize,
+    pub r0: B,
+    pub r1: B,
+    pub r2: B,
+    pub r2l: usize,
 }
 
 pub enum GolSym {
@@ -384,16 +384,6 @@ fn expand_srch<B: Bits>(e: &GolGraph, n1: &GolNode<B>, n2s: &mut Vec<GolNode<B>>
 }
 
 impl<B: Bits> DfsGraph<GolNode<B>> for GolGraph {
-    fn start(&self) -> GolNode<B> {
-        assert!(self.mt * self.mx <= B::size());
-        GolNode {
-            r0: B::c(0b0000010001000100110010000000001000010001010101010101110110010011001100100000),
-            r1: B::c(0b0100010011001000000000100001000101010101010111011001001100110010000000000100),
-            r2: B::zero(),
-            r2l: 0,
-        }
-    }
-
     fn expand(&self, n1: &GolNode<B>) -> Vec<GolNode<B>> {
         let mut n2s = Vec::new();
         expand_srch(self, n1, &mut n2s);

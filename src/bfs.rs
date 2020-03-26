@@ -34,8 +34,8 @@ fn check_cycle<N: Eq>(qs: &[Vec<(usize, N)>], idx: usize, n: &N) -> Option<usize
     None
 }
 
-pub fn sbfs<N: Clone + Hash + Eq, R, GE: DfsGraph<N>, RE: DfsRes<N, R>, LE: DfsLifecycle<N, R>>(ge: &GE, re: &RE, le: &LE) {
-    let mut qs = vec![vec![(0, ge.start())]];
+pub fn sbfs<N: Clone + Hash + Eq, R, GE: DfsGraph<N>, RE: DfsRes<N, R>, LE: DfsLifecycle<N, R>>(n0: N, ge: &GE, re: &RE, le: &LE) {
+    let mut qs = vec![vec![(0, n0)]];
 
     loop {
         let ql = qs.last().unwrap();

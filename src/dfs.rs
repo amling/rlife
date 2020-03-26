@@ -50,40 +50,40 @@ impl<N: Clone + Hash + Eq> Path<N> {
     }
 }
 
-struct Tree<N>(N, TreeStatus<N>);
+pub struct Tree<N>(pub N, pub TreeStatus<N>);
 
-enum TreeStatus<N> {
+pub enum TreeStatus<N> {
     Unopened,
     Opened(Vec<Tree<N>>),
     Closed,
 }
 
-pub fn sdfs<N: Clone + Hash + Eq, R, GE: DfsGraph<N>, RE: DfsRes<N, R>, LE: DfsLifecycle<N, R>>(ge: &GE, re: &RE, le: &LE) {
+pub fn sdfs<N: Clone + Hash + Eq, R, GE: DfsGraph<N>, RE: DfsRes<N, R>, LE: DfsLifecycle<N, R>>(root: &mut Tree<N>, ge: &GE, re: &RE, le: &LE) {
     let stop = AtomicBool::new(false);
-    let n0 = ge.start();
-    let mut tree = Tree(n0.clone(), TreeStatus::Unopened);
-    let mut path = Path::new();
-    path.push(&n0);
-    let mut res = re.empty();
 
-    dfs_single_thread(ge, re, le, &stop, &mut tree, &mut path, &mut res);
+    let mut unopened = Vec::new();
+    {
+        let mut path = Path::new();
+        find_unopened(&mut unopened, root, &mut path);
+    }
 
-    le.on_recollect(vec![], res);
+    for (tree, mut path) in unopened {
+        let mut res = re.empty();
+        dfs_single_thread(ge, re, le, &stop, tree, &mut path, &mut res);
+        le.on_recollect(vec![], res);
+    }
 }
 
-pub fn dfs<N: Clone + Hash + Eq + Send, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N, R> + Sync, LE: DfsLifecycle<N, R> + Sync>(ge: &GE, re: &RE, le: &LE) {
-    let n0 = ge.start();
-    let mut root = Tree(n0, TreeStatus::Unopened);
-
+pub fn dfs<N: Clone + Hash + Eq + Send, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N, R> + Sync, LE: DfsLifecycle<N, R> + Sync>(root: &mut Tree<N>, ge: &GE, re: &RE, le: &LE) {
     loop {
-        if collapse(&mut root) {
+        if collapse(root) {
             return;
         }
 
         let mut unopened = Vec::new();
         {
             let mut path = Path::new();
-            find_unopened(&mut unopened, &mut root, &mut path);
+            find_unopened(&mut unopened, root, &mut path);
         }
 
         let mut results: Vec<_> = unopened.iter().map(|_| re.empty()).collect();
@@ -124,7 +124,7 @@ pub fn dfs<N: Clone + Hash + Eq + Send, R: Send, GE: DfsGraph<N> + Sync, RE: Dfs
             res = re.reduce(res, res1);
         }
 
-        let firstest = find_firstest(&root);
+        let firstest = find_firstest(root);
 
         if !le.on_recollect(firstest, res) {
             return;
