@@ -18,7 +18,7 @@ fn main1<B: Bits>() {
         mt: 1,
         mx: 19,
 
-        ox: 9,
+        ox: 7,
         oy: 0,
     };
 
