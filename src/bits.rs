@@ -3,7 +3,20 @@ use std::hash::Hash;
 
 pub trait Bits: Copy + Send + Sync + Hash + Eq + Debug {
     fn zero() -> Self;
-    fn c(c: u128) -> Self;
+    fn cnst(c: u128) -> Self {
+        let mut b = Self::zero();
+        let mut c = c;
+        let mut idx = 0;
+        while c > 0 {
+            if c % 2 == 1 {
+                assert!(idx < Self::size());
+                Self::set_bit(&mut b, idx, true);
+            }
+            c >>= 1;
+            idx += 1;
+        }
+        b
+    }
     fn size() -> usize;
     fn get_bit(&self, n: usize) -> bool;
     fn set_bit(&mut self, n: usize, v: bool);
@@ -16,10 +29,6 @@ macro_rules! uxx_bits_impl {
         impl Bits for $t {
             fn zero() -> Self {
                 0
-            }
-
-            fn c(c: u128) -> Self {
-                c as Self
             }
 
             fn size() -> usize {
@@ -47,10 +56,6 @@ uxx_bits_impl!(u128, 128);
 impl<A: Bits, B: Bits> Bits for (A, B) {
     fn zero() -> Self {
         (A::zero(), B::zero())
-    }
-
-    fn c(c: u128) -> Self {
-        (A::c(c), B::zero())
     }
 
     fn size() -> usize {
