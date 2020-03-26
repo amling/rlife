@@ -10,15 +10,15 @@ use gol::graph::GolNode;
 use gol::lifecycle::GolLifecycle;
 
 fn main() {
-    main1::<u64>();
+    main1::<u128>();
 }
 
 fn main1<B: Bits>() {
     let ge = GolGraph {
-        mt: 1,
-        mx: 19,
+        mt: 19,
+        mx: 4,
 
-        ox: 7,
+        ox: 0,
         oy: 0,
     };
 
@@ -30,5 +30,5 @@ fn main1<B: Bits>() {
         recollect_ms: 1000,
     };
 
-    bfs::sbfs::<GolNode<B>, _, _, _, _>(&ge, &re, &le);
+    dfs::dfs::<GolNode<B>, _, _, _, _>(&ge, &re, &le);
 }

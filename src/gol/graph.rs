@@ -148,10 +148,16 @@ impl<B: Bits> PartialRow<B> {
         assert!(t < e.mt);
 
         let mut x = x;
-        while x < 0 {
-            x += (e.mx as isize);
+        if x < -1 {
+            x = -2 - x;
         }
-        x %= (e.mx as isize);
+        if x == -1 {
+            return Some(false);
+        }
+        let mx = e.mx as isize;
+        if x >= mx {
+            x = 2 * mx - 2 - x;
+        }
 
         let idx = e.to_idx(x as usize, t);
         if idx >= self.len {
@@ -342,8 +348,8 @@ impl<B: Bits> DfsGraph<GolNode<B>> for GolGraph {
     fn start(&self) -> GolNode<B> {
         assert!(self.mt * self.mx <= B::size());
         GolNode {
-            r0: B::zero(),
-            r1: B::zero(),
+            r0: B::c(0b0000010001000100110010000000001000010001010101010101110110010011001100100000),
+            r1: B::c(0b0100010011001000000000100001000101010101010111011001001100110010000000000100),
             r2: B::zero(),
             r2l: 0,
         }
