@@ -15,9 +15,20 @@ pub struct GolNode<B> {
     r2l: usize,
 }
 
+pub enum GolSym {
+    Empty,
+    Odd,
+    Even,
+    Gutter,
+    Wrap,
+}
+
 pub struct GolGraph {
     pub mt: usize,
     pub mx: usize,
+
+    pub left_sym: GolSym,
+    pub right_sym: GolSym,
 
     pub ox: isize,
     pub oy: isize,
@@ -148,15 +159,38 @@ impl<B: Bits> PartialRow<B> {
         assert!(t < e.mt);
 
         let mut x = x;
-        if x < -1 {
-            x = -2 - x;
-        }
-        if x == -1 {
-            return Some(false);
-        }
         let mx = e.mx as isize;
+        if x < 0 {
+            x = match e.left_sym {
+                GolSym::Empty => {
+                    return Some(false);
+                },
+                GolSym::Odd => -x,
+                GolSym::Even => -x - 1,
+                GolSym::Gutter => {
+                    if x == -1 {
+                        return Some(false);
+                    }
+                    -x - 2
+                }
+                GolSym::Wrap => x + mx,
+            };
+        }
         if x >= mx {
-            x = 2 * mx - 2 - x;
+            x = match e.right_sym {
+                GolSym::Empty => {
+                    return Some(false);
+                },
+                GolSym::Odd => 2 * mx - 2 - x,
+                GolSym::Even => 2 * mx - 1 - x,
+                GolSym::Gutter => {
+                    if x == mx {
+                        return Some(false);
+                    }
+                    2 * mx - x
+                },
+                GolSym::Wrap => x - mx,
+            };
         }
 
         let idx = e.to_idx(x as usize, t);
