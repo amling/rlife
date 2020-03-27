@@ -46,14 +46,14 @@ impl<'a, B: Bits> DfsLifecycle<GolNode<B>, DfsResVec<GolNode<B>>> for GolLifecyc
         return self.recollect_ms;
     }
 
-    fn on_recollect_firstest(&self, firstest: Vec<GolNode<B>>) {
+    fn on_recollect_firstest(&mut self, firstest: Vec<GolNode<B>>) {
         eprintln!("Recollect firstest...");
         for line in self.ge.format_rows(&firstest) {
             eprintln!("{}", line);
         }
     }
 
-    fn on_recollect_results(&self, r: DfsResVec<GolNode<B>>) -> bool {
+    fn on_recollect_results(&mut self, r: DfsResVec<GolNode<B>>) -> bool {
         for cycle in &r.cycles {
             self.print_cycle(&cycle.0, &cycle.1);
         }
@@ -86,7 +86,7 @@ impl<'a, B: Bits> DfsLifecycle<GolNode<B>, DfsResVec<GolNode<B>>> for GolLifecyc
         //}
     }
 
-    fn debug_checkpoint(&self, tree: &Tree<GolNode<B>>) {
+    fn debug_checkpoint(&mut self, tree: &Tree<GolNode<B>>) {
         if let Some(ref output_dir) = self.output_dir {
             let path1 = format!("{}/{}", output_dir, ".tree.tmp");
             let path2 = format!("{}/{}", output_dir, "tree");
@@ -97,7 +97,7 @@ impl<'a, B: Bits> DfsLifecycle<GolNode<B>, DfsResVec<GolNode<B>>> for GolLifecyc
         }
     }
 
-    fn debug_longest(&self, path: &Vec<GolNode<B>>) {
+    fn debug_longest(&mut self, path: &Vec<GolNode<B>>) {
         eprintln!("New longest {}", path.len());
         for line in self.ge.format_rows(path) {
             eprintln!("{}", line);

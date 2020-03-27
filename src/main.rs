@@ -55,14 +55,14 @@ fn main1<B: Bits>() {
 
     let re = DfsResToVec();
 
-    let le = GolLifecycle {
+    let mut le = GolLifecycle {
         ge: &ge,
         threads: 8,
         recollect_ms: 1000,
         output_dir: Some(dir.clone()),
     };
 
-    dfs::dfs::<GolNode<B>, _, _, _, _>(&mut root, &ge, &re, &le);
+    dfs::dfs::<GolNode<B>, _, _, _, _>(&mut root, &ge, &re, &mut le);
 }
 
 fn load_or_with<T: DeserializeOwned + Serialize>(dir: impl AsRef<str>, file: impl AsRef<str>, init: impl FnOnce() -> T) -> T {
