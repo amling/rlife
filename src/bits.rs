@@ -1,7 +1,10 @@
+use serde::Serialize;
+use serde::de::DeserializeOwned;
+
 use std::fmt::Debug;
 use std::hash::Hash;
 
-pub trait Bits: Copy + Send + Sync + Hash + Eq + Debug {
+pub trait Bits: Copy + Send + Sync + Hash + Eq + Debug + DeserializeOwned + Serialize {
     fn zero() -> Self;
     fn cnst(c: u128) -> Self {
         let mut b = Self::zero();

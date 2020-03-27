@@ -1,3 +1,6 @@
+use serde::Deserialize;
+use serde::Serialize;
+
 use crate::bits;
 use crate::dfs;
 
@@ -5,9 +8,11 @@ use bits::Bits;
 use dfs::graph::DfsGraph;
 
 #[derive(Clone)]
+#[derive(Deserialize)]
 #[derive(Eq)]
 #[derive(Hash)]
 #[derive(PartialEq)]
+#[derive(Serialize)]
 pub struct GolNode<B> {
     pub r0: B,
     pub r1: B,
@@ -15,6 +20,8 @@ pub struct GolNode<B> {
     pub r2l: usize,
 }
 
+#[derive(Deserialize)]
+#[derive(Serialize)]
 pub enum GolSym {
     Empty,
     Odd,
@@ -23,6 +30,8 @@ pub enum GolSym {
     Wrap,
 }
 
+#[derive(Deserialize)]
+#[derive(Serialize)]
 pub struct GolGraph {
     pub mt: usize,
     pub mx: usize,

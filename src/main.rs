@@ -1,3 +1,12 @@
+extern crate serde;
+
+use serde::Serialize;
+use serde::de::DeserializeOwned;
+use std::fs::File;
+use std::io::Read;
+use std::io::Write;
+use std::path::Path;
+
 mod bfs;
 mod bits;
 mod dfs;
@@ -17,16 +26,22 @@ fn main() {
 }
 
 fn main1<B: Bits>() {
-    let ge = GolGraph {
-        mt: 19,
-        mx: 4,
+    let dir = std::env::args().skip(1).next().unwrap();
+    std::fs::create_dir_all(&dir).unwrap();
 
-        left_sym: GolSym::Gutter,
-        right_sym: GolSym::Odd,
+    let ge: GolGraph = load_or_with(&dir, "ge", || {
+        GolGraph {
+            mt: 19,
+            mx: 4,
 
-        ox: 0,
-        oy: 0,
-    };
+            left_sym: GolSym::Gutter,
+            right_sym: GolSym::Odd,
+
+            ox: 0,
+            oy: 0,
+        }
+    });
+    assert!(ge.mt * ge.mx <= B::size());
 
     let re = DfsResToVec();
 
@@ -36,14 +51,36 @@ fn main1<B: Bits>() {
         recollect_ms: 1000,
     };
 
-    assert!(ge.mt * ge.mx <= B::size());
-    let n0 = GolNode {
-        r0: B::cnst(0b0000010001000100110010000000001000010001010101010101110110010011001100100000),
-        r1: B::cnst(0b0100010011001000000000100001000101010101010111011001001100110010000000000100),
-        r2: B::zero(),
-        r2l: 0,
-    };
-    let mut root = Tree(n0, TreeStatus::Unopened);
+    let mut root = load_or_with(&dir, "tree", || {
+        let n0 = GolNode {
+            r0: B::cnst(0b0000010001000100110010000000001000010001010101010101110110010011001100100000),
+            r1: B::cnst(0b0100010011001000000000100001000101010101010111011001001100110010000000000100),
+            r2: B::zero(),
+            r2l: 0,
+        };
+        Tree(n0, TreeStatus::Unopened)
+    });
 
     dfs::dfs::<GolNode<B>, _, _, _, _>(&mut root, &ge, &re, &le);
+}
+
+fn load_or_with<T: DeserializeOwned + Serialize>(dir: impl AsRef<str>, file: impl AsRef<str>, init: impl FnOnce() -> T) -> T {
+    let dir = dir.as_ref();
+    let file = file.as_ref();
+
+    let path = format!("{}/{}", dir, file);
+    let path = Path::new(&path);
+    if path.is_file() {
+        let mut f = File::open(path).unwrap();
+        let mut s = String::new();
+        f.read_to_string(&mut s).unwrap();
+        serde_json::from_str(&s).unwrap()
+    }
+    else {
+        let r = init();
+        let mut f = File::create(path).unwrap();
+        let s = serde_json::to_string(&r).unwrap();
+        f.write_all(s.as_bytes()).unwrap();
+        r
+    }
 }

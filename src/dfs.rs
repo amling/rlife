@@ -1,5 +1,7 @@
 use crossbeam::queue::PopError;
 use crossbeam::queue::SegQueue;
+use serde::Deserialize;
+use serde::Serialize;
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::sync::atomic::AtomicBool;
@@ -50,8 +52,12 @@ impl<N: Clone + Hash + Eq> Path<N> {
     }
 }
 
+#[derive(Deserialize)]
+#[derive(Serialize)]
 pub struct Tree<N>(pub N, pub TreeStatus<N>);
 
+#[derive(Deserialize)]
+#[derive(Serialize)]
 pub enum TreeStatus<N> {
     Unopened,
     Opened(Vec<Tree<N>>),
