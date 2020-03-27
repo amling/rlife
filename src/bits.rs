@@ -52,8 +52,8 @@ macro_rules! uxx_bits_impl {
     }
 }
 
-//uxx_bits_impl!(u32, 32);
-//uxx_bits_impl!(u64, 64);
+uxx_bits_impl!(u32, 32);
+uxx_bits_impl!(u64, 64);
 uxx_bits_impl!(u128, 128);
 
 impl<A: Bits, B: Bits> Bits for (A, B) {
