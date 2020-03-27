@@ -49,6 +49,7 @@ fn main1<B: Bits>() {
         ge: &ge,
         threads: 8,
         recollect_ms: 1000,
+        output_dir: Some(dir.clone()),
     };
 
     let mut root = load_or_with(&dir, "tree", || {
