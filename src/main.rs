@@ -43,15 +43,6 @@ fn main1<B: Bits>() {
     });
     assert!(ge.mt * ge.mx <= B::size());
 
-    let re = DfsResToVec();
-
-    let le = GolLifecycle {
-        ge: &ge,
-        threads: 8,
-        recollect_ms: 1000,
-        output_dir: Some(dir.clone()),
-    };
-
     let mut root = load_or_with(&dir, "tree", || {
         let n0 = GolNode {
             r0: B::cnst(0b0000010001000100110010000000001000010001010101010101110110010011001100100000),
@@ -61,6 +52,15 @@ fn main1<B: Bits>() {
         };
         Tree(n0, TreeStatus::Unopened).to_serde_proxy()
     }).to_tree();
+
+    let re = DfsResToVec();
+
+    let le = GolLifecycle {
+        ge: &ge,
+        threads: 8,
+        recollect_ms: 1000,
+        output_dir: Some(dir.clone()),
+    };
 
     dfs::dfs::<GolNode<B>, _, _, _, _>(&mut root, &ge, &re, &le);
 }
