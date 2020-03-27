@@ -17,23 +17,18 @@ pub struct GolLifecycle<'a> {
     pub threads: usize,
     pub recollect_ms: u64,
     pub output_dir: Option<String>,
+    pub log: Option<File>,
 }
 
 impl<'a> GolLifecycle<'a> {
-    fn print_cycle<B: Bits>(&self, path: &Vec<GolNode<B>>, cycle: &Vec<GolNode<B>>) {
-        println!("Cycle:");
-        for line in self.ge.format_cycle_rows(path, cycle) {
-            println!("{}", line);
+    fn log(&mut self, s: impl Into<String>) {
+        let s = s.into();
+        if let Some(log) = &mut self.log {
+            writeln!(log, "{}", s).unwrap();
         }
-        println!("");
-    }
-
-    fn print_end<B: Bits>(&self, path: &Vec<GolNode<B>>) {
-        println!("End:");
-        for line in self.ge.format_rows(path) {
-            println!("{}", line);
+        else {
+            println!("{}", s);
         }
-        println!("");
     }
 }
 
@@ -55,36 +50,31 @@ impl<'a, B: Bits> DfsLifecycle<GolNode<B>, DfsResVec<GolNode<B>>> for GolLifecyc
 
     fn on_recollect_results(&mut self, r: DfsResVec<GolNode<B>>) -> bool {
         for cycle in &r.cycles {
-            self.print_cycle(&cycle.0, &cycle.1);
+            let (path, cycle) = cycle;
+            self.log("Cycle:");
+            for line in self.ge.format_cycle_rows(path, cycle) {
+                self.log(line);
+            }
+            self.log("");
         }
 
-        for end in &r.ends {
-            self.print_end(end);
+        for path in &r.ends {
+            self.log("End:");
+            for line in self.ge.format_rows(path) {
+                self.log(line);
+            }
+            self.log("");
         }
 
         return true;
     }
 
-    fn debug_enter(&self, path: &Vec<GolNode<B>>) {
-        //eprintln!("Enter search {}", path.len());
-        //for line in self.ge.format_rows(path) {
-        //    eprintln!("{}", line);
-        //}
-    }
-
-    fn debug_cycle(&self, path: &Vec<GolNode<B>>, cycle: &Vec<GolNode<B>>) {
-        self.print_cycle(path, cycle);
-        //if path.len() + cycle.len() > 2 {
-        //    panic!();
-        //}
-    }
-
-    fn debug_end(&self, path: &Vec<GolNode<B>>) {
-        self.print_end(path);
-        //if path.len() > 2 {
-        //    panic!();
-        //}
-    }
+    //fn debug_enter(&self, path: &Vec<GolNode<B>>) {
+    //    eprintln!("Enter search {}", path.len());
+    //    for line in self.ge.format_rows(path) {
+    //        eprintln!("{}", line);
+    //    }
+    //}
 
     fn debug_checkpoint(&mut self, tree: &Tree<GolNode<B>>) {
         if let Some(ref output_dir) = self.output_dir {
@@ -98,9 +88,10 @@ impl<'a, B: Bits> DfsLifecycle<GolNode<B>, DfsResVec<GolNode<B>>> for GolLifecyc
     }
 
     fn debug_longest(&mut self, path: &Vec<GolNode<B>>) {
-        eprintln!("New longest {}", path.len());
+        self.log(format!("Longest {}", path.len()));
         for line in self.ge.format_rows(path) {
-            eprintln!("{}", line);
+            self.log(line);
         }
+        self.log("");
     }
 }

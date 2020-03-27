@@ -1,5 +1,7 @@
+extern crate chrono;
 extern crate serde;
 
+use chrono::Local;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use std::fs::File;
@@ -55,11 +57,14 @@ fn main1<B: Bits>() {
 
     let re = DfsResToVec();
 
+    let log = format!("{}/log.{}", dir, Local::now().format("%Y%m%d-%H%M%S"));
+
     let mut le = GolLifecycle {
         ge: &ge,
         threads: 8,
         recollect_ms: 1000,
         output_dir: Some(dir.clone()),
+        log: Some(File::create(log).unwrap()),
     };
 
     dfs::dfs::<GolNode<B>, _, _, _, _>(&mut root, &ge, &re, &mut le);
