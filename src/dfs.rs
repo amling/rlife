@@ -52,16 +52,78 @@ impl<N: Clone + Hash + Eq> Path<N> {
     }
 }
 
-#[derive(Deserialize)]
-#[derive(Serialize)]
 pub struct Tree<N>(pub N, pub TreeStatus<N>);
 
-#[derive(Deserialize)]
-#[derive(Serialize)]
 pub enum TreeStatus<N> {
     Unopened,
     Opened(Vec<Tree<N>>),
     Closed,
+}
+
+#[derive(Deserialize)]
+#[derive(Serialize)]
+pub enum TreeSerdeProxyElement<N> {
+    Unopened(N),
+    Open(N),
+    Close,
+    Closed(N),
+}
+
+#[derive(Deserialize)]
+#[derive(Serialize)]
+pub struct TreeSerdeProxy<N>(Vec<TreeSerdeProxyElement<N>>);
+
+impl<N: Clone> Tree<N> {
+    pub fn to_serde_proxy(&self) -> TreeSerdeProxy<N> {
+        let mut acc = Vec::new();
+        self.to_serde_proxy_aux(&mut acc);
+        TreeSerdeProxy(acc)
+    }
+
+    fn to_serde_proxy_aux(&self, acc: &mut Vec<TreeSerdeProxyElement<N>>) {
+        let n = self.0.clone();
+        match self.1 {
+            TreeStatus::Unopened => acc.push(TreeSerdeProxyElement::Unopened(n)),
+            TreeStatus::Opened(ref children) => {
+                acc.push(TreeSerdeProxyElement::Open(n));
+                for child in children {
+                    child.to_serde_proxy_aux(acc);
+                }
+                acc.push(TreeSerdeProxyElement::Close);
+            }
+            TreeStatus::Closed => acc.push(TreeSerdeProxyElement::Closed(n)),
+        }
+    }
+}
+
+impl<N: Clone> TreeSerdeProxy<N> {
+    pub fn to_tree(&self) -> Tree<N> {
+        let mut idx = 0;
+        let r = self.to_tree_aux(&mut idx);
+        assert_eq!(idx, self.0.len());
+        r
+    }
+
+    fn to_tree_aux(&self, idx: &mut usize) -> Tree<N> {
+        let first = &self.0[*idx];
+        *idx += 1;
+        match first {
+            TreeSerdeProxyElement::Unopened(n) => Tree(n.clone(), TreeStatus::Unopened),
+            TreeSerdeProxyElement::Open(n) => {
+                let mut children = Vec::new();
+                loop {
+                    if let TreeSerdeProxyElement::Close = self.0[*idx] {
+                        *idx += 1;
+                        break;
+                    }
+                    children.push(self.to_tree_aux(idx));
+                }
+                Tree(n.clone(), TreeStatus::Opened(children))
+            },
+            TreeSerdeProxyElement::Closed(n) => Tree(n.clone(), TreeStatus::Closed),
+            _ => panic!(),
+        }
+    }
 }
 
 pub fn sdfs<N: Clone + Hash + Eq, R, GE: DfsGraph<N>, RE: DfsRes<N, R>, LE: DfsLifecycle<N, R>>(root: &mut Tree<N>, ge: &GE, re: &RE, le: &LE) {

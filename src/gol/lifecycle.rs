@@ -91,7 +91,7 @@ impl<'a, B: Bits> DfsLifecycle<GolNode<B>, DfsResVec<GolNode<B>>> for GolLifecyc
             let path1 = format!("{}/{}", output_dir, ".tree.tmp");
             let path2 = format!("{}/{}", output_dir, "tree");
             let mut f = File::create(&path1).unwrap();
-            let s = serde_json::to_string(tree).unwrap();
+            let s = serde_json::to_string(&tree.to_serde_proxy()).unwrap();
             f.write_all(s.as_bytes()).unwrap();
             std::fs::rename(&path1, &path2).unwrap();
         }

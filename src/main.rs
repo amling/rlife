@@ -59,8 +59,8 @@ fn main1<B: Bits>() {
             r2: B::zero(),
             r2l: 0,
         };
-        Tree(n0, TreeStatus::Unopened)
-    });
+        Tree(n0, TreeStatus::Unopened).to_serde_proxy()
+    }).to_tree();
 
     dfs::dfs::<GolNode<B>, _, _, _, _>(&mut root, &ge, &re, &le);
 }
