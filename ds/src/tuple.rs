@@ -1,4 +1,7 @@
-pub struct Tuple1<T>(T);
+#[derive(Clone)]
+#[derive(Eq)]
+#[derive(PartialEq)]
+pub struct Tuple1<T>(pub T);
 
 pub trait CTupleEnd {
     type F;
@@ -22,15 +25,15 @@ impl<A> CTupleEnd for Tuple1<A> {
 }
 
 impl<A, B> CTupleEnd for (A, B) {
-    type F = A;
+    type F = Tuple1<A>;
     type B = B;
 
-    fn split_tuple_end((a, b): (A, B)) -> (A, B) {
-        (a, b)
+    fn split_tuple_end((a, b): (A, B)) -> (Tuple1<A>, B) {
+        (Tuple1(a), b)
     }
 
-    fn join_tuple_end(a: A, b: B) -> (A, B) {
-        (a, b)
+    fn join_tuple_end(a: Tuple1<A>, b: B) -> (A, B) {
+        (a.0, b)
     }
 }
 
@@ -113,14 +116,14 @@ impl<A> CTupleStart for Tuple1<A> {
 
 impl<A, B> CTupleStart for (A, B) {
     type F = A;
-    type B = B;
+    type B = Tuple1<B>;
 
-    fn split_tuple_start((a, b): (A, B)) -> (A, B) {
-        (a, b)
+    fn split_tuple_start((a, b): (A, B)) -> (A, Tuple1<B>) {
+        (a, Tuple1(b))
     }
 
-    fn join_tuple_start(a: A, b: B) -> (A, B) {
-        (a, b)
+    fn join_tuple_start(a: A, b: Tuple1<B>) -> (A, B) {
+        (a, b.0)
     }
 }
 
