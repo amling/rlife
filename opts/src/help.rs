@@ -56,20 +56,16 @@ impl OptionsHelp {
     }
 }
 
-pub trait ToOptionsHelpString {
-    fn to_help_string(self) -> String;
+// we'd love to use Into<String> but then rust thinks impls below may conflict if someone adds e.g.
+// Into<String> for () which is of course impossible.  We use the usual escape hatch of a local
+// trait.
+pub trait ToOptionsHelpString: Into<String> {
 }
 
 impl ToOptionsHelpString for String {
-    fn to_help_string(self) -> String {
-        return self;
-    }
 }
 
 impl ToOptionsHelpString for &str {
-    fn to_help_string(self) -> String {
-        return self.to_string();
-    }
 }
 
 pub trait ToOptionsHelp {
@@ -89,7 +85,7 @@ impl<S: ToOptionsHelpString> ToOptionsHelp for S {
     fn to_help(self) -> Option<OptionsHelp> {
         return Some(OptionsHelp {
             meta: None,
-            msg: Some(self.to_help_string()),
+            msg: Some(self.into()),
         });
     }
 }
@@ -97,8 +93,8 @@ impl<S: ToOptionsHelpString> ToOptionsHelp for S {
 impl<S1: ToOptionsHelpString, S2: ToOptionsHelpString> ToOptionsHelp for (S1, S2) {
     fn to_help(self) -> Option<OptionsHelp> {
         return Some(OptionsHelp {
-            meta: Some(self.0.to_help_string()),
-            msg: Some(self.1.to_help_string()),
+            meta: Some(self.0.into()),
+            msg: Some(self.1.into()),
         });
     }
 }
