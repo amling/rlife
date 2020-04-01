@@ -15,11 +15,11 @@ impl<A> CTupleEnd for Tuple1<A> {
     type F = ();
     type B = A;
 
-    fn split_tuple_end(Tuple1(a): Self) -> ((), A) {
-        ((), a)
+    fn split_tuple_end(a: Tuple1<A>) -> ((), A) {
+        ((), a.0)
     }
 
-    fn join_tuple_end(_: (), a: A) -> Self {
+    fn join_tuple_end((): (), a: A) -> Tuple1<A> {
         Tuple1(a)
     }
 }
@@ -70,11 +70,11 @@ pub trait TupleEnd<B> {
 impl<A> TupleEnd<A> for A {
     type F = ();
 
-    fn split_tuple_end(a: Self) -> ((), A) {
+    fn split_tuple_end(a: A) -> ((), A) {
         ((), a)
     }
 
-    fn join_tuple_end(_: (), a: A) -> A {
+    fn join_tuple_end((): (), a: A) -> A {
         a
     }
 }
@@ -125,11 +125,11 @@ impl<A> CTupleStart for Tuple1<A> {
     type F = A;
     type B = ();
 
-    fn split_tuple_start(Tuple1(a): Self) -> (A, ()) {
-        (a, ())
+    fn split_tuple_start(a: Tuple1<A>) -> (A, ()) {
+        (a.0, ())
     }
 
-    fn join_tuple_start(a: A, _: ()) -> Self {
+    fn join_tuple_start(a: A, (): ()) -> Tuple1<A> {
         Tuple1(a)
     }
 }
@@ -180,11 +180,11 @@ pub trait TupleStart<F> {
 impl<A> TupleStart<A> for A {
     type B = ();
 
-    fn split_tuple_start(a: Self) -> (A, ()) {
+    fn split_tuple_start(a: A) -> (A, ()) {
         (a, ())
     }
 
-    fn join_tuple_start(a: A, _: ()) -> A {
+    fn join_tuple_start(a: A, (): ()) -> A {
         a
     }
 }
