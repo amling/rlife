@@ -3,3 +3,6 @@ name = "ars_ds"
 version = "1.0.0"
 authors = ["Keith Amling <me@amling2.org>"]
 edition = "2018"
+
+[dependencies]
+ars_macro = { path = "../macro" }

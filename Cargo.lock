@@ -10,6 +10,9 @@ dependencies = [
 [[package]]
 name = "ars_ds"
 version = "1.0.0"
+dependencies = [
+ "ars_macro 1.0.0",
+]
 
 [[package]]
 name = "ars_graph"
