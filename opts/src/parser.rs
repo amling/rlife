@@ -3,10 +3,11 @@ use ars_validates::Validates;
 use ars_validates::ValidationError;
 use ars_validates::ValidationResult;
 use std::rc::Rc;
-use super::help::OptionsHelp;
-use super::help::ToOptionsHelp;
-use super::trie::NameTrie;
-use super::trie::NameTrieResult;
+
+use crate::help::OptionsHelp;
+use crate::help::ToOptionsHelp;
+use crate::trie::NameTrie;
+use crate::trie::NameTrieResult;
 
 type CbMany<P> = PointerRc<dyn Fn(&mut P, &[String]) -> ValidationResult<()>>;
 type CbOne<P> = PointerRc<dyn Fn(&mut P, &str) -> ValidationResult<bool>>;
