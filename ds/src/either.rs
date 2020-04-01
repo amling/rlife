@@ -6,7 +6,7 @@ pub enum Either<L, R> {
 }
 
 impl<L, R> Either<L, R> {
-    pub fn convert_r_mut<F: FnOnce(&L) -> R>(&mut self, f: F) -> &mut R {
+    pub fn convert_r_mut(&mut self, f: impl FnOnce(&L) -> R) -> &mut R {
         // Arggh, I wish f could take L...
         let new_r;
         match self {
@@ -28,14 +28,14 @@ impl<L, R> Either<L, R> {
         }
     }
 
-    pub fn map_left<L2, F: FnOnce(L) -> L2>(self, f: F) -> Either<L2, R> {
+    pub fn map_left<L2>(self, f: impl FnOnce(L) -> L2) -> Either<L2, R> {
         return match self {
             Either::Left(l) => Either::Left(f(l)),
             Either::Right(r) => Either::Right(r),
         };
     }
 
-    pub fn map_right<R2, F: FnOnce(R) -> R2>(self, f: F) -> Either<L, R2> {
+    pub fn map_right<R2>(self, f: impl FnOnce(R) -> R2) -> Either<L, R2> {
         return match self {
             Either::Left(l) => Either::Left(l),
             Either::Right(r) => Either::Right(f(r)),

@@ -84,7 +84,7 @@ impl<T, P> DefaultedOption<T, P> {
         return Result::Ok(true);
     }
 
-    pub fn maybe_set_with<F: FnOnce() -> T>(&mut self, f: F) -> ValidationResult<bool> {
+    pub fn maybe_set_with(&mut self, f: impl FnOnce() -> T) -> ValidationResult<bool> {
         if self.0.is_some() {
             return Result::Ok(false);
         }

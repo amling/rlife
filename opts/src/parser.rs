@@ -29,23 +29,23 @@ impl<P: 'static> OptionsPile<P> {
         return OptionsPile(Vec::new());
     }
 
-    pub fn match_single<F: Fn(&mut P, &str) -> ValidationResult<()> + 'static>(&mut self, aliases: &[&str], f: F, help: impl ToOptionsHelp) {
+    pub fn match_single(&mut self, aliases: &[&str], f: impl Fn(&mut P, &str) -> ValidationResult<()> + 'static, help: impl ToOptionsHelp) {
         self.match_n(aliases, 1, move |p, a| f(p, &a[0]), help);
     }
 
-    pub fn match_zero<F: Fn(&mut P) -> ValidationResult<()> + 'static>(&mut self, aliases: &[&str], f: F, help: impl ToOptionsHelp) {
+    pub fn match_zero(&mut self, aliases: &[&str], f: impl Fn(&mut P) -> ValidationResult<()> + 'static, help: impl ToOptionsHelp) {
         self.match_n(aliases, 0, move |p, _a| f(p), help);
     }
 
-    pub fn match_n<F: Fn(&mut P, &[String]) -> ValidationResult<()> + 'static>(&mut self, aliases: &[&str], argct: usize, f: F, help: impl ToOptionsHelp) {
+    pub fn match_n(&mut self, aliases: &[&str], argct: usize, f: impl Fn(&mut P, &[String]) -> ValidationResult<()> + 'static, help: impl ToOptionsHelp) {
         self.0.push((OptionsMatch::Args(aliases.iter().map(|s| s.to_string()).collect(), argct, PointerRc(Rc::new(f))), help.to_help()));
     }
 
-    pub fn match_extra_soft<F: Fn(&mut P, &str) -> ValidationResult<bool> + 'static>(&mut self, f: F, help: impl ToOptionsHelp) {
+    pub fn match_extra_soft(&mut self, f: impl Fn(&mut P, &str) -> ValidationResult<bool> + 'static, help: impl ToOptionsHelp) {
         self.0.push((OptionsMatch::Extra(ExtraHandler::Soft(PointerRc(Rc::new(f)))), help.to_help()));
     }
 
-    pub fn match_extra_hard<F: Fn(&mut P, &[String]) -> ValidationResult<()> + 'static>(&mut self, f: F, help: impl ToOptionsHelp) {
+    pub fn match_extra_hard(&mut self, f: impl Fn(&mut P, &[String]) -> ValidationResult<()> + 'static, help: impl ToOptionsHelp) {
         self.0.push((OptionsMatch::Extra(ExtraHandler::Hard(PointerRc(Rc::new(f)))), help.to_help()));
     }
 
@@ -53,7 +53,7 @@ impl<P: 'static> OptionsPile<P> {
         self.0.append(&mut other.0);
     }
 
-    pub fn add_sub<P2: 'static, F: Fn(&mut P) -> &mut P2 + 'static>(&mut self, f: F, other: OptionsPile<P2>) {
+    pub fn add_sub<P2: 'static>(&mut self, f: impl Fn(&mut P) -> &mut P2 + 'static, other: OptionsPile<P2>) {
         self.add(other.sub(f));
     }
 
@@ -77,7 +77,7 @@ impl<P: 'static> OptionsPile<P> {
         return opt;
     }
 
-    pub fn sub<P2, F: Fn(&mut P2) -> &mut P + 'static>(self, f1: F) -> OptionsPile<P2> {
+    pub fn sub<P2>(self, f1: impl Fn(&mut P2) -> &mut P + 'static) -> OptionsPile<P2> {
         let f1 = Rc::new(f1);
         return OptionsPile(self.0.into_iter().map(|e| {
             let f1 = f1.clone();
