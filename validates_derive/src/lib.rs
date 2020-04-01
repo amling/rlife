@@ -29,25 +29,25 @@ pub fn derive_validates(input: TokenStream) -> TokenStream {
                 let ctor_fields: Vec<_> = d.named.iter().map(|f| {
                     let name = f.ident.as_ref().unwrap();
                     let mangle = compute_mangle_expr(&f.attrs, name.to_string());
-                    return quote! {
+                    quote! {
                         #name: ::ars_validates::Validates::validate(self.#name) #mangle ?,
-                    };
+                    }
                 }).collect();
                 ctor_args = quote! { { #( #ctor_fields )* } };
                 let struct_fields: Vec<_> = d.named.iter().map(|f| {
                     let vis = &f.vis;
                     let name = f.ident.as_ref().unwrap();
                     let ty = &f.ty;
-                    return quote! {
+                    quote! {
                         #vis #name: <#ty as ::ars_validates::Validates>::Target,
-                    };
+                    }
                 }).collect();
                 struct_args = quote! { { #( #struct_fields )* } };
                 let clone_fields: Vec<_> = d.named.iter().map(|f| {
                     let name = f.ident.as_ref().unwrap();
-                    return quote! {
+                    quote! {
                         #name: ::std::clone::Clone::clone(&self.#name),
-                    };
+                    }
                 }).collect();
                 clone_args = quote! { { #( #clone_fields )* } };
             },
@@ -55,24 +55,24 @@ pub fn derive_validates(input: TokenStream) -> TokenStream {
                 let ctor_fields: Vec<_> = d.unnamed.iter().enumerate().map(|(name, f)| {
                     let mangle = compute_mangle_expr(&f.attrs, format!("#{}", name));
                     let name = Index::from(name);
-                    return quote! {
+                    quote! {
                         ::ars_validates::Validates::validate(self.#name) #mangle ?,
-                    };
+                    }
                 }).collect();
                 ctor_args = quote! { ( #( #ctor_fields )* ) };
                 let struct_fields: Vec<_> = d.unnamed.iter().enumerate().map(|(_name, f)| {
                     let vis = &f.vis;
                     let ty = &f.ty;
-                    return quote! {
+                    quote! {
                         #vis <#ty as ::ars_validates::Validates>::Target,
-                    };
+                    }
                 }).collect();
                 struct_args = quote! { ( #( #struct_fields )* ); };
                 let clone_fields: Vec<_> = d.unnamed.iter().enumerate().map(|(name, _f)| {
                     let name = Index::from(name);
-                    return quote! {
+                    quote! {
                         ::std::clone::Clone::clone(&self.#name),
-                    };
+                    }
                 }).collect();
                 clone_args = quote! { ( #( #clone_fields )* ) };
             },
@@ -107,7 +107,7 @@ pub fn derive_validates(input: TokenStream) -> TokenStream {
         }
     };
 
-    return TokenStream::from(gen);
+    TokenStream::from(gen)
 }
 
 fn compute_mangle_expr(attrs: &Vec<Attribute>, default_name: String) -> proc_macro2::TokenStream {

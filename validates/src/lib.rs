@@ -8,24 +8,24 @@ pub enum ValidationError {
 
 impl<E: Error> From<E> for ValidationError {
     fn from(e: E) -> ValidationError {
-        return ValidationError::Message(format!("{:?}", e));
+        ValidationError::Message(format!("{:?}", e))
     }
 }
 
 impl ValidationError {
     pub fn message<S: Deref<Target = str>, R>(msg: S) -> ValidationResult<R> {
-        return Result::Err(ValidationError::Message(msg.to_string()));
+        Result::Err(ValidationError::Message(msg.to_string()))
     }
 
     pub fn help<R>(lines: Vec<String>) -> ValidationResult<R> {
-        return Result::Err(ValidationError::Help(lines));
+        Result::Err(ValidationError::Help(lines))
     }
 
     pub fn label<S: Deref<Target = str>>(self, prefix: S) -> ValidationError {
-        return match self {
+        match self {
             ValidationError::Message(s) => ValidationError::Message(format!("{}: {:?}", &*prefix, s)),
             ValidationError::Help(lines) => ValidationError::Help(lines),
-        };
+        }
     }
 
     pub fn panic(&self) -> ! {

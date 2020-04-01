@@ -26,7 +26,7 @@ pub struct OptionsPile<P>(Vec<(OptionsMatch<P>, Option<OptionsHelp>)>);
 
 impl<P: 'static> OptionsPile<P> {
     pub fn new() -> Self {
-        return OptionsPile(Vec::new());
+        OptionsPile(Vec::new())
     }
 
     pub fn match_single(&mut self, aliases: &[&str], f: impl Fn(&mut P, &str) -> ValidationResult<()> + 'static, help: impl ToOptionsHelp) {
@@ -74,30 +74,30 @@ impl<P: 'static> OptionsPile<P> {
                 }
             }
         }
-        return opt;
+        opt
     }
 
     pub fn sub<P2>(self, f1: impl Fn(&mut P2) -> &mut P + 'static) -> OptionsPile<P2> {
         let f1 = Rc::new(f1);
-        return OptionsPile(self.0.into_iter().map(|e| {
+        OptionsPile(self.0.into_iter().map(|e| {
             let f1 = f1.clone();
-            return (match e.0 {
+            (match e.0 {
                 OptionsMatch::Args(aliases, argct, f) => OptionsMatch::Args(aliases, argct, PointerRc(Rc::new(move |p, a| (f.0)(f1(p), a)))),
                 OptionsMatch::Extra(ExtraHandler::Soft(h)) => OptionsMatch::Extra(ExtraHandler::Soft(PointerRc(Rc::new(move |p, a| (h.0)(f1(p), a))))),
                 OptionsMatch::Extra(ExtraHandler::Hard(h)) => OptionsMatch::Extra(ExtraHandler::Hard(PointerRc(Rc::new(move |p, a| (h.0)(f1(p), a))))),
-            }, e.1);
-        }).collect());
+            }, e.1)
+        }).collect())
     }
 
     pub fn dump_help(&self) -> Vec<String> {
         let lines: Vec<_> = self.0.iter().filter_map(|e| {
             let (m, help) = e;
-            return help.as_ref().map(|help| help.to_pair(&m));
+            help.as_ref().map(|help| help.to_pair(&m))
         }).collect();
 
         let width = lines.iter().map(|(lhs, _rhs)| lhs.len()).max().unwrap();
 
-        return lines.iter().map(|(lhs, rhs)| format!("{:width$}   {}", lhs, rhs, width = width)).collect();
+        lines.iter().map(|(lhs, rhs)| format!("{:width$}   {}", lhs, rhs, width = width)).collect()
     }
 }
 
@@ -111,7 +111,7 @@ pub trait Optionsable {
     fn new_options() -> OptionsPile<Self::Options> {
         let mut opt = OptionsPile::new();
         Self::options(&mut opt);
-        return opt;
+        opt
     }
 }
 
@@ -124,10 +124,10 @@ pub struct OptParser<P> {
 
 impl<P> Default for OptParser<P> {
     fn default() -> Self {
-        return OptParser {
+        OptParser {
             named: NameTrie::default(),
             extra: Vec::default(),
-        };
+        }
     }
 }
 
@@ -138,7 +138,7 @@ fn name_from_arg(name: &str) -> Option<&str> {
     if name.starts_with("-") {
         return Some(&name[1..]);
     }
-    return None;
+    None
 }
 
 impl<P: 'static> OptParser<P> {
@@ -199,6 +199,6 @@ impl<P: Default + 'static> OptParser<P> {
     pub fn parse(&self, args: &[String]) -> ValidationResult<P> {
         let mut p = P::default();
         self.parse_mut(args, &mut p)?;
-        return Result::Ok(p);
+        Result::Ok(p)
     }
 }

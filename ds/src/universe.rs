@@ -19,12 +19,9 @@ marker_trait! {
 pub trait NamedUniverse: NamedUniverseMarker {
     fn named(s: impl Deref<Target=str>) -> Self {
         let s = s.deref();
-        for f in Self::universe() {
-            if f.name().deref() == s {
-                return f;
-            }
-        }
-        panic!("Inappropriate {} {}", std::any::type_name::<Self>(), s);
+        Self::universe().into_iter().find(|f| f.name().deref() == s).unwrap_or_else(|| {
+            panic!("Inappropriate {} {}", std::any::type_name::<Self>(), s);
+        })
     }
 }
 
