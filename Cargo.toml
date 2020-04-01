@@ -10,3 +10,6 @@ crossbeam = "=0.7.3"
 serde_json = "=1.0.48"
 serde = { version = "=1.0.105", features = ["derive"] }
 ars_ds = { path = "ars/ds" }
+
+[profile.release]
+lto = true
