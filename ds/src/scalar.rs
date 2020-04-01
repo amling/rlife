@@ -31,6 +31,10 @@ pub trait Scalar: ScalarOps + Copy + Eq + Hash + Send + Sync {
     fn to_usize(self) -> usize;
 }
 
+// marker for unsigned
+pub trait UScalar: Scalar {
+}
+
 macro_rules! uxx_scalar_impl {
     ($t:ty, $n:expr) => {
         impl Scalar for $t {
@@ -53,6 +57,9 @@ macro_rules! uxx_scalar_impl {
             fn to_usize(self) -> usize {
                 self as usize
             }
+        }
+
+        impl UScalar for $t {
         }
     }
 }
