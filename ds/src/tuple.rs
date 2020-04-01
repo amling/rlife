@@ -182,3 +182,18 @@ impl<A, B, C> TupleStart<A> for (A, B, C) {
         (a, b, c)
     }
 }
+
+// This is to work around rust's issues with colliding impls.  We'd like to let people e.g.
+// implement some trait of theirs for isize but then also for all tuples by recursion.  Since we're
+// in another crate rust complains that someone could implement tuple for isize which of course we
+// will never do.  We use this to let people define their own marker trait for things we've
+// actually implemented CTuple* for.
+#[macro_export]
+macro_rules! is_tuple_trait {
+    ($t:ident) => {
+        pub trait $t { }
+        impl<A> $t for $crate::tuple::Tuple1<A> { }
+        impl<A, B> $t for (A, B) { }
+        impl<A, B, C> $t for (A, B, C) { }
+    }
+}

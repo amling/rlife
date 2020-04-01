@@ -1,12 +1,6 @@
 use ars_ds::tuple::CTupleEnd;
-use ars_ds::tuple::Tuple1;
 
-// TODO: move this IsTuple hack into macro in ars_ds crate
-// is_tuple_trait!(IsTuple)
-pub trait IsTuple { }
-impl<A> IsTuple for Tuple1<A> { }
-impl<A, B> IsTuple for (A, B) { }
-impl<A, B, C> IsTuple for (A, B, C) { }
+is_tuple_trait!(IsTuple);
 
 pub trait ZModule {
     fn zero() -> Self;
