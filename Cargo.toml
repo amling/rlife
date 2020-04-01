@@ -6,4 +6,6 @@ members = [
     "graph",
     "macro",
     "sync",
+    "validates",
+    "validates_derive",
 ]
