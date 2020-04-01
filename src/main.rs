@@ -1,6 +1,3 @@
-extern crate chrono;
-extern crate serde;
-
 use chrono::Local;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
