@@ -26,6 +26,14 @@ name = "ars_macro"
 version = "1.0.0"
 
 [[package]]
+name = "ars_opts"
+version = "1.0.0"
+dependencies = [
+ "ars_ds 1.0.0",
+ "ars_validates 1.0.0",
+]
+
+[[package]]
 name = "ars_sync"
 version = "1.0.0"
 

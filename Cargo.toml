@@ -5,6 +5,7 @@ members = [
     "ds",
     "graph",
     "macro",
+    "opts",
     "sync",
     "validates",
     "validates_derive",
