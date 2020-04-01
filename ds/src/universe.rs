@@ -11,19 +11,15 @@ pub trait Named {
 }
 
 marker_trait! {
-    NamedUniverseMarker:
-    + Named
-    + Universe
-}
-
-pub trait NamedUniverse: NamedUniverseMarker {
-    fn named(s: impl Deref<Target=str>) -> Self {
-        let s = s.deref();
-        Self::universe().into_iter().find(|f| f.name().deref() == s).unwrap_or_else(|| {
-            panic!("Inappropriate {} {}", std::any::type_name::<Self>(), s);
-        })
+    NamedUniverse:
+    [Named]
+    [Universe]
+    {
+        fn named(s: impl Deref<Target=str>) -> Self {
+            let s = s.deref();
+            Self::universe().into_iter().find(|f| f.name().deref() == s).unwrap_or_else(|| {
+                panic!("Inappropriate {} {}", std::any::type_name::<Self>(), s);
+            })
+        }
     }
-}
-
-impl<T: NamedUniverseMarker> NamedUniverse for T {
 }

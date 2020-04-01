@@ -11,16 +11,16 @@ use std::ops::Sub;
 
 marker_trait! {
     ScalarOps:
-    + BitAnd<Output=Self>
-    + BitAndAssign
-    + BitOrAssign
-    + Not<Output=Self>
-    + Shl<usize, Output=Self>
-    + ShlAssign<usize>
-    + Shr<usize, Output=Self>
-    + ShrAssign<usize>
-    + Sized
-    + Sub<Output=Self>
+    [BitAnd<Output=Self>]
+    [BitAndAssign]
+    [BitOrAssign]
+    [Not<Output=Self>]
+    [Shl<usize, Output=Self>]
+    [ShlAssign<usize>]
+    [Shr<usize, Output=Self>]
+    [ShrAssign<usize>]
+    [Sized]
+    [Sub<Output=Self>]
 }
 
 pub trait Scalar: ScalarOps + Copy + Eq + Hash + Send + Sync {
