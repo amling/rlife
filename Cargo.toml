@@ -3,4 +3,5 @@
 members = [
     "aa",
     "ds",
+    "graph",
 ]

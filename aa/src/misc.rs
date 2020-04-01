@@ -33,7 +33,7 @@ pub fn egcd_mut<R: ZModule>(a: &mut isize, b: &mut isize, ra: &mut R, rb: &mut R
     }
 }
 
-// Finds generators for the space of cycle weights reachable from the given node.
+// TODO: inline into als_graph::weighted
 pub fn find_cycle_weight_generators<N: Hash + Clone + Eq, R: ZModule + Clone>(links: &HashMap<N, HashSet<(N, R)>>, n: N) -> Vec<R> {
     let connected_weights = find_connected_weights(links, n);
 
@@ -53,7 +53,7 @@ pub fn find_cycle_weight_generators<N: Hash + Clone + Eq, R: ZModule + Clone>(li
     acc
 }
 
-// Finds the set of connected nodes and the weight of some arbitrary path to them
+// TODO: inline into als_graph::weighted
 pub fn find_connected_weights<N: Hash + Clone + Eq, R: ZModule + Clone>(links: &HashMap<N, HashSet<(N, R)>>, n: N) -> HashMap<N, R> {
     let mut acc = HashMap::new();
     find_connected_weights_aux(links, &mut acc, n, R::zero());

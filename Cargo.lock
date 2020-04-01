@@ -11,3 +11,10 @@ dependencies = [
 name = "ars_ds"
 version = "1.0.0"
 
+[[package]]
+name = "ars_graph"
+version = "1.0.0"
+dependencies = [
+ "ars_aa 1.0.0",
+]
+
