@@ -4,9 +4,16 @@ use std::rc::Rc;
 
 pub struct PointerRc<T: ?Sized>(pub Rc<T>);
 
+impl<T: ?Sized> PointerRc<T> {
+    // This works inline but I'd rather be very clear about what's going on.
+    fn ptr(&self) -> &T {
+        &*self.0
+    }
+}
+
 impl<T: ?Sized> PartialEq for PointerRc<T> {
     fn eq(&self, rhs: &PointerRc<T>) -> bool {
-        Rc::ptr_eq(&self.0, &rhs.0)
+        std::ptr::eq(self.ptr(), rhs.ptr())
     }
 }
 
@@ -21,9 +28,6 @@ impl<T: ?Sized> Clone for PointerRc<T> {
 
 impl<T: ?Sized> Hash for PointerRc<T> {
     fn hash<H: Hasher>(&self, h: &mut H) {
-        // This works inline but I'd rather be very sure the type of whatever we're throwing into
-        // hashing.
-        let p: &T = &*self.0;
-        std::ptr::hash(p, h);
+        std::ptr::hash(self.ptr(), h);
     }
 }
