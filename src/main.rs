@@ -1,3 +1,4 @@
+use ars_ds::bit_state::Bits;
 use chrono::Local;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -7,11 +8,9 @@ use std::io::Write;
 use std::path::Path;
 
 mod bfs;
-mod bits;
 mod dfs;
 mod gol;
 
-use bits::Bits;
 use dfs::Tree;
 use dfs::TreeStatus;
 use dfs::res::DfsResToVec;
@@ -24,7 +23,7 @@ fn main() {
     main1::<u128>();
 }
 
-fn main1<B: Bits>() {
+fn main1<B: Bits + DeserializeOwned + Serialize>() {
     let dir = std::env::args().skip(1).next().unwrap();
     std::fs::create_dir_all(&dir).unwrap();
 
@@ -44,8 +43,8 @@ fn main1<B: Bits>() {
 
     let mut root = load_or_with(&dir, "tree", || {
         let n0 = GolNode {
-            r0: B::cnst(0b0000010001000100110010000000001000010001010101010101110110010011001100100000),
-            r1: B::cnst(0b0100010011001000000000100001000101010101010111011001001100110010000000000100),
+            r0: cnst(0b0000010001000100110010000000001000010001010101010101110110010011001100100000),
+            r1: cnst(0b0100010011001000000000100001000101010101010111011001001100110010000000000100),
             r2: B::zero(),
             r2l: 0,
         };
@@ -86,4 +85,19 @@ fn load_or_with<T: DeserializeOwned + Serialize>(dir: impl AsRef<str>, file: imp
         f.write_all(s.as_bytes()).unwrap();
         r
     }
+}
+
+fn cnst<B: Bits>(c: u128) -> B {
+    let mut b = B::zero();
+    let mut c = c;
+    let mut idx = 0;
+    while c > 0 {
+        if c % 2 == 1 {
+            assert!(idx < B::size());
+            B::set_bit(&mut b, idx, true);
+        }
+        c >>= 1;
+        idx += 1;
+    }
+    b
 }

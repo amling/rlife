@@ -1,11 +1,11 @@
+use ars_ds::bit_state::Bits;
+use serde::Serialize;
 use std::fs::File;
 use std::io::Write;
 
-use crate::bits;
 use crate::dfs;
 use crate::gol;
 
-use bits::Bits;
 use dfs::Tree;
 use dfs::lifecycle::DfsLifecycle;
 use dfs::res::DfsResVec;
@@ -32,7 +32,7 @@ impl<'a> GolLifecycle<'a> {
     }
 }
 
-impl<'a, B: Bits> DfsLifecycle<GolNode<B>, DfsResVec<GolNode<B>>> for GolLifecycle<'a> {
+impl<'a, B: Bits + Serialize> DfsLifecycle<GolNode<B>, DfsResVec<GolNode<B>>> for GolLifecycle<'a> {
     fn threads(&self) -> usize {
         return self.threads;
     }

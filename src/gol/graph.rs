@@ -1,10 +1,9 @@
+use ars_ds::bit_state::Bits;
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::bits;
 use crate::dfs;
 
-use bits::Bits;
 use dfs::graph::DfsGraph;
 
 #[derive(Clone)]
