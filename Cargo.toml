@@ -5,4 +5,5 @@ members = [
     "ds",
     "graph",
     "macro",
+    "sync",
 ]
