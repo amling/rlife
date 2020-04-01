@@ -18,3 +18,7 @@ dependencies = [
  "ars_aa 1.0.0",
 ]
 
+[[package]]
+name = "ars_macro"
+version = "1.0.0"
+
