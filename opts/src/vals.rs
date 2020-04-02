@@ -140,17 +140,6 @@ impl<T> OptionalOption<T> {
 
 pub type OptionalStringOption = OptionalOption<String>;
 
-// now pointless but kept for backcompat
-impl OptionalStringOption {
-    pub fn set_str(&mut self, a: impl Into<String>) -> ValidationResult<()> {
-        self.set(a)
-    }
-
-    pub fn maybe_set_str(&mut self, a: impl Into<String>) -> ValidationResult<bool> {
-        self.maybe_set(a)
-    }
-}
-
 #[derive(Default)]
 pub struct UnvalidatedOption<T>(pub T);
 
