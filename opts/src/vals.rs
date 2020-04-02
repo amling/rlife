@@ -1,6 +1,7 @@
 use ars_validates::Validates;
 use ars_validates::ValidationError;
 use ars_validates::ValidationResult;
+use std::str::FromStr;
 use std::sync::Arc;
 
 #[derive(Default)]
@@ -138,6 +139,13 @@ impl<T> OptionalOption<T> {
     }
 }
 
+impl<T: FromStr> OptionalOption<T> where T::Err: std::error::Error {
+    pub fn parse(&mut self, a: impl AsRef<str>) -> ValidationResult<()> {
+        let t: T = a.as_ref().parse()?;
+        self.set(t)
+    }
+}
+
 pub type OptionalStringOption = OptionalOption<String>;
 
 #[derive(Default)]
@@ -179,13 +187,6 @@ impl StringVecOption {
 }
 
 pub type OptionalUsizeOption = OptionalOption<usize>;
-
-impl OptionalUsizeOption {
-    pub fn parse(&mut self, a: impl AsRef<str>) -> ValidationResult<()> {
-        let n: usize = a.as_ref().parse()?;
-        self.set(n)
-    }
-}
 
 #[derive(Default)]
 pub struct IntoArcOption<P>(pub P);
