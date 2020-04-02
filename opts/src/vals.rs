@@ -109,7 +109,7 @@ pub type RequiredOption<T> = DefaultedOption<T, ErrDefaulter>;
 
 pub type RequiredStringOption = DefaultedStringOption<ErrDefaulter>;
 
-pub type OptionalOption<T> = UnvalidatedOption<Option<T>>;
+pub type OptionalOption<T> = BasicOption<Option<T>>;
 
 impl<T> OptionalOption<T> {
     pub fn set(&mut self, t: impl Into<T>) -> ValidationResult<()> {
@@ -139,9 +139,12 @@ impl<T: FromStr> OptionalOption<T> where T::Err: std::error::Error {
 pub type OptionalStringOption = OptionalOption<String>;
 
 #[derive(Default)]
-pub struct UnvalidatedOption<T>(pub T);
+pub struct BasicOption<T>(pub T);
 
-impl<T> Validates for UnvalidatedOption<T> {
+// TODO: backcompat
+pub type UnvalidatedOption<T> = BasicOption<T>;
+
+impl<T> Validates for BasicOption<T> {
     type Target = T;
 
     fn validate(self) -> ValidationResult<T> {
@@ -149,7 +152,7 @@ impl<T> Validates for UnvalidatedOption<T> {
     }
 }
 
-pub type StringVecOption = UnvalidatedOption<Vec<String>>;
+pub type StringVecOption = BasicOption<Vec<String>>;
 
 impl StringVecOption {
     pub fn push(&mut self, s: impl Into<String>) -> ValidationResult<()> {
