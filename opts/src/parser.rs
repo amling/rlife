@@ -168,7 +168,7 @@ impl<P: 'static> OptParser<P> {
                     if end > args.len() {
                         return ValidationError::message(format!("Not enough arguments for {}", args[next_index]));
                     }
-                    (f.0)(p, &args[start..end]).map_err(|e| e.label(format!("While handline {:?}", &args[next_index..end])))?;
+                    (f.0)(p, &args[start..end]).map_err(|e| e.label(format!("While handling {:?}", &args[next_index..end])))?;
                     next_index = end;
                     continue;
                 }
@@ -183,7 +183,7 @@ impl<P: 'static> OptParser<P> {
                         }
                     }
                     ExtraHandler::Hard(f) => {
-                        (f.0)(p, &args[next_index..]).map_err(|e| e.label(format!("While handline {:?}", &args[next_index..])))?;
+                        (f.0)(p, &args[next_index..]).map_err(|e| e.label(format!("While handling {:?}", &args[next_index..])))?;
                         next_index = args.len();
                         continue 'arg;
                     }
