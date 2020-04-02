@@ -68,19 +68,19 @@ impl<T, P: OptionDefaulter<T>> Validates for DefaultedOption<T, P> {
 }
 
 impl<T, P> DefaultedOption<T, P> {
-    pub fn set(&mut self, t: T) -> ValidationResult<()> {
+    pub fn set(&mut self, t: impl Into<T>) -> ValidationResult<()> {
         if self.0.is_some() {
             return ValidationError::message("DefaultedOption specified multiple times".to_string());
         }
-        self.0 = Some(t);
+        self.0 = Some(t.into());
         Result::Ok(())
     }
 
-    pub fn maybe_set(&mut self, t: T) -> ValidationResult<bool> {
+    pub fn maybe_set(&mut self, t: impl Into<T>) -> ValidationResult<bool> {
         if self.0.is_some() {
             return Result::Ok(false);
         }
-        self.0 = Some(t);
+        self.0 = Some(t.into());
         Result::Ok(true)
     }
 
@@ -102,12 +102,12 @@ impl<T> OptionDefaulter<T> for ErrDefaulter {
 pub type DefaultedStringOption<P> = DefaultedOption<String, P>;
 
 impl<P> DefaultedStringOption<P> {
-    pub fn set_str(&mut self, a: &str) -> ValidationResult<()> {
-        self.set(a.to_string())
+    pub fn set_str(&mut self, a: impl Into<String>) -> ValidationResult<()> {
+        self.set(a)
     }
 
-    pub fn maybe_set_str(&mut self, a: &str) -> ValidationResult<bool> {
-        self.maybe_set(a.to_string())
+    pub fn maybe_set_str(&mut self, a: impl Into<String>) -> ValidationResult<bool> {
+        self.maybe_set(a)
     }
 }
 
@@ -121,32 +121,33 @@ pub type RequiredStringOption = DefaultedStringOption<ErrDefaulter>;
 pub type OptionalOption<T> = UnvalidatedOption<Option<T>>;
 
 impl<T> OptionalOption<T> {
-    pub fn set(&mut self, t: T) -> ValidationResult<()> {
+    pub fn set(&mut self, t: impl Into<T>) -> ValidationResult<()> {
         if self.0.is_some() {
             return ValidationError::message("OptionalOption specified multiple times".to_string());
         }
-        self.0 = Some(t);
+        self.0 = Some(t.into());
         Result::Ok(())
     }
 
-    pub fn maybe_set(&mut self, t: T) -> ValidationResult<bool> {
+    pub fn maybe_set(&mut self, t: impl Into<T>) -> ValidationResult<bool> {
         if self.0.is_some() {
             return Result::Ok(false);
         }
-        self.0 = Some(t);
+        self.0 = Some(t.into());
         Result::Ok(true)
     }
 }
 
 pub type OptionalStringOption = OptionalOption<String>;
 
+// now pointless but kept for backcompat
 impl OptionalStringOption {
-    pub fn set_str(&mut self, a: &str) -> ValidationResult<()> {
-        self.set(a.to_string())
+    pub fn set_str(&mut self, a: impl Into<String>) -> ValidationResult<()> {
+        self.set(a)
     }
 
-    pub fn maybe_set_str(&mut self, a: &str) -> ValidationResult<bool> {
-        self.maybe_set(a.to_string())
+    pub fn maybe_set_str(&mut self, a: impl Into<String>) -> ValidationResult<bool> {
+        self.maybe_set(a)
     }
 }
 
@@ -164,26 +165,26 @@ impl<T> Validates for UnvalidatedOption<T> {
 pub type StringVecOption = UnvalidatedOption<Vec<String>>;
 
 impl StringVecOption {
-    pub fn push(&mut self, s: &str) -> ValidationResult<()> {
-        self.0.push(s.to_string());
+    pub fn push(&mut self, s: impl Into<String>) -> ValidationResult<()> {
+        self.0.push(s.into());
         Result::Ok(())
     }
 
-    pub fn push_split(&mut self, s: &str) -> ValidationResult<()> {
-        for a in s.split(',') {
+    pub fn push_split(&mut self, s: impl AsRef<str>) -> ValidationResult<()> {
+        for a in s.as_ref().split(',') {
             self.push(a)?;
         }
         Result::Ok(())
     }
 
-    pub fn push_all(&mut self, a: &[String]) -> ValidationResult<()> {
+    pub fn push_all(&mut self, a: &[impl Into<String> + Clone]) -> ValidationResult<()> {
         for a in a {
-            self.0.push(a.clone());
+            self.0.push(a.clone().into());
         }
         Result::Ok(())
     }
 
-    pub fn maybe_push(&mut self, a: &str) -> ValidationResult<bool> {
+    pub fn maybe_push(&mut self, a: impl Into<String>) -> ValidationResult<bool> {
         self.push(a).map(|_| true)
     }
 }
@@ -191,8 +192,9 @@ impl StringVecOption {
 pub type OptionalUsizeOption = OptionalOption<usize>;
 
 impl OptionalUsizeOption {
-    pub fn parse(&mut self, a: &str) -> ValidationResult<()> {
-        self.set(a.parse()?)
+    pub fn parse(&mut self, a: impl AsRef<str>) -> ValidationResult<()> {
+        let n: usize = a.as_ref().parse()?;
+        self.set(n)
     }
 }
 
