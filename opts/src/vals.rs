@@ -102,16 +102,6 @@ impl<T> OptionDefaulter<T> for ErrDefaulter {
 
 pub type DefaultedStringOption<P> = DefaultedOption<String, P>;
 
-impl<P> DefaultedStringOption<P> {
-    pub fn set_str(&mut self, a: impl Into<String>) -> ValidationResult<()> {
-        self.set(a)
-    }
-
-    pub fn maybe_set_str(&mut self, a: impl Into<String>) -> ValidationResult<bool> {
-        self.maybe_set(a)
-    }
-}
-
 pub enum ErrDefaulter {
 }
 
