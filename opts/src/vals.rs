@@ -100,24 +100,13 @@ impl<T> OptionDefaulter<T> for ErrDefaulter {
     }
 }
 
-pub type DefaultedStringOption<P> = DefaultedOption<String, P>;
-
 pub enum ErrDefaulter {
 }
 
 pub type RequiredOption<T> = DefaultedOption<T, ErrDefaulter>;
 
-pub type RequiredStringOption = DefaultedStringOption<ErrDefaulter>;
-
-pub type OptionalOption<T> = BasicOption<Option<T>>;
-
-pub type OptionalStringOption = OptionalOption<String>;
-
 #[derive(Default)]
 pub struct BasicOption<T>(pub T);
-
-// TODO: backcompat
-pub type UnvalidatedOption<T> = BasicOption<T>;
 
 impl<T> Validates for BasicOption<T> {
     type Target = T;
@@ -127,7 +116,7 @@ impl<T> Validates for BasicOption<T> {
     }
 }
 
-impl<T> OptionalOption<T> {
+impl<T> BasicOption<Option<T>> {
     pub fn set(&mut self, t: impl Into<T>) -> ValidationResult<()> {
         if self.0.is_some() {
             return ValidationError::message("OptionalOption specified multiple times".to_string());
@@ -145,16 +134,14 @@ impl<T> OptionalOption<T> {
     }
 }
 
-impl<T: FromStr> OptionalOption<T> where T::Err: std::error::Error {
+impl<T: FromStr> BasicOption<Option<T>> where T::Err: std::error::Error {
     pub fn parse(&mut self, a: impl AsRef<str>) -> ValidationResult<()> {
         let t: T = a.as_ref().parse()?;
         self.set(t)
     }
 }
 
-pub type StringVecOption = BasicOption<Vec<String>>;
-
-impl StringVecOption {
+impl BasicOption<Vec<String>> {
     pub fn push(&mut self, s: impl Into<String>) -> ValidationResult<()> {
         self.0.push(s.into());
         Result::Ok(())
@@ -178,8 +165,6 @@ impl StringVecOption {
         self.push(a).map(|_| true)
     }
 }
-
-pub type OptionalUsizeOption = OptionalOption<usize>;
 
 #[derive(Default)]
 pub struct IntoArcOption<P>(pub P);
