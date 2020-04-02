@@ -111,6 +111,22 @@ pub type RequiredStringOption = DefaultedStringOption<ErrDefaulter>;
 
 pub type OptionalOption<T> = BasicOption<Option<T>>;
 
+pub type OptionalStringOption = OptionalOption<String>;
+
+#[derive(Default)]
+pub struct BasicOption<T>(pub T);
+
+// TODO: backcompat
+pub type UnvalidatedOption<T> = BasicOption<T>;
+
+impl<T> Validates for BasicOption<T> {
+    type Target = T;
+
+    fn validate(self) -> ValidationResult<T> {
+        Result::Ok(self.0)
+    }
+}
+
 impl<T> OptionalOption<T> {
     pub fn set(&mut self, t: impl Into<T>) -> ValidationResult<()> {
         if self.0.is_some() {
@@ -133,22 +149,6 @@ impl<T: FromStr> OptionalOption<T> where T::Err: std::error::Error {
     pub fn parse(&mut self, a: impl AsRef<str>) -> ValidationResult<()> {
         let t: T = a.as_ref().parse()?;
         self.set(t)
-    }
-}
-
-pub type OptionalStringOption = OptionalOption<String>;
-
-#[derive(Default)]
-pub struct BasicOption<T>(pub T);
-
-// TODO: backcompat
-pub type UnvalidatedOption<T> = BasicOption<T>;
-
-impl<T> Validates for BasicOption<T> {
-    type Target = T;
-
-    fn validate(self) -> ValidationResult<T> {
-        Result::Ok(self.0)
     }
 }
 
