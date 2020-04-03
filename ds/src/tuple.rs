@@ -1,6 +1,10 @@
 #[derive(Clone)]
+#[derive(Debug)]
 #[derive(Eq)]
+#[derive(Hash)]
+#[derive(Ord)]
 #[derive(PartialEq)]
+#[derive(PartialOrd)]
 pub struct Tuple1<T>(pub T);
 
 pub trait CTupleEnd {
