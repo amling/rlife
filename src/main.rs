@@ -29,22 +29,22 @@ fn main1<B: Bits + DeserializeOwned + Serialize>() {
 
     let ge: GolGraph = load_or_with(&dir, "ge", || {
         GolGraph {
-            mt: 6,
-            mx: 6,
+            mt: 4,
+            mx: 7,
 
             left_sym: GolSym::Empty,
             right_sym: GolSym::Empty,
 
-            ox: 1,
-            oy: 1,
+            ox: 0,
+            oy: 2,
         }
     });
     assert!(ge.mt * ge.mx <= B::size());
 
     let mut root = load_or_with(&dir, "tree", || {
         let n0 = GolNode {
-            r0: B::zero(),
-            r1: B::zero(),
+            r0: cnst(0b0011111_0011011_0001010_0010001),
+            r1: cnst(0b0001100_0001000_0111000_0010001),
             r2: B::zero(),
             r2l: 0,
         };
