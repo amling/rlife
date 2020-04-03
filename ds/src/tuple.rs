@@ -1,4 +1,5 @@
 #[derive(Clone)]
+#[derive(Copy)]
 #[derive(Debug)]
 #[derive(Eq)]
 #[derive(Hash)]
