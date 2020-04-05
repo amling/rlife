@@ -29,6 +29,14 @@ pub struct GolKeyNode<B> {
 
 #[derive(Deserialize)]
 #[derive(Serialize)]
+pub enum GolRecenter {
+    None,
+    BiasLeft,
+    BiasRight,
+}
+
+#[derive(Deserialize)]
+#[derive(Serialize)]
 pub enum GolSym {
     Empty,
     Odd,
@@ -48,14 +56,19 @@ pub struct GolGraph {
 
     pub ox: isize,
     pub oy: isize,
+
+    pub recenter: GolRecenter,
 }
 
 impl GolGraph {
     fn to_idx(&self, x: usize, t: usize) -> usize {
+        debug_assert!(x < self.mx);
+        debug_assert!(t < self.mt);
         t * self.mx + x
     }
 
     fn x_from_idx(&self, idx: usize) -> usize {
+        debug_assert!(idx < self.mx * self.mt);
         idx % self.mx
     }
 
@@ -294,14 +307,67 @@ fn check_compat1<B: Bits>(e: &GolGraph, cp: PartialRow<B>, c: PartialRow<B>, cn:
     }
 }
 
+fn find_min_x<B: Bits>(e: &GolGraph, r: B) -> usize {
+    for x in 0..e.mx {
+        for t in 0..e.mt {
+            if r.get_bit(e.to_idx(x, t)) {
+                return x;
+            }
+        }
+    }
+
+    0
+}
+
+fn find_max_x<B: Bits>(e: &GolGraph, r: B) -> usize {
+    for x in (0..e.mx).rev() {
+        for t in 0..e.mt {
+            if r.get_bit(e.to_idx(x, t)) {
+                return x;
+            }
+        }
+    }
+
+    e.mx - 1
+}
+
+fn recenter<B: Bits>(e: &GolGraph, dx: isize, r0: B, r1: B) -> (isize, B, B) {
+    let bias = match e.recenter {
+        GolRecenter::None => {
+            return (dx, r0, r1);
+        }
+        GolRecenter::BiasLeft => 0,
+        GolRecenter::BiasRight => 1,
+    };
+
+    let min_x = find_min_x(e, r0).min(find_min_x(e, r1)) as isize;
+    let max_x = find_max_x(e, r0).max(find_max_x(e, r1)) as isize;
+
+    let shift = ((min_x + max_x) - (0 + (e.mx as isize) - 1) + bias) / 2;
+
+    let mut r0s = B::zero();
+    let mut r1s = B::zero();
+    for x in 0..e.mx {
+        let ix = x as isize;
+        for t in 0..e.mt {
+            r0s.set_bit(e.to_idx((ix - shift) as usize, t), r0.get_bit(e.to_idx(x, t)));
+            r1s.set_bit(e.to_idx((ix - shift) as usize, t), r1.get_bit(e.to_idx(x, t)));
+        }
+    }
+
+    (dx + shift, r0s, r1s)
+}
+
 fn expand_srch<B: Bits>(e: &GolGraph, n1: &GolNode<B>, n2s: &mut Vec<GolNode<B>>) {
     let idx = n1.r2l;
 
     if idx == e.mt * e.mx {
+        let (dx, r0, r1) = recenter(e, n1.dx, n1.r1, n1.r2);
+
         n2s.push(GolNode {
-            dx: n1.dx,
-            r0: n1.r1,
-            r1: n1.r2,
+            dx: dx,
+            r0: r0,
+            r1: r1,
             r2: B::zero(),
             r2l: 0,
         });

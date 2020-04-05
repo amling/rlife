@@ -16,6 +16,7 @@ use dfs::TreeStatus;
 use dfs::res::DfsResToVec;
 use gol::graph::GolGraph;
 use gol::graph::GolNode;
+use gol::graph::GolRecenter;
 use gol::graph::GolSym;
 use gol::lifecycle::GolLifecycle;
 
@@ -37,6 +38,8 @@ fn main1<B: Bits + DeserializeOwned + Serialize>() {
 
             ox: 0,
             oy: 1,
+
+            recenter: GolRecenter::None,
         }
     });
     assert!(ge.mt * ge.mx <= B::size());
