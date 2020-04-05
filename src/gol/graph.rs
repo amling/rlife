@@ -10,6 +10,7 @@ use dfs::graph::DfsGraph;
 #[derive(Deserialize)]
 #[derive(Serialize)]
 pub struct GolNode<B> {
+    pub dx: isize,
     pub r0: B,
     pub r1: B,
     pub r2: B,
@@ -21,6 +22,7 @@ pub struct GolNode<B> {
 #[derive(Hash)]
 #[derive(PartialEq)]
 pub struct GolKeyNode<B> {
+    pub dx: isize,
     pub r0: B,
     pub r1: B,
 }
@@ -297,6 +299,7 @@ fn expand_srch<B: Bits>(e: &GolGraph, n1: &GolNode<B>, n2s: &mut Vec<GolNode<B>>
 
     if idx == e.mt * e.mx {
         n2s.push(GolNode {
+            dx: n1.dx,
             r0: n1.r1,
             r1: n1.r2,
             r2: B::zero(),
@@ -309,6 +312,7 @@ fn expand_srch<B: Bits>(e: &GolGraph, n1: &GolNode<B>, n2s: &mut Vec<GolNode<B>>
     let t = e.t_from_idx(idx);
 
     let mut n2 = GolNode {
+        dx: n1.dx,
         r0: n1.r0,
         r1: n1.r1,
         r2: n1.r2,
@@ -390,6 +394,7 @@ impl<B: Bits> DfsGraph<GolNode<B>, GolKeyNode<B>> for GolGraph {
         }
 
         Some(GolKeyNode {
+            dx: n.dx,
             r0: n.r0,
             r1: n.r1,
         })

@@ -43,6 +43,7 @@ fn main1<B: Bits + DeserializeOwned + Serialize>() {
 
     let mut root = load_or_with(&dir, "tree", || {
         let n0 = GolNode {
+            dx: 0,
             r0: B::zero(),
             r1: B::zero(),
             r2: B::zero(),
