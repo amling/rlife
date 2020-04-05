@@ -5,11 +5,17 @@ use serde::Serialize;
 use crate::dfs;
 
 use dfs::graph::DfsGraph;
+use dfs::graph::DfsKeyNode;
+use dfs::graph::DfsNode;
 
 #[derive(Clone)]
+#[derive(Debug)]
 #[derive(Deserialize)]
+#[derive(Eq)]
+#[derive(Hash)]
+#[derive(PartialEq)]
 #[derive(Serialize)]
-pub struct GolNode<B> {
+pub struct GolNode<B: Bits> {
     pub dx: isize,
     pub r0: B,
     pub r1: B,
@@ -17,14 +23,39 @@ pub struct GolNode<B> {
     pub r2l: usize,
 }
 
+impl<B: Bits> DfsNode for GolNode<B> {
+    type KN = GolKeyNode<B>;
+
+    fn key_node(&self) -> Option<GolKeyNode<B>> {
+        if self.r2l != 0 {
+            return None;
+        }
+
+        Some(GolKeyNode {
+            dx: self.dx,
+            r0: self.r0,
+            r1: self.r1,
+        })
+    }
+}
+
 #[derive(Clone)]
+#[derive(Debug)]
 #[derive(Eq)]
 #[derive(Hash)]
 #[derive(PartialEq)]
-pub struct GolKeyNode<B> {
+pub struct GolKeyNode<B: Bits> {
     pub dx: isize,
     pub r0: B,
     pub r1: B,
+}
+
+impl<B: Bits> DfsKeyNode for GolKeyNode<B> {
+    type HN = GolKeyNode<B>;
+
+    fn hash_node(&self) -> GolKeyNode<B> {
+        self.clone()
+    }
 }
 
 #[derive(Deserialize)]
@@ -448,7 +479,7 @@ fn expand_srch<B: Bits>(e: &GolGraph, n1: &GolNode<B>, n2s: &mut Vec<GolNode<B>>
     }
 }
 
-impl<B: Bits> DfsGraph<GolNode<B>, GolKeyNode<B>, GolKeyNode<B>> for GolGraph {
+impl<B: Bits> DfsGraph<GolNode<B>> for GolGraph {
     fn expand(&self, n1: &GolNode<B>) -> Vec<GolNode<B>> {
         let mut n2s = Vec::new();
         expand_srch(self, n1, &mut n2s);
@@ -457,21 +488,5 @@ impl<B: Bits> DfsGraph<GolNode<B>, GolKeyNode<B>, GolKeyNode<B>> for GolGraph {
 
     fn end(&self, n: &GolKeyNode<B>) -> bool {
         (n.r0 == B::zero()) && (n.r1 == B::zero())
-    }
-
-    fn key_for(&self, n: &GolNode<B>) -> Option<GolKeyNode<B>> {
-        if n.r2l != 0 {
-            return None;
-        }
-
-        Some(GolKeyNode {
-            dx: n.dx,
-            r0: n.r0,
-            r1: n.r1,
-        })
-    }
-
-    fn hash_for(&self, n: &GolKeyNode<B>) -> GolKeyNode<B> {
-        n.clone()
     }
 }

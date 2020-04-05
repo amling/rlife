@@ -3,7 +3,6 @@ use crossbeam::queue::SegQueue;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap;
-use std::hash::Hash;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
@@ -15,16 +14,18 @@ pub mod res;
 use crate::dfs;
 
 use dfs::graph::DfsGraph;
+use dfs::graph::DfsKeyNode;
+use dfs::graph::DfsNode;
 use dfs::lifecycle::DfsLifecycle;
 use dfs::res::DfsRes;
 
 #[derive(Clone)]
-struct Path<KN, HN> {
-    vec: Vec<KN>,
-    map: HashMap<HN, usize>,
+struct Path<N: DfsNode> {
+    vec: Vec<N::KN>,
+    map: HashMap<<N::KN as DfsKeyNode>::HN, usize>,
 }
 
-impl<KN: Clone + Eq, HN: Clone + Hash + Eq> Path<KN, HN> {
+impl<N: DfsNode> Path<N> {
     fn new() -> Self {
         Path {
             vec: Vec::new(),
@@ -32,8 +33,9 @@ impl<KN: Clone + Eq, HN: Clone + Hash + Eq> Path<KN, HN> {
         }
     }
 
-    fn find_or_push(&mut self, kn: &KN, hn: &HN) -> Option<usize> {
-        if let Some(idx) = self.map.get(hn) {
+    fn find_or_push(&mut self, kn: &N::KN) -> Option<usize> {
+        let hn = kn.hash_node();
+        if let Some(idx) = self.map.get(&hn) {
             return Some(*idx);
         }
         self.map.insert(hn.clone(), self.vec.len());
@@ -41,14 +43,14 @@ impl<KN: Clone + Eq, HN: Clone + Hash + Eq> Path<KN, HN> {
         return None;
     }
 
-    fn push(&mut self, kn: &KN, hn: &HN) -> bool {
-        return !self.find_or_push(kn, hn).is_some();
+    fn push(&mut self, kn: &N::KN) -> bool {
+        return !self.find_or_push(kn).is_some();
     }
 
-    fn pop(&mut self, kn: &KN, hn: &HN) {
-        let kn1 = self.vec.pop().unwrap();
-        debug_assert!(&kn1 == kn);
-        let r = self.map.remove(&hn);
+    fn pop(&mut self, kn_verify: &N::KN) {
+        let kn = self.vec.pop().unwrap();
+        debug_assert!(&kn == kn_verify);
+        let r = self.map.remove(&kn.hash_node());
         debug_assert_eq!(Some(self.vec.len()), r);
     }
 }
@@ -127,7 +129,7 @@ impl<N: Clone> TreeSerdeProxy<N> {
     }
 }
 
-pub fn sdfs<N, KN: Clone + Eq, HN: Clone + Hash + Eq, R, GE: DfsGraph<N, KN, HN>, RE: DfsRes<KN, R>, LE: DfsLifecycle<N, KN, R>>(root: &mut Tree<N>, ge: &GE, re: &RE, le: &mut LE) {
+pub fn sdfs<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: DfsLifecycle<N, R>>(root: &mut Tree<N>, ge: &GE, re: &RE, le: &mut LE) {
     let stop = AtomicBool::new(false);
 
     loop {
@@ -151,8 +153,8 @@ pub fn sdfs<N, KN: Clone + Eq, HN: Clone + Hash + Eq, R, GE: DfsGraph<N, KN, HN>
     }
 }
 
-pub fn dfs<N: Clone + Send, KN: Clone + Eq + Send, HN: Clone + Hash + Eq + Send, R: Send, GE: DfsGraph<N, KN, HN> + Sync, RE: DfsRes<KN, R> + Sync, LE: DfsLifecycle<N, KN, R> + Sync>(root: &mut Tree<N>, ge: &GE, re: &RE, le: &mut LE) {
-    let mut very_longest: Option<Vec<KN>> = None;
+pub fn dfs<N: DfsNode, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R> + Sync, LE: DfsLifecycle<N, R> + Sync>(root: &mut Tree<N>, ge: &GE, re: &RE, le: &mut LE) {
+    let mut very_longest: Option<Vec<N::KN>> = None;
 
     loop {
         if collapse(root) {
@@ -166,7 +168,7 @@ pub fn dfs<N: Clone + Send, KN: Clone + Eq + Send, HN: Clone + Hash + Eq + Send,
         }
 
         let mut results: Vec<_> = unopened.iter().map(|_| re.empty()).collect();
-        let mut longests: Vec<Option<Vec<KN>>> = unopened.iter().map(|_| None).collect();
+        let mut longests: Vec<Option<Vec<N::KN>>> = unopened.iter().map(|_| None).collect();
 
         {
             let q = SegQueue::new();
@@ -226,7 +228,7 @@ pub fn dfs<N: Clone + Send, KN: Clone + Eq + Send, HN: Clone + Hash + Eq + Send,
         }
 
         let firstest = find_firstest(root);
-        let firstest = ge.keys_for(&firstest);
+        let firstest = DfsNode::key_nodes(&firstest);
         le.on_recollect_firstest(firstest);
 
         let cont = le.on_recollect_results(res);
@@ -259,12 +261,11 @@ fn collapse<N>(tree: &mut Tree<N>) -> bool {
     }
 }
 
-fn find_unopened<'a, N, KN: Clone + Eq, HN: Clone + Hash + Eq, GE: DfsGraph<N, KN, HN>>(ge: &GE, unopened: &mut Vec<(&'a mut Tree<N>, Path<KN, HN>)>, tree: &'a mut Tree<N>, path: &mut Path<KN, HN>) {
-    let pop = match ge.key_for(&tree.0) {
+fn find_unopened<'a, N: DfsNode, GE: DfsGraph<N>>(ge: &GE, unopened: &mut Vec<(&'a mut Tree<N>, Path<N>)>, tree: &'a mut Tree<N>, path: &mut Path<N>) {
+    let pop = match tree.0.key_node() {
         Some(kn) => {
-            let hn = ge.hash_for(&kn);
-            path.push(&kn, &ge.hash_for(&kn));
-            Some((kn, hn))
+            path.push(&kn);
+            Some(kn)
         }
         None => None,
     };
@@ -282,8 +283,8 @@ fn find_unopened<'a, N, KN: Clone + Eq, HN: Clone + Hash + Eq, GE: DfsGraph<N, K
         Tree(_, TreeStatus::Closed) => {
         }
     };
-    if let Some((kn, hn)) = pop {
-        path.pop(&kn, &hn);
+    if let Some(kn) = pop {
+        path.pop(&kn);
     }
 }
 
@@ -313,7 +314,7 @@ fn find_firstest_aux<N: Clone>(tree: &Tree<N>, acc: &mut Vec<N>) -> bool {
     false
 }
 
-fn dfs_single_thread<N, KN: Clone + Eq, HN: Clone + Eq + Hash, R, GE: DfsGraph<N, KN, HN>, RE: DfsRes<KN, R>, LE: DfsLifecycle<N, KN, R>>(ge: &GE, re: &RE, le: &LE, stop: &AtomicBool, depth: usize, t1: &mut Tree<N>, path: &mut Path<KN, HN>, r: &mut R, on_enter: &mut impl FnMut(&Vec<KN>)) -> bool {
+fn dfs_single_thread<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: DfsLifecycle<N, R>>(ge: &GE, re: &RE, le: &LE, stop: &AtomicBool, depth: usize, t1: &mut Tree<N>, path: &mut Path<N>, r: &mut R, on_enter: &mut impl FnMut(&Vec<N::KN>)) -> bool {
     if depth >= 100 {
         // Don't overflow the stack!  Give up and reenter when the tree so far isn't represented on
         // the stack.
@@ -337,10 +338,8 @@ fn dfs_single_thread<N, KN: Clone + Eq, HN: Clone + Eq + Hash, R, GE: DfsGraph<N
             let mut finished = true;
             let mut children = Vec::new();
             for n2 in ge.expand(n1) {
-                let pop = match ge.key_for(&n2) {
+                let pop = match n2.key_node() {
                     Some(kn2) => {
-                        let hn2 = ge.hash_for(&kn2);
-
                         if ge.end(&kn2) {
                             let mut path = path.vec.clone();
                             path.push(kn2);
@@ -350,14 +349,14 @@ fn dfs_single_thread<N, KN: Clone + Eq, HN: Clone + Eq + Hash, R, GE: DfsGraph<N
                             continue;
                         }
 
-                        if let Some(idx) = path.find_or_push(&kn2, &hn2) {
+                        if let Some(idx) = path.find_or_push(&kn2) {
                             let (path, cycle) = ((&path.vec[0..idx]).to_vec(), (&path.vec[idx..]).to_vec());
                             le.debug_cycle(&path, &cycle);
                             add_result(r, re.map_cycle(path, cycle));
                             continue;
                         }
 
-                        Some((kn2, hn2))
+                        Some(kn2)
                     },
                     None => None,
                 };
@@ -373,8 +372,8 @@ fn dfs_single_thread<N, KN: Clone + Eq, HN: Clone + Eq + Hash, R, GE: DfsGraph<N
                     children.push(t2);
                 }
 
-                if let Some((kn2, hn2)) = pop {
-                    path.pop(&kn2, &hn2);
+                if let Some(kn2) = pop {
+                    path.pop(&kn2);
                 }
             }
             *s1 = match finished {

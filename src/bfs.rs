@@ -1,6 +1,8 @@
 use crate::dfs;
 
 use dfs::graph::DfsGraph;
+use dfs::graph::DfsKeyNode;
+use dfs::graph::DfsNode;
 use dfs::lifecycle::DfsLifecycle;
 use dfs::res::DfsRes;
 
@@ -18,13 +20,13 @@ fn materialize_path<N: Clone>(qs: &[Vec<(usize, N)>], idx: usize) -> Vec<N> {
     r
 }
 
-fn check_cycle<N, KN, HN: Eq, GE: DfsGraph<N, KN, HN>>(ge: &GE, qs: &[Vec<(usize, N)>], idx: usize, kn: &KN) -> Option<usize> {
+fn check_cycle<N: DfsNode>(qs: &[Vec<(usize, N)>], idx: usize, kn: &N::KN) -> Option<usize> {
     let mut qs = &qs[0..(qs.len() - 1)];
     let mut idx = idx;
     while qs.len() > 0 {
         let &(idx2, ref n2) = &qs[qs.len() - 1][idx];
-        if let Some(kn2) = ge.key_for(n2) {
-            if ge.hash_for(kn) == ge.hash_for(&kn2) {
+        if let Some(kn2) = n2.key_node() {
+            if kn.hash_node() == kn2.hash_node() {
                 return Some(qs.len() - 1);
             }
         }
@@ -34,7 +36,7 @@ fn check_cycle<N, KN, HN: Eq, GE: DfsGraph<N, KN, HN>>(ge: &GE, qs: &[Vec<(usize
     None
 }
 
-pub fn sbfs<N: Clone, KN, HN: Eq, R, GE: DfsGraph<N, KN, HN>, RE: DfsRes<KN, R>, LE: DfsLifecycle<N, KN, R>>(n0: N, ge: &GE, re: &RE, le: &mut LE) {
+pub fn sbfs<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: DfsLifecycle<N, R>>(n0: N, ge: &GE, re: &RE, le: &mut LE) {
     let mut qs = vec![vec![(0, n0)]];
 
     loop {
@@ -47,21 +49,21 @@ pub fn sbfs<N: Clone, KN, HN: Eq, R, GE: DfsGraph<N, KN, HN>, RE: DfsRes<KN, R>,
         let mut r = re.empty();
         for (idx, &(prev_idx, ref n)) in ql.iter().enumerate() {
             for n2 in ge.expand(n) {
-                if let Some(kn2) = ge.key_for(&n2) {
+                if let Some(kn2) = n2.key_node() {
                     if ge.end(&kn2) {
                         let path = materialize_path(&qs, prev_idx);
-                        let mut path = ge.keys_for(&path);
+                        let mut path = DfsNode::key_nodes(&path);
                         path.push(kn2);
                         le.debug_end(&path);
                         r = re.reduce(r, re.map_end(path));
                         continue;
                     }
 
-                    if let Some(idx) = check_cycle(ge, &qs, prev_idx, &kn2) {
+                    if let Some(idx) = check_cycle(&qs, prev_idx, &kn2) {
                         let mut path = materialize_path(&qs, prev_idx);
                         let cycle = path.drain(idx..).collect();
-                        let path = ge.keys_for(&path);
-                        let cycle = ge.keys_for(&cycle);
+                        let path = DfsNode::key_nodes(&path);
+                        let cycle = DfsNode::key_nodes(&cycle);
                         le.debug_cycle(&path, &cycle);
                         r = re.reduce(r, re.map_cycle(path, cycle));
                         continue;
@@ -80,7 +82,7 @@ pub fn sbfs<N: Clone, KN, HN: Eq, R, GE: DfsGraph<N, KN, HN>, RE: DfsRes<KN, R>,
             },
             None => vec![],
         };
-        let firstest = ge.keys_for(&firstest);
+        let firstest = DfsNode::key_nodes(&firstest);
         le.on_recollect_firstest(firstest);
         if !le.on_recollect_results(r) {
             break;

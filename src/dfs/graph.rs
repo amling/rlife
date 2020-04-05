@@ -1,10 +1,33 @@
-pub trait DfsGraph<N, KN, HN> {
-    fn expand(&self, n: &N) -> Vec<N>;
-    fn end(&self, kn: &KN) -> bool;
-    fn key_for(&self, n: &N) -> Option<KN>;
-    fn hash_for(&self, n: &KN) -> HN;
+use std::fmt::Debug;
+use std::hash::Hash;
 
-    fn keys_for(&self, ns: &Vec<N>) -> Vec<KN> {
-        ns.iter().filter_map(|n| self.key_for(n)).collect()
+marker_trait! {
+    DfsNodeCommon:
+    [Clone]
+    [Debug]
+    [Eq]
+    [Hash]
+    [Send]
+    [Sync]
+}
+
+pub trait DfsNode: DfsNodeCommon {
+    type KN: DfsKeyNode;
+
+    fn key_node(&self) -> Option<Self::KN>;
+
+    fn key_nodes(v: &Vec<Self>) -> Vec<Self::KN> {
+        v.iter().filter_map(|n| n.key_node()).collect()
     }
+}
+
+pub trait DfsKeyNode: DfsNodeCommon {
+    type HN: DfsNodeCommon;
+
+    fn hash_node(&self) -> Self::HN;
+}
+
+pub trait DfsGraph<N: DfsNode> {
+    fn expand(&self, n: &N) -> Vec<N>;
+    fn end(&self, kn: &N::KN) -> bool;
 }
