@@ -3,8 +3,10 @@ adaptive shift?
     width of any given row would be limited
     unsure how to avoid finding the same essential next row with different shift values
     could generate all possible next row windows (even shorter) and insist each result "fill" its window (refuse when row finishes if it didn't fill its window?)
-    as a very cheap version of this we could have fixed shifts computed from center of last row's bounding box
-        this way there's no forking in window so no overlap problem
+    implemented recenters, much, much better
+        in particular a recenter search does not actually subsume the unrecentered version of itself
+        not sure what searches to try...
+        and output is completely unfixed (we just prefix with global offset now so humans can figure out mostly wtf happened)
 
 optimize...
 
@@ -16,3 +18,5 @@ symmetries
         initial is difficult again
     a lot of these make sense individually, but many combinations are nonsense
         also not sure how to model these in code...
+
+cycle finder
