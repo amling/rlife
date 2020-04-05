@@ -51,11 +51,24 @@ pub struct GolKeyNode<B: Bits> {
 }
 
 impl<B: Bits> DfsKeyNode for GolKeyNode<B> {
-    type HN = GolKeyNode<B>;
+    type HN = GolHashNode<B>;
 
-    fn hash_node(&self) -> GolKeyNode<B> {
-        self.clone()
+    fn hash_node(&self) -> GolHashNode<B> {
+        GolHashNode {
+            r0: self.r0,
+            r1: self.r1,
+        }
     }
+}
+
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(Eq)]
+#[derive(Hash)]
+#[derive(PartialEq)]
+pub struct GolHashNode<B: Bits> {
+    pub r0: B,
+    pub r1: B,
 }
 
 #[derive(Deserialize)]
