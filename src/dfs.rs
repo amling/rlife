@@ -126,13 +126,13 @@ impl<N: Clone> TreeSerdeProxy<N> {
     }
 }
 
-pub fn sdfs<N: Clone + Hash + Eq, R, GE: DfsGraph<N>, RE: DfsRes<N, R>, LE: DfsLifecycle<N, R>>(root: &mut Tree<N>, ge: &GE, re: &RE, le: &mut LE) {
+pub fn sdfs<N, KN: Clone + Hash + Eq, R, GE: DfsGraph<N, KN>, RE: DfsRes<KN, R>, LE: DfsLifecycle<N, KN, R>>(root: &mut Tree<N>, ge: &GE, re: &RE, le: &mut LE) {
     let stop = AtomicBool::new(false);
 
     let mut unopened = Vec::new();
     {
         let mut path = Path::new();
-        find_unopened(&mut unopened, root, &mut path);
+        find_unopened(ge, &mut unopened, root, &mut path);
     }
 
     for (tree, mut path) in unopened {
@@ -144,8 +144,8 @@ pub fn sdfs<N: Clone + Hash + Eq, R, GE: DfsGraph<N>, RE: DfsRes<N, R>, LE: DfsL
     }
 }
 
-pub fn dfs<N: Clone + Hash + Eq + Send, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N, R> + Sync, LE: DfsLifecycle<N, R> + Sync>(root: &mut Tree<N>, ge: &GE, re: &RE, le: &mut LE) {
-    let mut very_longest: Option<Vec<N>> = None;
+pub fn dfs<N: Clone + Send, KN: Clone + Hash + Eq + Send, R: Send, GE: DfsGraph<N, KN> + Sync, RE: DfsRes<KN, R> + Sync, LE: DfsLifecycle<N, KN, R> + Sync>(root: &mut Tree<N>, ge: &GE, re: &RE, le: &mut LE) {
+    let mut very_longest: Option<Vec<KN>> = None;
 
     loop {
         if collapse(root) {
@@ -155,11 +155,11 @@ pub fn dfs<N: Clone + Hash + Eq + Send, R: Send, GE: DfsGraph<N> + Sync, RE: Dfs
         let mut unopened = Vec::new();
         {
             let mut path = Path::new();
-            find_unopened(&mut unopened, root, &mut path);
+            find_unopened(ge, &mut unopened, root, &mut path);
         }
 
         let mut results: Vec<_> = unopened.iter().map(|_| re.empty()).collect();
-        let mut longests: Vec<Option<Vec<N>>> = unopened.iter().map(|_| None).collect();
+        let mut longests: Vec<Option<Vec<KN>>> = unopened.iter().map(|_| None).collect();
 
         {
             let q = SegQueue::new();
@@ -219,6 +219,7 @@ pub fn dfs<N: Clone + Hash + Eq + Send, R: Send, GE: DfsGraph<N> + Sync, RE: Dfs
         }
 
         let firstest = find_firstest(root);
+        let firstest = ge.keys_for(&firstest);
         le.on_recollect_firstest(firstest);
 
         let cont = le.on_recollect_results(res);
@@ -251,25 +252,29 @@ fn collapse<N>(tree: &mut Tree<N>) -> bool {
     }
 }
 
-fn find_unopened<'a, N: Eq + Hash + Clone>(unopened: &mut Vec<(&'a mut Tree<N>, Path<N>)>, tree: &'a mut Tree<N>, path: &mut Path<N>) {
+fn find_unopened<'a, N, KN: Clone + Hash + Eq, GE: DfsGraph<N, KN>>(ge: &GE, unopened: &mut Vec<(&'a mut Tree<N>, Path<KN>)>, tree: &'a mut Tree<N>, path: &mut Path<KN>) {
+    let kn = ge.key_for(&tree.0);
+    let pop = kn.is_some();
+    if let Some(kn) = kn {
+        path.push(&kn);
+    }
+    // Sigh, we have no need of all of tree, but borrow checker can't figure it out for some reason
+    // if we match on &mut tree.1...
     match tree {
-        Tree(n, TreeStatus::Unopened) => {
-            // I'm amazed borrow checker figures this one out.  Unfortunately it does not figure it
-            // out if we match on &mut tree.1 instead...
-            path.push(n);
+        Tree(_, TreeStatus::Unopened) => {
             unopened.push((tree, path.clone()));
-            path.pop();
         }
-        Tree(n, TreeStatus::Opened(children)) => {
-            path.push(n);
+        Tree(_, TreeStatus::Opened(children)) => {
             for child in children.iter_mut() {
-                find_unopened(unopened, child, path);
+                find_unopened(ge, unopened, child, path);
             }
-            path.pop();
         }
         Tree(_, TreeStatus::Closed) => {
         }
     };
+    if pop {
+        path.pop();
+    }
 }
 
 fn find_firstest<N: Clone>(tree: &Tree<N>) -> Vec<N> {
@@ -298,7 +303,7 @@ fn find_firstest_aux<N: Clone>(tree: &Tree<N>, acc: &mut Vec<N>) -> bool {
     false
 }
 
-fn dfs_single_thread<N: Clone + Eq + Hash, R, GE: DfsGraph<N>, RE: DfsRes<N, R>, LE: DfsLifecycle<N, R>>(ge: &GE, re: &RE, le: &LE, stop: &AtomicBool, t1: &mut Tree<N>, path: &mut Path<N>, r: &mut R, on_enter: &mut impl FnMut(&Vec<N>)) -> bool {
+fn dfs_single_thread<N, KN: Clone + Hash + Eq, R, GE: DfsGraph<N, KN>, RE: DfsRes<KN, R>, LE: DfsLifecycle<N, KN, R>>(ge: &GE, re: &RE, le: &LE, stop: &AtomicBool, t1: &mut Tree<N>, path: &mut Path<KN>, r: &mut R, on_enter: &mut impl FnMut(&Vec<KN>)) -> bool {
     le.debug_enter(&path.vec);
     on_enter(&path.vec);
 
@@ -316,20 +321,24 @@ fn dfs_single_thread<N: Clone + Eq + Hash, R, GE: DfsGraph<N>, RE: DfsRes<N, R>,
             let mut finished = true;
             let mut children = Vec::new();
             for n2 in ge.expand(n1) {
-                if ge.end(&n2) {
-                    let mut path = path.vec.clone();
-                    path.push(n2);
-                    le.debug_end(&path);
-                    add_result(r, re.map_end(path));
-                    // could add Closed node, but doesn't affect anything
-                    continue;
-                }
+                let kn2 = ge.key_for(&n2);
+                let pop = kn2.is_some();
+                if let Some(kn2) = kn2 {
+                    if ge.end(&kn2) {
+                        let mut path = path.vec.clone();
+                        path.push(kn2);
+                        le.debug_end(&path);
+                        add_result(r, re.map_end(path));
+                        // could add Closed node, but doesn't affect anything
+                        continue;
+                    }
 
-                if let Some(idx) = path.find_or_push(&n2) {
-                    let (path, cycle) = ((&path.vec[0..idx]).to_vec(), (&path.vec[idx..]).to_vec());
-                    le.debug_cycle(&path, &cycle);
-                    add_result(r, re.map_cycle(path, cycle));
-                    continue;
+                    if let Some(idx) = path.find_or_push(&kn2) {
+                        let (path, cycle) = ((&path.vec[0..idx]).to_vec(), (&path.vec[idx..]).to_vec());
+                        le.debug_cycle(&path, &cycle);
+                        add_result(r, re.map_cycle(path, cycle));
+                        continue;
+                    }
                 }
 
                 let mut t2 = Tree(n2, TreeStatus::Unopened);
@@ -343,7 +352,9 @@ fn dfs_single_thread<N: Clone + Eq + Hash, R, GE: DfsGraph<N>, RE: DfsRes<N, R>,
                     children.push(t2);
                 }
 
-                path.pop();
+                if pop {
+                    path.pop();
+                }
             }
             *s1 = match finished {
                 true => TreeStatus::Closed,

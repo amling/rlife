@@ -32,7 +32,7 @@ impl<'a> GolLifecycle<'a> {
     }
 }
 
-impl<'a, B: Bits + Serialize> DfsLifecycle<GolNode<B>, DfsResVec<GolNode<B>>> for GolLifecycle<'a> {
+impl<'a, B: Bits + Serialize> DfsLifecycle<GolNode<B>, GolNode<B>, DfsResVec<GolNode<B>>> for GolLifecycle<'a> {
     fn threads(&self) -> usize {
         return self.threads;
     }

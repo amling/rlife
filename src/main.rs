@@ -63,7 +63,7 @@ fn main1<B: Bits + DeserializeOwned + Serialize>() {
         log: Some(File::create(log).unwrap()),
     };
 
-    dfs::dfs::<GolNode<B>, _, _, _, _>(&mut root, &ge, &re, &mut le);
+    dfs::dfs::<GolNode<B>, _, _, _, _, _>(&mut root, &ge, &re, &mut le);
 }
 
 fn load_or_with<T: DeserializeOwned + Serialize>(dir: impl AsRef<str>, file: impl AsRef<str>, init: impl FnOnce() -> T) -> T {

@@ -391,7 +391,7 @@ fn expand_srch<B: Bits>(e: &GolGraph, n1: &GolNode<B>, n2s: &mut Vec<GolNode<B>>
     }
 }
 
-impl<B: Bits> DfsGraph<GolNode<B>> for GolGraph {
+impl<B: Bits> DfsGraph<GolNode<B>, GolNode<B>> for GolGraph {
     fn expand(&self, n1: &GolNode<B>) -> Vec<GolNode<B>> {
         let mut n2s = Vec::new();
         expand_srch(self, n1, &mut n2s);
@@ -400,5 +400,9 @@ impl<B: Bits> DfsGraph<GolNode<B>> for GolGraph {
 
     fn end(&self, n: &GolNode<B>) -> bool {
         (n.r2l == self.mt * self.mx) && (n.r1 == B::zero()) && (n.r2 == B::zero())
+    }
+
+    fn key_for(&self, n: &GolNode<B>) -> Option<GolNode<B>> {
+        Some(n.clone())
     }
 }
