@@ -129,17 +129,23 @@ impl<N: Clone> TreeSerdeProxy<N> {
 pub fn sdfs<N, KN: Clone + Hash + Eq, R, GE: DfsGraph<N, KN>, RE: DfsRes<KN, R>, LE: DfsLifecycle<N, KN, R>>(root: &mut Tree<N>, ge: &GE, re: &RE, le: &mut LE) {
     let stop = AtomicBool::new(false);
 
-    let mut unopened = Vec::new();
-    {
-        let mut path = Path::new();
-        find_unopened(ge, &mut unopened, root, &mut path);
-    }
+    loop {
+        let mut unopened = Vec::new();
+        {
+            let mut path = Path::new();
+            find_unopened(ge, &mut unopened, root, &mut path);
+        }
 
-    for (tree, mut path) in unopened {
-        let mut res = re.empty();
-        dfs_single_thread(ge, re, le, &stop, tree, &mut path, &mut res, &mut |_| {});
-        if !le.on_recollect_results(res) {
-            break;
+        if unopened.len() == 0 {
+            return;
+        }
+
+        for (tree, mut path) in unopened {
+            let mut res = re.empty();
+            dfs_single_thread(ge, re, le, &stop, 0, tree, &mut path, &mut res, &mut |_| {});
+            if !le.on_recollect_results(res) {
+                break;
+            }
         }
     }
 }
@@ -181,7 +187,7 @@ pub fn dfs<N: Clone + Send, KN: Clone + Hash + Eq + Send, R: Send, GE: DfsGraph<
                                 }
                             };
 
-                            dfs_single_thread(ge, re, le, stop, tree, &mut path, res, &mut |path| {
+                            dfs_single_thread(ge, re, le, stop, 0, tree, &mut path, res, &mut |path| {
                                 let replace = match longest {
                                     Some(longest) => path.len() > longest.len(),
                                     None => true,
@@ -303,7 +309,13 @@ fn find_firstest_aux<N: Clone>(tree: &Tree<N>, acc: &mut Vec<N>) -> bool {
     false
 }
 
-fn dfs_single_thread<N, KN: Clone + Hash + Eq, R, GE: DfsGraph<N, KN>, RE: DfsRes<KN, R>, LE: DfsLifecycle<N, KN, R>>(ge: &GE, re: &RE, le: &LE, stop: &AtomicBool, t1: &mut Tree<N>, path: &mut Path<KN>, r: &mut R, on_enter: &mut impl FnMut(&Vec<KN>)) -> bool {
+fn dfs_single_thread<N, KN: Clone + Hash + Eq, R, GE: DfsGraph<N, KN>, RE: DfsRes<KN, R>, LE: DfsLifecycle<N, KN, R>>(ge: &GE, re: &RE, le: &LE, stop: &AtomicBool, depth: usize, t1: &mut Tree<N>, path: &mut Path<KN>, r: &mut R, on_enter: &mut impl FnMut(&Vec<KN>)) -> bool {
+    if depth >= 100 {
+        // Don't overflow the stack!  Give up and reenter when the tree so far isn't represented on
+        // the stack.
+        return false;
+    }
+
     le.debug_enter(&path.vec);
     on_enter(&path.vec);
 
@@ -342,7 +354,7 @@ fn dfs_single_thread<N, KN: Clone + Hash + Eq, R, GE: DfsGraph<N, KN>, RE: DfsRe
                 }
 
                 let mut t2 = Tree(n2, TreeStatus::Unopened);
-                if !dfs_single_thread(ge, re, le, stop, &mut t2, path, r, on_enter) {
+                if !dfs_single_thread(ge, re, le, stop, depth + 1, &mut t2, path, r, on_enter) {
                     finished = false;
                 }
                 if let TreeStatus::Closed = t2.1 {
