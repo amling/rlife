@@ -31,7 +31,7 @@ fn main1<B: Bits + DeserializeOwned + Serialize>() {
     let ge: GolGraph = load_or_with(&dir, "ge", || {
         GolGraph {
             mt: 3,
-            mx: 9,
+            mx: 10,
 
             left_sym: GolSym::Empty,
             right_sym: GolSym::Empty,
@@ -39,7 +39,7 @@ fn main1<B: Bits + DeserializeOwned + Serialize>() {
             ox: 0,
             oy: 1,
 
-            recenter: GolRecenter::None,
+            recenter: GolRecenter::BiasLeft,
         }
     });
     assert!(ge.mt * ge.mx <= B::size());
