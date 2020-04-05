@@ -8,15 +8,21 @@ use dfs::graph::DfsGraph;
 
 #[derive(Clone)]
 #[derive(Deserialize)]
-#[derive(Eq)]
-#[derive(Hash)]
-#[derive(PartialEq)]
 #[derive(Serialize)]
 pub struct GolNode<B> {
     pub r0: B,
     pub r1: B,
     pub r2: B,
     pub r2l: usize,
+}
+
+#[derive(Clone)]
+#[derive(Eq)]
+#[derive(Hash)]
+#[derive(PartialEq)]
+pub struct GolKeyNode<B> {
+    pub r0: B,
+    pub r1: B,
 }
 
 #[derive(Deserialize)]
@@ -72,35 +78,16 @@ impl GolGraph {
         r
     }
 
-    fn format_prow<B: Bits>(&self, row: PartialRow<B>) -> String {
-        let mut r = String::new();
-        for t in 0..self.mt {
-            if t != 0 {
-                r.push(' ');
-            }
-
-            for x in 0..self.mx {
-                r.push(match row.get(self, t, x as isize) {
-                    Some(true) => '*',
-                    Some(false) => '.',
-                    None => '?',
-                });
-            }
-        }
-        r
-    }
-
-    pub fn format_rows<B: Bits>(&self, rows: &Vec<GolNode<B>>) -> Vec<String> {
+    pub fn format_rows<B: Bits>(&self, rows: &Vec<GolKeyNode<B>>) -> Vec<String> {
         let mut ret = Vec::new();
         for (n, row) in rows.iter().enumerate() {
             if n == rows.len() - 1 {
-                // last, output everything even if partial
+                // last, output both
                 ret.push(self.format_row(row.r0));
                 ret.push(self.format_row(row.r1));
-                ret.push(self.format_prow(PartialRow::new(row.r2, row.r2l)));
             }
-            else if row.r2l == self.mt * self.mx {
-                // output each first row before that exactly once (as third row fills)
+            else {
+                // output each first row before that exactly once
                 ret.push(self.format_row(row.r0));
             }
         }
@@ -121,20 +108,15 @@ impl GolGraph {
         r
     }
 
-    pub fn format_cycle_rows<B: Bits>(&self, path: &Vec<GolNode<B>>, cycle: &Vec<GolNode<B>>) -> Vec<String> {
-        // Just need to output each first row once (since cycle continues forever).  Either third
-        // row empty or full would do, but empty is easier.
+    pub fn format_cycle_rows<B: Bits>(&self, path: &Vec<GolKeyNode<B>>, cycle: &Vec<GolKeyNode<B>>) -> Vec<String> {
+        // Just need to output each first row once (since cycle continues forever).
         let mut ret = Vec::new();
         for row in path.iter() {
-            if row.r2l == 0 {
-                ret.push(self.format_row(row.r0));
-            }
+            ret.push(self.format_row(row.r0));
         }
         ret.push(self.format_dash_row());
         for row in cycle.iter() {
-            if row.r2l == 0 {
-                ret.push(self.format_row(row.r0));
-            }
+            ret.push(self.format_row(row.r0));
         }
         ret
     }
@@ -391,18 +373,25 @@ fn expand_srch<B: Bits>(e: &GolGraph, n1: &GolNode<B>, n2s: &mut Vec<GolNode<B>>
     }
 }
 
-impl<B: Bits> DfsGraph<GolNode<B>, GolNode<B>> for GolGraph {
+impl<B: Bits> DfsGraph<GolNode<B>, GolKeyNode<B>> for GolGraph {
     fn expand(&self, n1: &GolNode<B>) -> Vec<GolNode<B>> {
         let mut n2s = Vec::new();
         expand_srch(self, n1, &mut n2s);
         n2s
     }
 
-    fn end(&self, n: &GolNode<B>) -> bool {
-        (n.r2l == self.mt * self.mx) && (n.r1 == B::zero()) && (n.r2 == B::zero())
+    fn end(&self, n: &GolKeyNode<B>) -> bool {
+        (n.r0 == B::zero()) && (n.r1 == B::zero())
     }
 
-    fn key_for(&self, n: &GolNode<B>) -> Option<GolNode<B>> {
-        Some(n.clone())
+    fn key_for(&self, n: &GolNode<B>) -> Option<GolKeyNode<B>> {
+        if n.r2l != 0 {
+            return None;
+        }
+
+        Some(GolKeyNode {
+            r0: n.r0,
+            r1: n.r1,
+        })
     }
 }

@@ -10,6 +10,7 @@ use dfs::Tree;
 use dfs::lifecycle::DfsLifecycle;
 use dfs::res::DfsResVec;
 use gol::graph::GolGraph;
+use gol::graph::GolKeyNode;
 use gol::graph::GolNode;
 
 pub struct GolLifecycle<'a> {
@@ -32,7 +33,7 @@ impl<'a> GolLifecycle<'a> {
     }
 }
 
-impl<'a, B: Bits + Serialize> DfsLifecycle<GolNode<B>, GolNode<B>, DfsResVec<GolNode<B>>> for GolLifecycle<'a> {
+impl<'a, B: Bits + Serialize> DfsLifecycle<GolNode<B>, GolKeyNode<B>, DfsResVec<GolKeyNode<B>>> for GolLifecycle<'a> {
     fn threads(&self) -> usize {
         return self.threads;
     }
@@ -41,14 +42,14 @@ impl<'a, B: Bits + Serialize> DfsLifecycle<GolNode<B>, GolNode<B>, DfsResVec<Gol
         return self.recollect_ms;
     }
 
-    fn on_recollect_firstest(&mut self, firstest: Vec<GolNode<B>>) {
+    fn on_recollect_firstest(&mut self, firstest: Vec<GolKeyNode<B>>) {
         eprintln!("Recollect firstest...");
         for line in self.ge.format_rows(&firstest) {
             eprintln!("{}", line);
         }
     }
 
-    fn on_recollect_results(&mut self, r: DfsResVec<GolNode<B>>) -> bool {
+    fn on_recollect_results(&mut self, r: DfsResVec<GolKeyNode<B>>) -> bool {
         for cycle in &r.cycles {
             let (path, cycle) = cycle;
             self.log("Cycle:");
@@ -87,7 +88,7 @@ impl<'a, B: Bits + Serialize> DfsLifecycle<GolNode<B>, GolNode<B>, DfsResVec<Gol
         }
     }
 
-    fn debug_longest(&mut self, path: &Vec<GolNode<B>>) {
+    fn debug_longest(&mut self, path: &Vec<GolKeyNode<B>>) {
         self.log(format!("Longest {}", path.len()));
         for line in self.ge.format_rows(path) {
             self.log(line);
