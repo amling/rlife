@@ -76,8 +76,9 @@ impl GolGraph {
         idx / self.mx
     }
 
-    pub fn format_row<B: Bits>(&self, row: B) -> String {
+    pub fn format_row<B: Bits>(&self, dx: isize, row: B) -> String {
         let mut r = String::new();
+        r.push_str(&format!("[{}] ", dx));
         for t in 0..self.mt {
             if t != 0 {
                 r.push(' ');
@@ -98,12 +99,12 @@ impl GolGraph {
         for (n, row) in rows.iter().enumerate() {
             if n == rows.len() - 1 {
                 // last, output both
-                ret.push(self.format_row(row.r0));
-                ret.push(self.format_row(row.r1));
+                ret.push(self.format_row(row.dx, row.r0));
+                ret.push(self.format_row(row.dx, row.r1));
             }
             else {
                 // output each first row before that exactly once
-                ret.push(self.format_row(row.r0));
+                ret.push(self.format_row(row.dx, row.r0));
             }
         }
         ret
@@ -127,11 +128,11 @@ impl GolGraph {
         // Just need to output each first row once (since cycle continues forever).
         let mut ret = Vec::new();
         for row in path.iter() {
-            ret.push(self.format_row(row.r0));
+            ret.push(self.format_row(row.dx, row.r0));
         }
         ret.push(self.format_dash_row());
         for row in cycle.iter() {
-            ret.push(self.format_row(row.r0));
+            ret.push(self.format_row(row.dx, row.r0));
         }
         ret
     }
