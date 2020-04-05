@@ -20,3 +20,4 @@ symmetries
         also not sure how to model these in code...
 
 cycle finder
+    in particular want this to find waves since we may not be able to find head/tail in same search
