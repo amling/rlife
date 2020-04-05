@@ -168,7 +168,7 @@ impl GolGraph {
         r
     }
 
-    pub fn format_cycle_rows<B: Bits>(&self, path: &Vec<GolKeyNode<B>>, cycle: &Vec<GolKeyNode<B>>) -> Vec<String> {
+    pub fn format_cycle_rows<B: Bits>(&self, path: &Vec<GolKeyNode<B>>, cycle: &Vec<GolKeyNode<B>>, last: &GolKeyNode<B>) -> Vec<String> {
         // Just need to output each first row once (since cycle continues forever).
         let mut ret = Vec::new();
         for row in path.iter() {
@@ -178,6 +178,8 @@ impl GolGraph {
         for row in cycle.iter() {
             ret.push(self.format_row(row.dx, row.r0));
         }
+        ret.push(self.format_dash_row());
+        ret.push(self.format_row(last.dx, last.r0));
         ret
     }
 }

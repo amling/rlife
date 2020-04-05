@@ -1,6 +1,6 @@
 pub trait DfsRes<N, R> {
     fn empty(&self) -> R;
-    fn map_cycle(&self, _path: Vec<N>, _cycle: Vec<N>) -> R {
+    fn map_cycle(&self, _path: Vec<N>, _cycle: Vec<N>, _last: N) -> R {
         self.empty()
     }
     fn map_end(&self, path: Vec<N>) -> R;
@@ -9,7 +9,7 @@ pub trait DfsRes<N, R> {
 
 #[derive(Debug)]
 pub struct DfsResVec<N> {
-    pub cycles: Vec<(Vec<N>, Vec<N>)>,
+    pub cycles: Vec<(Vec<N>, Vec<N>, N)>,
     pub ends: Vec<Vec<N>>,
 }
 
@@ -23,9 +23,9 @@ impl<N> DfsRes<N, DfsResVec<N>> for DfsResToVec {
         }
     }
 
-    fn map_cycle(&self, path: Vec<N>, cycle: Vec<N>) -> DfsResVec<N> {
+    fn map_cycle(&self, path: Vec<N>, cycle: Vec<N>, last: N) -> DfsResVec<N> {
         DfsResVec {
-            cycles: vec![(path, cycle)],
+            cycles: vec![(path, cycle, last)],
             ends: vec![],
         }
     }

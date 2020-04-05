@@ -351,8 +351,8 @@ fn dfs_single_thread<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: D
 
                         if let Some(idx) = path.find_or_push(&kn2) {
                             let (path, cycle) = ((&path.vec[0..idx]).to_vec(), (&path.vec[idx..]).to_vec());
-                            le.debug_cycle(&path, &cycle);
-                            add_result(r, re.map_cycle(path, cycle));
+                            le.debug_cycle(&path, &cycle, &kn2);
+                            add_result(r, re.map_cycle(path, cycle, kn2));
                             continue;
                         }
 

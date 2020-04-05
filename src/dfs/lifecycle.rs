@@ -12,7 +12,7 @@ pub trait DfsLifecycle<N: DfsNode, R> {
     fn debug_enter(&self, _path: &Vec<N::KN>) {
     }
 
-    fn debug_cycle(&self, _path: &Vec<N::KN>, _cycle: &Vec<N::KN>) {
+    fn debug_cycle(&self, _path: &Vec<N::KN>, _cycle: &Vec<N::KN>, _last: &N::KN) {
     }
 
     fn debug_end(&self, _path: &Vec<N::KN>) {

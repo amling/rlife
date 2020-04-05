@@ -64,8 +64,8 @@ pub fn sbfs<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: DfsLifecyc
                         let cycle = path.drain(idx..).collect();
                         let path = DfsNode::key_nodes(&path);
                         let cycle = DfsNode::key_nodes(&cycle);
-                        le.debug_cycle(&path, &cycle);
-                        r = re.reduce(r, re.map_cycle(path, cycle));
+                        le.debug_cycle(&path, &cycle, &kn2);
+                        r = re.reduce(r, re.map_cycle(path, cycle, kn2));
                         continue;
                     }
                 }

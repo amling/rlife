@@ -51,9 +51,9 @@ impl<'a, B: Bits + Serialize> DfsLifecycle<GolNode<B>, DfsResVec<GolKeyNode<B>>>
 
     fn on_recollect_results(&mut self, r: DfsResVec<GolKeyNode<B>>) -> bool {
         for cycle in &r.cycles {
-            let (path, cycle) = cycle;
+            let (path, cycle, last) = cycle;
             self.log("Cycle:");
-            for line in self.ge.format_cycle_rows(path, cycle) {
+            for line in self.ge.format_cycle_rows(path, cycle, last) {
                 self.log(line);
             }
             self.log("");
