@@ -1,7 +1,8 @@
-pub trait DfsGraph<N, KN> {
+pub trait DfsGraph<N, KN, HN> {
     fn expand(&self, n: &N) -> Vec<N>;
     fn end(&self, kn: &KN) -> bool;
     fn key_for(&self, n: &N) -> Option<KN>;
+    fn hash_for(&self, n: &KN) -> HN;
 
     fn keys_for(&self, ns: &Vec<N>) -> Vec<KN> {
         ns.iter().filter_map(|n| self.key_for(n)).collect()

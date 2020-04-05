@@ -18,13 +18,13 @@ fn materialize_path<N: Clone>(qs: &[Vec<(usize, N)>], idx: usize) -> Vec<N> {
     r
 }
 
-fn check_cycle<N, KN: Eq, GE: DfsGraph<N, KN>>(ge: &GE, qs: &[Vec<(usize, N)>], idx: usize, kn: &KN) -> Option<usize> {
+fn check_cycle<N, KN, HN: Eq, GE: DfsGraph<N, KN, HN>>(ge: &GE, qs: &[Vec<(usize, N)>], idx: usize, kn: &KN) -> Option<usize> {
     let mut qs = &qs[0..(qs.len() - 1)];
     let mut idx = idx;
     while qs.len() > 0 {
         let &(idx2, ref n2) = &qs[qs.len() - 1][idx];
         if let Some(kn2) = ge.key_for(n2) {
-            if kn == &kn2 {
+            if ge.hash_for(kn) == ge.hash_for(&kn2) {
                 return Some(qs.len() - 1);
             }
         }
@@ -34,7 +34,7 @@ fn check_cycle<N, KN: Eq, GE: DfsGraph<N, KN>>(ge: &GE, qs: &[Vec<(usize, N)>], 
     None
 }
 
-pub fn sbfs<N: Clone, KN: Eq, R, GE: DfsGraph<N, KN>, RE: DfsRes<KN, R>, LE: DfsLifecycle<N, KN, R>>(n0: N, ge: &GE, re: &RE, le: &mut LE) {
+pub fn sbfs<N: Clone, KN, HN: Eq, R, GE: DfsGraph<N, KN, HN>, RE: DfsRes<KN, R>, LE: DfsLifecycle<N, KN, R>>(n0: N, ge: &GE, re: &RE, le: &mut LE) {
     let mut qs = vec![vec![(0, n0)]];
 
     loop {
