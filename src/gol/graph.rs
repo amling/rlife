@@ -351,8 +351,12 @@ fn recenter<B: Bits>(e: &GolGraph, dx: isize, r0: B, r1: B) -> (isize, B, B) {
     for x in 0..e.mx {
         let ix = x as isize;
         for t in 0..e.mt {
-            r0s.set_bit(e.to_idx((ix - shift) as usize, t), r0.get_bit(e.to_idx(x, t)));
-            r1s.set_bit(e.to_idx((ix - shift) as usize, t), r1.get_bit(e.to_idx(x, t)));
+            if r0.get_bit(e.to_idx(x, t)) {
+                r0s.set_bit(e.to_idx((ix - shift) as usize, t), true);
+            }
+            if r1.get_bit(e.to_idx(x, t)) {
+                r1s.set_bit(e.to_idx((ix - shift) as usize, t), true);
+            }
         }
     }
 
