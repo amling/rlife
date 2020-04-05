@@ -70,7 +70,7 @@ impl<'a, B: Bits + Serialize> DfsLifecycle<GolNode<B>, GolKeyNode<B>, DfsResVec<
         return true;
     }
 
-    //fn debug_enter(&self, path: &Vec<GolNode<B>>) {
+    //fn debug_enter(&self, path: &Vec<GolKeyNode<B>>) {
     //    eprintln!("Enter search {}", path.len());
     //    for line in self.ge.format_rows(path) {
     //        eprintln!("{}", line);
