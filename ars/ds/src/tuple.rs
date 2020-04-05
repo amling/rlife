@@ -1,6 +1,11 @@
 #[derive(Clone)]
+#[derive(Copy)]
+#[derive(Debug)]
 #[derive(Eq)]
+#[derive(Hash)]
+#[derive(Ord)]
 #[derive(PartialEq)]
+#[derive(PartialOrd)]
 pub struct Tuple1<T>(pub T);
 
 pub trait CTupleEnd {
@@ -15,11 +20,11 @@ impl<A> CTupleEnd for Tuple1<A> {
     type F = ();
     type B = A;
 
-    fn split_tuple_end(Tuple1(a): Self) -> ((), A) {
-        ((), a)
+    fn split_tuple_end(a: Tuple1<A>) -> ((), A) {
+        ((), a.0)
     }
 
-    fn join_tuple_end(_: (), a: A) -> Self {
+    fn join_tuple_end((): (), a: A) -> Tuple1<A> {
         Tuple1(a)
     }
 }
@@ -37,18 +42,28 @@ impl<A, B> CTupleEnd for (A, B) {
     }
 }
 
-impl<A, B, C> CTupleEnd for (A, B, C) {
-    type F = (A, B);
-    type B = C;
+macro_rules! ctuple_end_impl {
+    ([$($head:tt)*][$($HEAD:tt)*][$tail:ident][$TAIL:ident]) => {
+        impl<$($HEAD)*, $TAIL> CTupleEnd for ($($HEAD)*, $TAIL) {
+            type F = ($($HEAD)*);
+            type B = $TAIL;
 
-    fn split_tuple_end((a, b, c): (A, B, C)) -> ((A, B), C) {
-        ((a, b), c)
-    }
+            fn split_tuple_end(($($head)*, $tail): ($($HEAD)*, $TAIL)) -> (($($HEAD)*), $TAIL) {
+                (($($head)*), $tail)
+            }
 
-    fn join_tuple_end((a, b): (A, B), c: C) -> (A, B, C) {
-        (a, b, c)
+            fn join_tuple_end(($($head)*): ($($HEAD)*), $tail: $TAIL) -> ($($HEAD)*, $TAIL) {
+                ($($head)*, $tail)
+            }
+        }
     }
 }
+
+ctuple_end_impl!([a, b][A, B][z][Z]);
+ctuple_end_impl!([a, b, c][A, B, C][z][Z]);
+ctuple_end_impl!([a, b, c, d][A, B, C, D][z][Z]);
+ctuple_end_impl!([a, b, c, d, e][A, B, C, D, E][z][Z]);
+ctuple_end_impl!([a, b, c, d, e, f][A, B, C, D, E, F][z][Z]);
 
 pub trait TupleEnd<B> {
     type F;
@@ -60,11 +75,11 @@ pub trait TupleEnd<B> {
 impl<A> TupleEnd<A> for A {
     type F = ();
 
-    fn split_tuple_end(a: Self) -> ((), A) {
+    fn split_tuple_end(a: A) -> ((), A) {
         ((), a)
     }
 
-    fn join_tuple_end(_: (), a: A) -> A {
+    fn join_tuple_end((): (), a: A) -> A {
         a
     }
 }
@@ -81,17 +96,27 @@ impl<A, B> TupleEnd<B> for (A, B) {
     }
 }
 
-impl<A, B, C> TupleEnd<C> for (A, B, C) {
-    type F = (A, B);
+macro_rules! tuple_end_impl {
+    ([$($head:tt)*][$($HEAD:tt)*][$tail:ident][$TAIL:ident]) => {
+        impl<$($HEAD)*, $TAIL> TupleEnd<$TAIL> for ($($HEAD)*, $TAIL) {
+            type F = ($($HEAD)*);
 
-    fn split_tuple_end((a, b, c): (A, B, C)) -> ((A, B), C) {
-        ((a, b), c)
-    }
+            fn split_tuple_end(($($head)*, $tail): ($($HEAD)*, $TAIL)) -> (($($HEAD)*), $TAIL) {
+                (($($head)*), $tail)
+            }
 
-    fn join_tuple_end((a, b): (A, B), c: C) -> (A, B, C) {
-        (a, b, c)
+            fn join_tuple_end(($($head)*): ($($HEAD)*), $tail: $TAIL) -> ($($HEAD)*, $TAIL) {
+                ($($head)*, $tail)
+            }
+        }
     }
 }
+
+tuple_end_impl!([a, b][A, B][z][Z]);
+tuple_end_impl!([a, b, c][A, B, C][z][Z]);
+tuple_end_impl!([a, b, c, d][A, B, C, D][z][Z]);
+tuple_end_impl!([a, b, c, d, e][A, B, C, D, E][z][Z]);
+tuple_end_impl!([a, b, c, d, e, f][A, B, C, D, E, F][z][Z]);
 
 pub trait CTupleStart {
     type F;
@@ -105,11 +130,11 @@ impl<A> CTupleStart for Tuple1<A> {
     type F = A;
     type B = ();
 
-    fn split_tuple_start(Tuple1(a): Self) -> (A, ()) {
-        (a, ())
+    fn split_tuple_start(a: Tuple1<A>) -> (A, ()) {
+        (a.0, ())
     }
 
-    fn join_tuple_start(a: A, _: ()) -> Self {
+    fn join_tuple_start(a: A, (): ()) -> Tuple1<A> {
         Tuple1(a)
     }
 }
@@ -127,18 +152,28 @@ impl<A, B> CTupleStart for (A, B) {
     }
 }
 
-impl<A, B, C> CTupleStart for (A, B, C) {
-    type F = A;
-    type B = (B, C);
+macro_rules! ctuple_start_impl {
+    ([$head:ident][$HEAD:ident][$($tail:tt)*][$($TAIL:tt)*]) => {
+        impl<$HEAD, $($TAIL)*> CTupleStart for ($HEAD, $($TAIL)*) {
+            type F = $HEAD;
+            type B = ($($TAIL)*);
 
-    fn split_tuple_start((a, b, c): (A, B, C)) -> (A, (B, C)) {
-        (a, (b, c))
-    }
+            fn split_tuple_start(($head, $($tail)*): ($HEAD, $($TAIL)*)) -> ($HEAD, ($($TAIL)*)) {
+                ($head, ($($tail)*))
+            }
 
-    fn join_tuple_start(a: A, (b, c): (B, C)) -> (A, B, C) {
-        (a, b, c)
+            fn join_tuple_start($head: $HEAD, ($($tail)*): ($($TAIL)*)) -> ($HEAD, $($TAIL)*) {
+                ($head, $($tail)*)
+            }
+        }
     }
 }
+
+ctuple_start_impl!([z][Z][a, b][A, B]);
+ctuple_start_impl!([z][Z][a, b, c][A, B, C]);
+ctuple_start_impl!([z][Z][a, b, c, d][A, B, C, D]);
+ctuple_start_impl!([z][Z][a, b, c, d, e][A, B, C, D, E]);
+ctuple_start_impl!([z][Z][a, b, c, d, e, f][A, B, C, D, E, F]);
 
 pub trait TupleStart<F> {
     type B;
@@ -150,11 +185,11 @@ pub trait TupleStart<F> {
 impl<A> TupleStart<A> for A {
     type B = ();
 
-    fn split_tuple_start(a: Self) -> (A, ()) {
+    fn split_tuple_start(a: A) -> (A, ()) {
         (a, ())
     }
 
-    fn join_tuple_start(a: A, _: ()) -> A {
+    fn join_tuple_start(a: A, (): ()) -> A {
         a
     }
 }
@@ -171,17 +206,27 @@ impl<A, B> TupleStart<A> for (A, B) {
     }
 }
 
-impl<A, B, C> TupleStart<A> for (A, B, C) {
-    type B = (B, C);
+macro_rules! tuple_start_impl {
+    ([$head:ident][$HEAD:ident][$($tail:tt)*][$($TAIL:tt)*]) => {
+        impl<$HEAD, $($TAIL)*> TupleStart<$HEAD> for ($HEAD, $($TAIL)*) {
+            type B = ($($TAIL)*);
 
-    fn split_tuple_start((a, b, c): (A, B, C)) -> (A, (B, C)) {
-        (a, (b, c))
-    }
+            fn split_tuple_start(($head, $($tail)*): ($HEAD, $($TAIL)*)) -> ($HEAD, ($($TAIL)*)) {
+                ($head, ($($tail)*))
+            }
 
-    fn join_tuple_start(a: A, (b, c): (B, C)) -> (A, B, C) {
-        (a, b, c)
+            fn join_tuple_start($head: $HEAD, ($($tail)*): ($($TAIL)*)) -> ($HEAD, $($TAIL)*) {
+                ($head, $($tail)*)
+            }
+        }
     }
 }
+
+tuple_start_impl!([z][Z][a, b][A, B]);
+tuple_start_impl!([z][Z][a, b, c][A, B, C]);
+tuple_start_impl!([z][Z][a, b, c, d][A, B, C, D]);
+tuple_start_impl!([z][Z][a, b, c, d, e][A, B, C, D, E]);
+tuple_start_impl!([z][Z][a, b, c, d, e, f][A, B, C, D, E, F]);
 
 // This is to work around rust's issues with colliding impls.  We'd like to let people e.g.
 // implement some trait of theirs for isize but then also for all tuples by recursion.  Since we're
@@ -195,5 +240,9 @@ macro_rules! is_tuple_trait {
         impl<A> $t for $crate::tuple::Tuple1<A> { }
         impl<A, B> $t for (A, B) { }
         impl<A, B, C> $t for (A, B, C) { }
+        impl<A, B, C, D> $t for (A, B, C, D) { }
+        impl<A, B, C, D, E> $t for (A, B, C, D, E) { }
+        impl<A, B, C, D, E, F> $t for (A, B, C, D, E, F) { }
+        impl<A, B, C, D, E, F, G> $t for (A, B, C, D, E, F, G) { }
     }
 }
