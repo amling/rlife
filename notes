@@ -21,3 +21,9 @@ symmetries
 
 cycle finder
     in particular want this to find waves since we may not be able to find head/tail in same search
+
+exploding memory problem e.g.  with recentering c/2 mx19 goes crazy
+    doesn't happen single-threaded
+    I assume this is spewing out very deep side trees... as each recollect is a lot
+    maybe we should recollect more often?
+    or undo openings stranded sufficiently far above (and not directly above) the firstest open point?
