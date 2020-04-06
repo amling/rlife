@@ -25,7 +25,7 @@ use gol::graph::GolSym;
 use gol::lifecycle::GolLifecycle;
 
 fn main() {
-    main1::<u128>().unwrap();
+    main1::<u64>().unwrap();
 }
 
 fn main1<B: Bits + DeserializeOwned + Serialize>() -> Result<(), StringError> {
