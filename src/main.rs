@@ -34,13 +34,13 @@ fn main1<B: Bits + DeserializeOwned + Serialize>() -> Result<(), StringError> {
 
     let ge: GolPreGraph = load_or_with(&dir, "ge", || {
         GolPreGraph {
-            mt: 3,
-            mx: 11,
+            mt: 6,
+            mx: 5,
 
             left_sym: GolSym::Empty,
             right_sym: GolSym::Empty,
 
-            ox: 0,
+            ox: 1,
             oy: 1,
 
             recenter: GolRecenter::BiasLeft,
