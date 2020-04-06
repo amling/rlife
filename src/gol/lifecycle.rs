@@ -2,6 +2,8 @@ use ars_ds::bit_state::Bits;
 use serde::Serialize;
 use std::fs::File;
 use std::io::Write;
+use std::time::Duration;
+use std::time::SystemTime;
 
 use crate::dfs;
 use crate::gol;
@@ -79,8 +81,22 @@ impl<'a, B: Bits + Serialize> DfsLifecycle<GolNode<B>, DfsResVec<GolKeyNode<B>>>
 
     fn debug_checkpoint(&mut self, tree: &Tree<GolNode<B>>) {
         if let Some(ref output_dir) = self.output_dir {
-            let path1 = format!("{}/{}", output_dir, ".tree.tmp");
             let path2 = format!("{}/{}", output_dir, "tree");
+
+            // Decide if we should be doing this (it's expensive and no need to checkpoint every
+            // time it's offered.
+            let b = match std::fs::metadata(&path2) {
+                Err(_) => true,
+                Ok(m) => match m.modified() {
+                    Err(_) => true,
+                    Ok(t) => SystemTime::now() >= t + Duration::from_secs(60),
+                },
+            };
+            if !b {
+                return;
+            }
+
+            let path1 = format!("{}/{}", output_dir, ".tree.tmp");
             let mut f = File::create(&path1).unwrap();
             let s = serde_json::to_string(&tree.to_serde_proxy()).unwrap();
             f.write_all(s.as_bytes()).unwrap();
