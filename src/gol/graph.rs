@@ -443,7 +443,7 @@ fn recenter<B: Bits>(e: &GolGraph, r0: B, r1: B) -> (isize, B, B) {
     let min_x = find_min_x(e, r) as isize;
     let max_x = find_max_x(e, r) as isize;
 
-    let shift = ((min_x + max_x) - (0 + (e.mx as isize) - 1) + bias) / 2;
+    let shift = ((min_x + max_x) - (0 + (e.mx as isize) - 1) + bias).div_euclid(2);
 
     let mut r0s = B::zero();
     let mut r1s = B::zero();
