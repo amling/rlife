@@ -34,16 +34,16 @@ fn main1<B: Bits + DeserializeOwned + Serialize>() -> Result<(), StringError> {
 
     let ge: GolPreGraph = load_or_with(&dir, "ge", || {
         GolPreGraph {
-            mt: 2,
-            mx: 16,
+            mt: 7,
+            mx: 5,
 
             left_sym: GolSym::Empty,
             right_sym: GolSym::Empty,
 
-            ox: 0,
-            oy: 1,
+            ox: 1,
+            oy: 2,
 
-            recenter: GolRecenter::BiasLeft,
+            recenter: GolRecenter::BiasRight,
         }
     })?;
     assert!(ge.mt * ge.mx <= B::size());
