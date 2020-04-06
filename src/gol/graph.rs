@@ -163,6 +163,20 @@ impl GolGraph {
         idx / self.mx
     }
 
+    fn prev_t(&self, t: usize) -> usize {
+        if t == 0 {
+            return self.mt - 1;
+        }
+        t - 1
+    }
+
+    fn next_t(&self, t: usize) -> usize {
+        if t == self.mt - 1 {
+            return 0;
+        }
+        t + 1
+    }
+
     pub fn format_row<B: Bits>(&self, dx: isize, row: B) -> String {
         let mut r = String::new();
         r.push_str(&format!("[{}] ", dx));
@@ -480,12 +494,12 @@ fn expand_srch<B: Bits>(e: &GolGraph, n1: &GolNode<B>, n2s: &mut Vec<GolNode<B>>
         let ix = x as isize;
 
         // shift for the previous generation
-        let pt = (t + e.mt - 1) % e.mt;
+        let pt = e.prev_t(t);
         let (sxp, syp) = e.shifts[pt];
         let px = ix - sxp;
 
         // shift from this time to the next
-        let ft = (t + 1) % e.mt;
+        let ft = e.next_t(t);
         let (sx, sy) = e.shifts[t];
         let fx = ix + sx;
 
