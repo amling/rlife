@@ -6,6 +6,7 @@ pub trait Bits: Copy + Send + Sync + Hash + Eq + Debug {
     fn size() -> usize;
     fn get_bit(&self, n: usize) -> bool;
     fn set_bit(&mut self, n: usize, v: bool);
+    fn or(&self, rhs: &Self) -> Self;
 }
 
 // I would love not to have to macro this mess, but rust's num traits suck so unbelievably badly.
@@ -30,6 +31,10 @@ macro_rules! uxx_bits_impl {
                 if v {
                     *self |= 1 << n;
                 }
+            }
+
+            fn or(&self, rhs: &Self) -> Self {
+                *self | *rhs
             }
         }
     }
@@ -64,5 +69,9 @@ impl<A: Bits, B: Bits> Bits for (A, B) {
         else {
             self.1.set_bit(n - A::size(), v)
         }
+    }
+
+    fn or(&self, rhs: &Self) -> Self {
+        (self.0.or(&rhs.0), self.1.or(&rhs.1))
     }
 }
