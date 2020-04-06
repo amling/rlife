@@ -17,8 +17,8 @@ mod gol;
 use dfs::Tree;
 use dfs::TreeStatus;
 use dfs::res::DfsResToVec;
-use gol::graph::GolGraph;
 use gol::graph::GolNode;
+use gol::graph::GolPreGraph;
 use gol::graph::GolRecenter;
 use gol::graph::GolSym;
 use gol::lifecycle::GolLifecycle;
@@ -31,8 +31,8 @@ fn main1<B: Bits + DeserializeOwned + Serialize>() {
     let dir = std::env::args().skip(1).next().unwrap();
     std::fs::create_dir_all(&dir).unwrap();
 
-    let ge: GolGraph = load_or_with(&dir, "ge", || {
-        GolGraph {
+    let ge: GolPreGraph = load_or_with(&dir, "ge", || {
+        GolPreGraph {
             mt: 3,
             mx: 10,
 
@@ -46,6 +46,7 @@ fn main1<B: Bits + DeserializeOwned + Serialize>() {
         }
     });
     assert!(ge.mt * ge.mx <= B::size());
+    let ge = ge.derived();
 
     let mut root = load_or_with(&dir, "tree", || {
         let n0 = GolNode {

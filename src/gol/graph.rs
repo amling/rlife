@@ -91,7 +91,7 @@ pub enum GolSym {
 
 #[derive(Deserialize)]
 #[derive(Serialize)]
-pub struct GolGraph {
+pub struct GolPreGraph {
     pub mt: usize,
     pub mx: usize,
 
@@ -102,6 +102,40 @@ pub struct GolGraph {
     pub oy: isize,
 
     pub recenter: GolRecenter,
+}
+
+impl GolPreGraph {
+    pub fn derived(self) -> GolGraph {
+        let shifts = (0..self.mt).map(|t| {
+            let sx = compute_shift(t, self.mt, self.ox);
+            let sy = compute_shift(t, self.mt, self.oy);
+            (sx, sy)
+        }).collect();
+
+        GolGraph {
+            mt: self.mt,
+            mx: self.mx,
+
+            left_sym: self.left_sym,
+            right_sym: self.right_sym,
+
+            shifts: shifts,
+
+            recenter: self.recenter,
+        }
+    }
+}
+
+pub struct GolGraph {
+    mt: usize,
+    mx: usize,
+
+    left_sym: GolSym,
+    right_sym: GolSym,
+
+    shifts: Vec<(isize, isize)>,
+
+    recenter: GolRecenter,
 }
 
 impl GolGraph {
@@ -447,14 +481,12 @@ fn expand_srch<B: Bits>(e: &GolGraph, n1: &GolNode<B>, n2s: &mut Vec<GolNode<B>>
 
         // shift for the previous generation
         let pt = (t + e.mt - 1) % e.mt;
-        let sxp = compute_shift(pt, e.mt, e.ox);
-        let syp = compute_shift(pt, e.mt, e.oy);
+        let (sxp, syp) = e.shifts[pt];
         let px = ix - sxp;
 
         // shift from this time to the next
         let ft = (t + 1) % e.mt;
-        let sx = compute_shift(t, e.mt, e.ox);
-        let sy = compute_shift(t, e.mt, e.oy);
+        let (sx, sy) = e.shifts[t];
         let fx = ix + sx;
 
         // check past cell if there is one (y shifts backwards!)
