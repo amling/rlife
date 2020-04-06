@@ -9,6 +9,7 @@ use crate::dfs;
 use crate::gol;
 
 use dfs::Tree;
+use dfs::TreeStatus;
 use dfs::lifecycle::DfsLifecycle;
 use dfs::res::DfsResVec;
 use gol::graph::GolGraph;
@@ -83,15 +84,21 @@ impl<'a, B: Bits + Serialize> DfsLifecycle<GolNode<B>, DfsResVec<GolKeyNode<B>>>
         if let Some(ref output_dir) = self.output_dir {
             let path2 = format!("{}/{}", output_dir, "tree");
 
-            // Decide if we should be doing this (it's expensive and no need to checkpoint every
-            // time it's offered.
-            let b = match std::fs::metadata(&path2) {
-                Err(_) => true,
-                Ok(m) => match m.modified() {
+            let b = (|| {
+                if let Tree(_, TreeStatus::Closed) = tree {
+                    return true;
+                }
+
+                // Decide if we should be doing this (it's expensive and no need to checkpoint every
+                // time it's offered.
+                match std::fs::metadata(&path2) {
                     Err(_) => true,
-                    Ok(t) => SystemTime::now() >= t + Duration::from_secs(60),
-                },
-            };
+                    Ok(m) => match m.modified() {
+                        Err(_) => true,
+                        Ok(t) => SystemTime::now() >= t + Duration::from_secs(60),
+                    },
+                }
+            })();
             if !b {
                 return;
             }

@@ -158,6 +158,7 @@ pub fn dfs<N: DfsNode, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R> + S
 
     loop {
         if collapse(root) {
+            le.debug_checkpoint(root);
             return;
         }
 
