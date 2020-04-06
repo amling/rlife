@@ -34,14 +34,14 @@ fn main1<B: Bits + DeserializeOwned + Serialize>() -> Result<(), StringError> {
 
     let ge: GolPreGraph = load_or_with(&dir, "ge", || {
         GolPreGraph {
-            mt: 7,
+            mt: 6,
             mx: 5,
 
             left_sym: GolSym::Empty,
             right_sym: GolSym::Empty,
 
-            ox: 1,
-            oy: 2,
+            ox: -2,
+            oy: 1,
 
             recenter: GolRecenter::BiasRight,
         }
@@ -52,8 +52,8 @@ fn main1<B: Bits + DeserializeOwned + Serialize>() -> Result<(), StringError> {
     let mut root = load_or_with(&dir, "tree", || {
         let n0 = GolNode {
             dx: 0,
-            r0: B::zero(),
-            r1: B::zero(),
+            r0: cnst(0b00000_00100_00101_00000_00110_00111),
+            r1: cnst(0b01010_00000_00110_01110_01100_00100),
             r2: B::zero(),
             r2l: 0,
         };
