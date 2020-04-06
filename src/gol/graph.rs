@@ -411,7 +411,7 @@ fn find_min_x<B: Bits>(e: &GolGraph, r: B) -> usize {
         }
     }
 
-    0
+    panic!();
 }
 
 fn find_max_x<B: Bits>(e: &GolGraph, r: B) -> usize {
@@ -423,20 +423,25 @@ fn find_max_x<B: Bits>(e: &GolGraph, r: B) -> usize {
         }
     }
 
-    e.mx - 1
+    panic!();
 }
 
-fn recenter<B: Bits>(e: &GolGraph, dx: isize, r0: B, r1: B) -> (isize, B, B) {
+fn recenter<B: Bits>(e: &GolGraph, r0: B, r1: B) -> (isize, B, B) {
     let bias = match e.recenter {
         GolRecenter::None => {
-            return (dx, r0, r1);
+            return (0, r0, r1);
         }
         GolRecenter::BiasLeft => 0,
         GolRecenter::BiasRight => 1,
     };
 
-    let min_x = find_min_x(e, r0).min(find_min_x(e, r1)) as isize;
-    let max_x = find_max_x(e, r0).max(find_max_x(e, r1)) as isize;
+    let r = r0.or(&r1);
+    if r == B::zero() {
+        return (0, r0, r1);
+    }
+
+    let min_x = find_min_x(e, r) as isize;
+    let max_x = find_max_x(e, r) as isize;
 
     let shift = ((min_x + max_x) - (0 + (e.mx as isize) - 1) + bias) / 2;
 
@@ -454,17 +459,22 @@ fn recenter<B: Bits>(e: &GolGraph, dx: isize, r0: B, r1: B) -> (isize, B, B) {
         }
     }
 
-    (dx + shift, r0s, r1s)
+    (shift, r0s, r1s)
 }
 
 fn expand_srch<B: Bits>(e: &GolGraph, n1: &GolNode<B>, n2s: &mut Vec<GolNode<B>>) {
     let idx = n1.r2l;
 
     if idx == e.mt * e.mx {
-        let (dx, r0, r1) = recenter(e, n1.dx, n1.r1, n1.r2);
+        let (shift, r0, r1) = recenter(e, n1.r1, n1.r2);
+
+        if n1.r0 == B::zero() && n1.r1 == B::zero() && shift != 0 {
+            // refuse since we'll find it anyway when we generate it already centered
+            return;
+        }
 
         n2s.push(GolNode {
-            dx: dx,
+            dx: n1.dx + shift,
             r0: r0,
             r1: r1,
             r2: B::zero(),
