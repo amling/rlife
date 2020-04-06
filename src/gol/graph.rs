@@ -106,9 +106,18 @@ pub struct GolPreGraph {
 
 impl GolPreGraph {
     pub fn derived(self) -> GolGraph {
+        let compute_shift = |t, o| {
+            // cumulative shift after t steps can be floor(o * t / mt) so we diff cumulatives
+            let t = t as isize;
+            let mt = self.mt as isize;
+            let before = (o * t) / mt;
+            let after = (o * (t + 1)) / mt;
+            after - before
+        };
+
         let shifts = (0..self.mt).map(|t| {
-            let sx = compute_shift(t, self.mt, self.ox);
-            let sy = compute_shift(t, self.mt, self.oy);
+            let sx = compute_shift(t, self.ox);
+            let sy = compute_shift(t, self.oy);
             (sx, sy)
         }).collect();
 
@@ -294,15 +303,6 @@ impl<B: Bits> PartialRow<B> {
             None => CellCounts::new(0, 0),
         }
     }
-}
-
-fn compute_shift(t: usize, mt: usize, o: isize) -> isize {
-    // cumulative shift after t steps can be floor(o * t / mt) so we diff cumulatives
-    let t = t as isize;
-    let mt = mt as isize;
-    let before = (o * t) / mt;
-    let after = (o * (t + 1)) / mt;
-    after - before
 }
 
 #[derive(Default)]
