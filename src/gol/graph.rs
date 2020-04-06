@@ -435,7 +435,7 @@ fn expand_srch<B: Bits>(e: &GolGraph, n1: &GolNode<B>, n2s: &mut Vec<GolNode<B>>
         r2: n1.r2,
         r2l: n1.r2l + 1,
     };
-    for &v in &[false, true] {
+    'v: for &v in &[false, true] {
         Bits::set_bit(&mut n2.r2, idx, v);
 
         let r0 = PartialRow::full(e, n2.r0);
@@ -457,40 +457,45 @@ fn expand_srch<B: Bits>(e: &GolGraph, n1: &GolNode<B>, n2s: &mut Vec<GolNode<B>>
         let sy = compute_shift(t, e.mt, e.oy);
         let fx = ix + sx;
 
-        let mut ok = true;
-
         // check past cell if there is one (y shifts backwards!)
-        ok &= match syp {
+        let b = match syp {
             1 => check_compat(e, r0, r1, r2, pt, px, r2, t, ix),
             0 => check_compat(e, r1, r2, er, pt, px, r2, t, ix),
             -1 => true,
             _ => panic!(),
         };
+        if !b {
+            continue;
+        }
 
         for &dx in &[-1, 0, 1] {
             let ix = ix + dx;
             let fx = fx + dx;
 
             // check cell centered in n1.1
-            ok &= match sy {
+            let b = match sy {
                 -1 => check_compat(e, r0, r1, r2, t, ix, r0, ft, fx),
                 0 => check_compat(e, r0, r1, r2, t, ix, r1, ft, fx),
                 1 => check_compat(e, r0, r1, r2, t, ix, r2, ft, fx),
                 _ => panic!(),
             };
+            if !b {
+                continue 'v;
+            }
 
             // check cell centered in n2b
-            ok &= match sy {
+            let b = match sy {
                 -1 => check_compat(e, r1, r2, er, t, ix, r1, ft, fx),
                 0 => check_compat(e, r1, r2, er, t, ix, r2, ft, fx),
                 1 => true,
                 _ => panic!(),
             };
+            if !b {
+                continue 'v;
+            }
         }
 
-        if ok {
-            n2s.push(n2.clone());
-        }
+        n2s.push(n2.clone());
     }
 }
 
