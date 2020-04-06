@@ -34,7 +34,7 @@ fn main1<B: Bits + DeserializeOwned + Serialize>() {
     let ge: GolPreGraph = load_or_with(&dir, "ge", || {
         GolPreGraph {
             mt: 3,
-            mx: 10,
+            mx: 8,
 
             left_sym: GolSym::Empty,
             right_sym: GolSym::Empty,
