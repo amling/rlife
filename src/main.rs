@@ -2,6 +2,7 @@
 extern crate ars_macro;
 
 use ars_ds::bit_state::Bits;
+use ars_ds::err::StringError;
 use chrono::Local;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -24,12 +25,12 @@ use gol::graph::GolSym;
 use gol::lifecycle::GolLifecycle;
 
 fn main() {
-    main1::<u128>();
+    main1::<u128>().unwrap();
 }
 
-fn main1<B: Bits + DeserializeOwned + Serialize>() {
+fn main1<B: Bits + DeserializeOwned + Serialize>() -> Result<(), StringError> {
     let dir = std::env::args().skip(1).next().unwrap();
-    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::create_dir_all(&dir)?;
 
     let ge: GolPreGraph = load_or_with(&dir, "ge", || {
         GolPreGraph {
@@ -44,7 +45,7 @@ fn main1<B: Bits + DeserializeOwned + Serialize>() {
 
             recenter: GolRecenter::BiasLeft,
         }
-    });
+    })?;
     assert!(ge.mt * ge.mx <= B::size());
     let ge = ge.derived();
 
@@ -57,7 +58,7 @@ fn main1<B: Bits + DeserializeOwned + Serialize>() {
             r2l: 0,
         };
         Tree(n0, TreeStatus::Unopened).to_serde_proxy()
-    }).to_tree();
+    })?.to_tree();
 
     let re = DfsResToVec();
 
@@ -68,30 +69,32 @@ fn main1<B: Bits + DeserializeOwned + Serialize>() {
         threads: 8,
         recollect_ms: 1000,
         output_dir: Some(dir.clone()),
-        log: Some(File::create(log).unwrap()),
+        log: Some(File::create(log)?),
     };
 
     dfs::dfs::<GolNode<B>, _, _, _, _>(&mut root, &ge, &re, &mut le);
+
+    Ok(())
 }
 
-fn load_or_with<T: DeserializeOwned + Serialize>(dir: impl AsRef<str>, file: impl AsRef<str>, init: impl FnOnce() -> T) -> T {
+fn load_or_with<T: DeserializeOwned + Serialize>(dir: impl AsRef<str>, file: impl AsRef<str>, init: impl FnOnce() -> T) -> Result<T, StringError> {
     let dir = dir.as_ref();
     let file = file.as_ref();
 
     let path = format!("{}/{}", dir, file);
     let path = Path::new(&path);
     if path.is_file() {
-        let mut f = File::open(path).unwrap();
+        let mut f = File::open(path)?;
         let mut s = String::new();
-        f.read_to_string(&mut s).unwrap();
-        serde_json::from_str(&s).unwrap()
+        f.read_to_string(&mut s)?;
+        Ok(serde_json::from_str(&s)?)
     }
     else {
         let r = init();
-        let mut f = File::create(path).unwrap();
-        let s = serde_json::to_string(&r).unwrap();
-        f.write_all(s.as_bytes()).unwrap();
-        r
+        let mut f = File::create(path)?;
+        let s = serde_json::to_string(&r)?;
+        f.write_all(s.as_bytes())?;
+        Ok(r)
     }
 }
 
