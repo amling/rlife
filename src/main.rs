@@ -25,7 +25,7 @@ use gol::graph::GolSym;
 use gol::lifecycle::GolLifecycle;
 
 fn main() {
-    main1::<u32>().unwrap();
+    main1::<u64>().unwrap();
 }
 
 fn main1<B: Bits + DeserializeOwned + Serialize>() -> Result<(), StringError> {
@@ -35,7 +35,7 @@ fn main1<B: Bits + DeserializeOwned + Serialize>() -> Result<(), StringError> {
     let ge: GolPreGraph = load_or_with(&dir, "ge", || {
         GolPreGraph {
             mt: 5,
-            mx: 6,
+            mx: 8,
 
             left_sym: GolSym::Empty,
             right_sym: GolSym::Empty,
@@ -52,8 +52,8 @@ fn main1<B: Bits + DeserializeOwned + Serialize>() -> Result<(), StringError> {
     let mut root = load_or_with(&dir, "tree", || {
         let n0 = GolNode {
             dx: 0,
-            r0: cnst(0b001110_000110_000100_001000_001000),
-            r1: cnst(0b010110_010100_010100_010100_010100),
+            r0: cnst(0b00011100_00001100_00001000_00010000_00010000),
+            r1: cnst(0b00101100_00101000_00101000_00101000_00101000),
             r2: B::zero(),
             r2l: 0,
         };
