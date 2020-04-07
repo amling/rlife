@@ -67,7 +67,7 @@ fn main1<B: Bits + DeserializeOwned + Serialize>() -> Result<(), StringError> {
     let mut le = GolLifecycle {
         ge: &ge,
         threads: 8,
-        recollect_ms: 1000,
+        recollect_ms: 60000,
         output_dir: Some(dir.clone()),
         log: Some(File::create(log)?),
     };

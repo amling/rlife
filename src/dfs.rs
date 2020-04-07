@@ -155,6 +155,7 @@ pub fn sdfs<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: DfsLifecyc
 
 pub fn dfs<N: DfsNode, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R> + Sync, LE: DfsLifecycle<N, R> + Sync>(root: &mut Tree<N>, ge: &GE, re: &RE, le: &mut LE) {
     let mut very_longest: Option<Vec<N::KN>> = None;
+    let mut first = true;
 
     loop {
         if collapse(root) {
@@ -204,7 +205,12 @@ pub fn dfs<N: DfsNode, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R> + S
                     });
                 }
 
-                std::thread::sleep(Duration::from_millis(le.recollect_ms()));
+                let mut wait_ms = le.recollect_ms();
+                if first {
+                    wait_ms = 1000;
+                    first = false;
+                }
+                std::thread::sleep(Duration::from_millis(wait_ms));
 
                 stop.store(true, Ordering::Relaxed);
             }).unwrap();
