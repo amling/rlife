@@ -78,9 +78,34 @@ pub struct TreeSerdeProxy<N>(Vec<TreeSerdeProxyElement<N>>);
 
 impl<N: Clone> Tree<N> {
     pub fn to_serde_proxy(&self) -> TreeSerdeProxy<N> {
+eprintln!("to proxy cts {:?}", self.proxy_cts());
         let mut acc = Vec::new();
         self.to_serde_proxy_aux(&mut acc);
         TreeSerdeProxy(acc)
+    }
+
+    pub fn proxy_cts(&self) -> (usize, usize, usize, usize) {
+        let mut acc = (0, 0, 0, 0);
+        self.proxy_cts_aux(&mut acc);
+        acc
+    }
+
+    fn proxy_cts_aux(&self, acc: &mut (usize, usize, usize, usize)) {
+        match self.1 {
+            TreeStatus::Unopened => {
+                acc.0 += 1;
+            }
+            TreeStatus::Opened(ref children) => {
+                acc.1 += 1;
+                for child in children {
+                    child.proxy_cts_aux(acc);
+                }
+                acc.2 += 1;
+            }
+            TreeStatus::Closed => {
+                acc.3 += 1;
+            }
+        }
     }
 
     fn to_serde_proxy_aux(&self, acc: &mut Vec<TreeSerdeProxyElement<N>>) {
@@ -104,6 +129,7 @@ impl<N: Clone> TreeSerdeProxy<N> {
         let mut idx = 0;
         let r = self.to_tree_aux(&mut idx);
         assert_eq!(idx, self.0.len());
+eprintln!("to tree cts {:?}", r.proxy_cts());
         r
     }
 
@@ -183,6 +209,13 @@ pub fn dfs<N: DfsNode, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R> + S
                 for _ in 0..le.threads() {
                     sc.spawn(|_| {
                         loop {
+                            // Previously dfs_single_thread would check stop before doing anything,
+                            // but now it always expands the first level.  It's better to skip
+                            // pointlessly calling it for every queue entry anyway...
+                            if stop.load(Ordering::Relaxed) {
+                                break;
+                            }
+
                             let (((tree, mut path), res), longest) = match q.pop() {
                                 Result::Ok(tuple) => tuple,
                                 Result::Err(PopError) => {
@@ -321,6 +354,14 @@ fn find_firstest_aux<N: Clone>(tree: &Tree<N>, acc: &mut Vec<N>) -> bool {
 }
 
 fn dfs_single_thread<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: DfsLifecycle<N, R>>(ge: &GE, re: &RE, le: &LE, t1: &mut Tree<N>, path: &mut Path<N>, r: &mut R, on_enter: &mut impl FnMut(&Vec<N::KN>) -> bool) -> bool {
+    let cts1 = t1.proxy_cts();
+    let r = dfs_single_thread1(ge, re, le, t1, path, r, on_enter);
+    let cts2 = t1.proxy_cts();
+//eprintln!("dfs_single_thread: {:?} -> {:?}, {}", cts1, cts2, r);
+    r
+}
+
+fn dfs_single_thread1<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: DfsLifecycle<N, R>>(ge: &GE, re: &RE, le: &LE, t1: &mut Tree<N>, path: &mut Path<N>, r: &mut R, on_enter: &mut impl FnMut(&Vec<N::KN>) -> bool) -> bool {
     let add_result = |r: &mut R, r1| {
         let r0 = std::mem::replace(r, re.empty());
         *r = re.reduce(r0, r1);
