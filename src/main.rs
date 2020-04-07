@@ -34,16 +34,16 @@ fn main1<B: Bits + DeserializeOwned + Serialize>() -> Result<(), StringError> {
 
     let ge: GolPreGraph = load_or_with(&dir, "ge", || {
         GolPreGraph {
-            mt: 3,
-            mx: 9,
+            mt: 5,
+            mx: 8,
 
             left_sym: GolSym::Empty,
             right_sym: GolSym::Empty,
 
-            ox: 0,
+            ox: 1,
             oy: 1,
 
-            recenter: GolRecenter::BiasLeft,
+            recenter: GolRecenter::BiasRight,
         }
     })?;
     assert!(ge.mt * ge.mx <= B::size());
@@ -52,8 +52,8 @@ fn main1<B: Bits + DeserializeOwned + Serialize>() -> Result<(), StringError> {
     let mut root = load_or_with(&dir, "tree", || {
         let n0 = GolNode {
             dx: 0,
-            r0: B::zero(),
-            r1: B::zero(),
+            r0: cnst(0b00011100_00001100_00001000_00010000_00010000),
+            r1: cnst(0b00101100_00101000_00101000_00101000_00101000),
             r2: B::zero(),
             r2l: 0,
         };
@@ -72,7 +72,7 @@ fn main1<B: Bits + DeserializeOwned + Serialize>() -> Result<(), StringError> {
         log: Some(File::create(log)?),
     };
 
-    dfs::sdfs::<GolNode<B>, _, _, _, _>(&mut root, &ge, &re, &mut le);
+    dfs::dfs::<GolNode<B>, _, _, _, _>(&mut root, &ge, &re, &mut le);
 
     Ok(())
 }
