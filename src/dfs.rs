@@ -339,7 +339,7 @@ fn dfs_single_thread<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: D
 
     // hard-code none for KN because we actually don't want to pop the caller-provided KN
     // corresponding to n1 off the path (if there is one)
-    let mut stack: Vec<(N, Option<N::KN>, _)> = vec![(n1, None, n2s)];
+    let mut stack = vec![(n1, None, n2s)];
     'top: loop {
         // invariants:
         //
