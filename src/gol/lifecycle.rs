@@ -1,6 +1,7 @@
 use ars_ds::bit_state::Bits;
 use serde::Serialize;
 use std::fs::File;
+use std::io::BufWriter;
 use std::io::Write;
 use std::time::Duration;
 use std::time::SystemTime;
@@ -104,9 +105,10 @@ impl<'a, B: Bits + Serialize> DfsLifecycle<GolNode<B>, DfsResVec<GolKeyNode<B>>>
             }
 
             let path1 = format!("{}/{}", output_dir, ".tree.tmp");
-            let mut f = File::create(&path1).unwrap();
-            let s = serde_json::to_string(&tree.to_serde_proxy()).unwrap();
-            f.write_all(s.as_bytes()).unwrap();
+            let f = File::create(&path1).unwrap();
+            let f = BufWriter::new(f);
+            let tree = tree.to_serde_proxy();
+            serde_json::to_writer(f, &tree).unwrap();
             std::fs::rename(&path1, &path2).unwrap();
         }
     }

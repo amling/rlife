@@ -7,8 +7,8 @@ use chrono::Local;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use std::fs::File;
-use std::io::Read;
-use std::io::Write;
+use std::io::BufReader;
+use std::io::BufWriter;
 use std::path::Path;
 
 mod bfs;
@@ -84,16 +84,15 @@ fn load_or_with<T: DeserializeOwned + Serialize>(dir: impl AsRef<str>, file: imp
     let path = format!("{}/{}", dir, file);
     let path = Path::new(&path);
     if path.is_file() {
-        let mut f = File::open(path)?;
-        let mut s = String::new();
-        f.read_to_string(&mut s)?;
-        Ok(serde_json::from_str(&s)?)
+        let f = File::open(path)?;
+        let f = BufReader::new(f);
+        Ok(serde_json::from_reader(f)?)
     }
     else {
         let r = init();
-        let mut f = File::create(path)?;
-        let s = serde_json::to_string(&r)?;
-        f.write_all(s.as_bytes())?;
+        let f = File::create(path)?;
+        let f = BufWriter::new(f);
+        serde_json::to_writer(f, &r)?;
         Ok(r)
     }
 }
