@@ -3,10 +3,12 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::dfs;
+use crate::gol;
 
 use dfs::graph::DfsGraph;
 use dfs::graph::DfsKeyNode;
 use dfs::graph::DfsNode;
+use gol::printbag::PrintBag;
 
 #[derive(Clone)]
 #[derive(Debug)]
@@ -177,67 +179,61 @@ impl GolGraph {
         t + 1
     }
 
-    pub fn format_row<B: Bits>(&self, dx: isize, row: B) -> String {
-        let mut r = String::new();
-        r.push_str(&format!("[{}] ", dx));
+    fn collect_row<B: Bits>(&self, pr: &mut PrintBag, row: B, x0: isize, y0: usize) {
         for t in 0..self.mt {
-            if t != 0 {
-                r.push(' ');
-            }
-
             for x in 0..self.mx {
-                r.push(match B::get_bit(&row, self.to_idx(x, t)) {
+                pr.insert(x0 + (x as isize), y0, t, match B::get_bit(&row, self.to_idx(x, t)) {
                     true => '*',
                     false => '.',
                 });
             }
         }
-        r
+    }
+
+    fn collect_dash_row(&self, pr: &mut PrintBag, x0: isize, y0: usize) {
+        for t in 0..self.mt {
+            for x in 0..self.mx {
+                pr.insert(x0 + (x as isize), y0, t, '-');
+            }
+        }
     }
 
     pub fn format_rows<B: Bits>(&self, rows: &Vec<GolKeyNode<B>>) -> Vec<String> {
-        let mut ret = Vec::new();
+        let mut pr = PrintBag::new(self.mt);
+        let mut y = 0;
         for (n, row) in rows.iter().enumerate() {
             if n == rows.len() - 1 {
                 // last, output both
-                ret.push(self.format_row(row.dx, row.r0));
-                ret.push(self.format_row(row.dx, row.r1));
+                self.collect_row(&mut pr, row.r0, row.dx, y);
+                self.collect_row(&mut pr, row.r1, row.dx, y + 1);
             }
             else {
                 // output each first row before that exactly once
-                ret.push(self.format_row(row.dx, row.r0));
+                self.collect_row(&mut pr, row.r0, row.dx, y);
+                y += 1;
             }
         }
-        ret
-    }
-
-    fn format_dash_row(&self) -> String {
-        let mut r = String::new();
-        for t in 0..self.mt {
-            if t != 0 {
-                r.push(' ');
-            }
-
-            for _x in 0..self.mx {
-                r.push('-');
-            }
-        }
-        r
+        pr.format()
     }
 
     pub fn format_cycle_rows<B: Bits>(&self, path: &Vec<GolKeyNode<B>>, cycle: &Vec<GolKeyNode<B>>, last: &GolKeyNode<B>) -> Vec<String> {
         // Just need to output each first row once (since cycle continues forever).
-        let mut ret = Vec::new();
+        let mut pr = PrintBag::new(self.mt);
+        let mut y = 0;
         for row in path.iter() {
-            ret.push(self.format_row(row.dx, row.r0));
+            self.collect_row(&mut pr, row.r0, row.dx, y);
+            y += 1;
         }
-        ret.push(self.format_dash_row());
-        for row in cycle.iter() {
-            ret.push(self.format_row(row.dx, row.r0));
+        for (n, row) in cycle.iter().enumerate() {
+            if n == 0 {
+                self.collect_dash_row(&mut pr, row.dx, y);
+                y += 1;
+            }
+            self.collect_row(&mut pr, row.r0, row.dx, y);
+            y += 1;
         }
-        ret.push(self.format_dash_row());
-        ret.push(self.format_row(last.dx, last.r0));
-        ret
+        self.collect_dash_row(&mut pr, last.dx, y);
+        pr.format()
     }
 }
 

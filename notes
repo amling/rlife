@@ -6,7 +6,6 @@ adaptive shift?
     implemented recenters, much, much better
         in particular a recenter search does not actually subsume the unrecentered version of itself
         not sure what searches to try...
-        and output is completely unfixed (we just prefix with global offset now so humans can figure out mostly wtf happened)
 
 optimize...
 
