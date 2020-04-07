@@ -322,11 +322,16 @@ fn find_firstest_aux<N: Clone>(tree: &Tree<N>, acc: &mut Vec<N>) -> bool {
 }
 
 fn dfs_single_thread<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: DfsLifecycle<N, R>>(ge: &GE, re: &RE, le: &LE, stop: &AtomicBool, depth: usize, t1: &mut Tree<N>, path: &mut Path<N>, r: &mut R, on_enter: &mut impl FnMut(&Vec<N::KN>)) -> bool {
-    if depth >= 100 {
-        // Don't overflow the stack!  Give up and reenter when the tree so far isn't represented on
-        // the stack.
-        return false;
-    }
+    // TODO: don't overflow stack
+    //
+    // Without this it's possible for very successful/deep searches to overflow stack before
+    // recollect.  With this it makes the tree in progress extremely bushy and fills memory.
+    //
+    // if depth >= 100 {
+    //     // Don't overflow the stack!  Give up and reenter when the tree so far isn't represented on
+    //     // the stack.
+    //     return false;
+    // }
 
     le.debug_enter(&path.vec);
     on_enter(&path.vec);

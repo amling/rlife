@@ -27,3 +27,4 @@ exploding memory problem e.g.  with recentering c/2 mx19 goes crazy
     I assume this is spewing out very deep side trees... as each recollect is a lot
     maybe we should recollect more often?
     or undo openings stranded sufficiently far above (and not directly above) the firstest open point?
+    oh, I think this is due to the 100 depth limit!
