@@ -145,7 +145,7 @@ pub fn sdfs<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: DfsLifecyc
 
         for (tree, mut path) in unopened {
             let mut res = re.empty();
-            dfs_single_thread(ge, re, le, &stop, 0, tree, &mut path, &mut res, &mut |_| {});
+            dfs_single_thread(ge, re, le, &stop, tree, &mut path, &mut res, &mut |_| {});
             if !le.on_recollect_results(res) {
                 break;
             }
@@ -192,7 +192,7 @@ pub fn dfs<N: DfsNode, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R> + S
                                 }
                             };
 
-                            dfs_single_thread(ge, re, le, stop, 0, tree, &mut path, res, &mut |path| {
+                            dfs_single_thread(ge, re, le, stop, tree, &mut path, res, &mut |path| {
                                 let replace = match longest {
                                     Some(longest) => path.len() > longest.len(),
                                     None => true,
@@ -321,7 +321,7 @@ fn find_firstest_aux<N: Clone>(tree: &Tree<N>, acc: &mut Vec<N>) -> bool {
     false
 }
 
-fn dfs_single_thread<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: DfsLifecycle<N, R>>(ge: &GE, re: &RE, le: &LE, stop: &AtomicBool, depth: usize, t1: &mut Tree<N>, path: &mut Path<N>, r: &mut R, on_enter: &mut impl FnMut(&Vec<N::KN>)) -> bool {
+fn dfs_single_thread<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: DfsLifecycle<N, R>>(ge: &GE, re: &RE, le: &LE, stop: &AtomicBool, t1: &mut Tree<N>, path: &mut Path<N>, r: &mut R, on_enter: &mut impl FnMut(&Vec<N::KN>)) -> bool {
     // TODO: don't overflow stack
     //
     // Without this it's possible for very successful/deep searches to overflow stack before
@@ -374,7 +374,7 @@ fn dfs_single_thread<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: D
                 };
 
                 let mut t2 = Tree(n2, TreeStatus::Unopened);
-                if !dfs_single_thread(ge, re, le, stop, depth + 1, &mut t2, path, r, on_enter) {
+                if !dfs_single_thread(ge, re, le, stop, &mut t2, path, r, on_enter) {
                     finished = false;
                 }
                 if let TreeStatus::Closed = t2.1 {
