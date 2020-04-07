@@ -3,6 +3,7 @@ use crossbeam::queue::SegQueue;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap;
+use std::collections::VecDeque;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
@@ -322,78 +323,92 @@ fn find_firstest_aux<N: Clone>(tree: &Tree<N>, acc: &mut Vec<N>) -> bool {
 }
 
 fn dfs_single_thread<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: DfsLifecycle<N, R>>(ge: &GE, re: &RE, le: &LE, stop: &AtomicBool, t1: &mut Tree<N>, path: &mut Path<N>, r: &mut R, on_enter: &mut impl FnMut(&Vec<N::KN>)) -> bool {
-    // TODO: don't overflow stack
-    //
-    // Without this it's possible for very successful/deep searches to overflow stack before
-    // recollect.  With this it makes the tree in progress extremely bushy and fills memory.
-    //
-    // if depth >= 100 {
-    //     // Don't overflow the stack!  Give up and reenter when the tree so far isn't represented on
-    //     // the stack.
-    //     return false;
-    // }
-
-    le.debug_enter(&path.vec);
-    on_enter(&path.vec);
-
-    if stop.load(Ordering::Relaxed) {
-        return false;
-    }
-
     let add_result = |r: &mut R, r1| {
         let r0 = std::mem::replace(r, re.empty());
         *r = re.reduce(r0, r1);
     };
 
-    match t1 {
-        Tree(n1, s1 @ TreeStatus::Unopened) => {
-            let mut finished = true;
-            let mut children = Vec::new();
-            for n2 in ge.expand(n1) {
-                let pop = match n2.key_node() {
-                    Some(kn2) => {
-                        if ge.end(&kn2) {
-                            let mut path = path.vec.clone();
-                            path.push(kn2);
-                            le.debug_end(&path);
-                            add_result(r, re.map_end(path));
-                            // could add Closed node, but doesn't affect anything
-                            continue;
-                        }
+    // Unpack to just the node
+    let n1 = t1.0.clone();
+    match t1.1 {
+        TreeStatus::Unopened => {
+            // ok
+        },
+        _ => panic!(),
+    }
+    let n2s = ge.expand(&n1).into_iter().collect();
 
-                        if let Some(idx) = path.find_or_push(&kn2) {
-                            let (path, cycle) = ((&path.vec[0..idx]).to_vec(), (&path.vec[idx..]).to_vec());
-                            le.debug_cycle(&path, &cycle, &kn2);
-                            add_result(r, re.map_cycle(path, cycle, kn2));
-                            continue;
-                        }
+    // hard-code none for KN because we actually don't want to pop the caller-provided KN
+    // corresponding to n1 off the path (if there is one)
+    let mut stack: Vec<(N, Option<N::KN>, VecDeque<N>)> = vec![(n1, None, n2s)];
+    'top: loop {
+        // invariants:
+        //
+        // we're looking for next node to enter
+        //
+        // path and stack "match"
 
-                        Some(kn2)
+        let n1 = match stack.last_mut() {
+            Some(last) => {
+                match last.2.pop_front() {
+                    // found (and pulled) another unopened node, continue from here
+                    Some(n1) => n1,
+                    None => {
+                        // no more children, you're done, move up to parent and keep looking
+                        if let Some(kn) = &last.1 {
+                            path.pop(kn);
+                        }
+                        stack.pop();
+                        continue 'top;
                     },
-                    None => None,
-                };
+                }
+            },
+            None => {
+                // yay, we finished everything
+                t1.1 = TreeStatus::Closed;
+                return true;
+            },
+        };
 
-                let mut t2 = Tree(n2, TreeStatus::Unopened);
-                if !dfs_single_thread(ge, re, le, stop, &mut t2, path, r, on_enter) {
-                    finished = false;
-                }
-                if let TreeStatus::Closed = t2.1 {
-                    // ditto, no need to save Closed nodes
-                }
-                else {
-                    children.push(t2);
-                }
-
-                if let Some(kn2) = pop {
-                    path.pop(&kn2);
-                }
+        // found a node to enter, let's put it on the stack
+        let kn1 = n1.key_node();
+        if let Some(kn1) = &kn1 {
+            if ge.end(kn1) {
+                let mut path = path.vec.clone();
+                path.push(kn1.clone());
+                le.debug_end(&path);
+                add_result(r, re.map_end(path));
+                continue 'top;
             }
-            *s1 = match finished {
-                true => TreeStatus::Closed,
-                false => TreeStatus::Opened(children),
-            };
-            return finished;
+
+            if let Some(idx) = path.find_or_push(kn1) {
+                let (path, cycle) = ((&path.vec[0..idx]).to_vec(), (&path.vec[idx..]).to_vec());
+                le.debug_cycle(&path, &cycle, kn1);
+                add_result(r, re.map_cycle(path, cycle, kn1.clone()));
+                continue 'top;
+            }
         }
-        _ => panic!()
-    };
+
+        // this is the point where we'd be [re]entering in the old recursive version
+
+        le.debug_enter(&path.vec);
+        on_enter(&path.vec);
+
+        if stop.load(Ordering::Relaxed) {
+            let mut tr = Tree(n1, TreeStatus::Unopened);
+            for (n, _kn, children2) in stack.into_iter().rev() {
+                let mut children = vec![tr];
+                for n2 in children2 {
+                    children.push(Tree(n2, TreeStatus::Unopened));
+                }
+                tr = Tree(n, TreeStatus::Opened(children));
+            }
+            debug_assert_eq!(t1.0, tr.0);
+            *t1 = tr;
+            return false;
+        }
+
+        let n2s = ge.expand(&n1).into_iter().collect();
+        stack.push((n1, kn1, n2s));
+    }
 }
