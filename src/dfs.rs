@@ -130,8 +130,6 @@ impl<N: Clone> TreeSerdeProxy<N> {
 }
 
 pub fn sdfs<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: DfsLifecycle<N, R>>(root: &mut Tree<N>, ge: &GE, re: &RE, le: &mut LE) {
-    let stop = AtomicBool::new(false);
-
     loop {
         let mut unopened = Vec::new();
         {
@@ -145,7 +143,7 @@ pub fn sdfs<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: DfsLifecyc
 
         for (tree, mut path) in unopened {
             let mut res = re.empty();
-            dfs_single_thread(ge, re, le, &stop, tree, &mut path, &mut res, &mut |_| {});
+            dfs_single_thread(ge, re, le, tree, &mut path, &mut res, &mut |_| true);
             if !le.on_recollect_results(res) {
                 break;
             }
@@ -192,7 +190,7 @@ pub fn dfs<N: DfsNode, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R> + S
                                 }
                             };
 
-                            dfs_single_thread(ge, re, le, stop, tree, &mut path, res, &mut |path| {
+                            dfs_single_thread(ge, re, le, tree, &mut path, res, &mut |path| {
                                 let replace = match longest {
                                     Some(longest) => path.len() > longest.len(),
                                     None => true,
@@ -200,6 +198,7 @@ pub fn dfs<N: DfsNode, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R> + S
                                 if replace {
                                     *longest = Some(path.clone());
                                 }
+                                !stop.load(Ordering::Relaxed)
                             });
                         }
                     });
@@ -321,7 +320,7 @@ fn find_firstest_aux<N: Clone>(tree: &Tree<N>, acc: &mut Vec<N>) -> bool {
     false
 }
 
-fn dfs_single_thread<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: DfsLifecycle<N, R>>(ge: &GE, re: &RE, le: &LE, stop: &AtomicBool, t1: &mut Tree<N>, path: &mut Path<N>, r: &mut R, on_enter: &mut impl FnMut(&Vec<N::KN>)) -> bool {
+fn dfs_single_thread<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: DfsLifecycle<N, R>>(ge: &GE, re: &RE, le: &LE, t1: &mut Tree<N>, path: &mut Path<N>, r: &mut R, on_enter: &mut impl FnMut(&Vec<N::KN>) -> bool) -> bool {
     let add_result = |r: &mut R, r1| {
         let r0 = std::mem::replace(r, re.empty());
         *r = re.reduce(r0, r1);
@@ -391,9 +390,9 @@ fn dfs_single_thread<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: D
         // this is the point where we'd be [re]entering in the old recursive version
 
         le.debug_enter(&path.vec);
-        on_enter(&path.vec);
+        let stop = !on_enter(&path.vec);
 
-        if stop.load(Ordering::Relaxed) {
+        if stop {
             let mut tr = Tree(n1, TreeStatus::Unopened);
             for (n, _kn, children2) in stack.into_iter().rev() {
                 let mut children = vec![tr];
