@@ -3,7 +3,6 @@ use crossbeam::queue::SegQueue;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap;
-use std::collections::VecDeque;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
@@ -336,11 +335,11 @@ fn dfs_single_thread<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: D
         },
         _ => panic!(),
     }
-    let n2s = ge.expand(&n1).into_iter().collect();
+    let n2s = ge.expand(&n1).into_iter();
 
     // hard-code none for KN because we actually don't want to pop the caller-provided KN
     // corresponding to n1 off the path (if there is one)
-    let mut stack: Vec<(N, Option<N::KN>, VecDeque<N>)> = vec![(n1, None, n2s)];
+    let mut stack: Vec<(N, Option<N::KN>, _)> = vec![(n1, None, n2s)];
     'top: loop {
         // invariants:
         //
@@ -350,7 +349,7 @@ fn dfs_single_thread<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: D
 
         let n1 = match stack.last_mut() {
             Some(last) => {
-                match last.2.pop_front() {
+                match last.2.next() {
                     // found (and pulled) another unopened node, continue from here
                     Some(n1) => n1,
                     None => {
@@ -408,7 +407,7 @@ fn dfs_single_thread<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: D
             return false;
         }
 
-        let n2s = ge.expand(&n1).into_iter().collect();
+        let n2s = ge.expand(&n1).into_iter();
         stack.push((n1, kn1, n2s));
     }
 }
