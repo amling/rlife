@@ -337,6 +337,9 @@ impl std::ops::AddAssign for CellCounts {
     }
 }
 
+// I dislike trying to force the compiler's hand, but we really dearly value speed over the modest
+// increase in binary size.
+#[inline(always)]
 fn check_compat<B: Bits>(e: &GolGraph, cp: PartialRow<B>, c: PartialRow<B>, cn: PartialRow<B>, ct: usize, cx: isize, f: PartialRow<B>, ft: usize, fx: isize) -> bool {
     let mut cts = CellCounts::new(0, 0);
 
