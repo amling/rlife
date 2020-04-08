@@ -6,6 +6,10 @@ adaptive shift?
     implemented recenters, much, much better
         in particular a recenter search does not actually subsume the unrecentered version of itself
         not sure what searches to try...
+        TODO: recenter with symmetry?
+            actually can make sense but impl is complicated
+                don't allow window to cross over center axis
+                don't reflect outside window unless window is right at edge
 
 optimize...
 
