@@ -338,12 +338,6 @@ impl std::ops::AddAssign for CellCounts {
 }
 
 fn check_compat<B: Bits>(e: &GolGraph, cp: PartialRow<B>, c: PartialRow<B>, cn: PartialRow<B>, ct: usize, cx: isize, f: PartialRow<B>, ft: usize, fx: isize) -> bool {
-    let r = check_compat1(e, cp, c, cn, ct, cx, f, ft, fx);
-    //eprintln!("check_compat(cp {}, c {}, cn {}, ct {}, cx {}, f {}, ft {}, fx {}) = {}", e.format_prow(cp), e.format_prow(c), e.format_prow(cn), ct, cx, e.format_prow(f), ft, fx, r);
-    r
-}
-
-fn check_compat1<B: Bits>(e: &GolGraph, cp: PartialRow<B>, c: PartialRow<B>, cn: PartialRow<B>, ct: usize, cx: isize, f: PartialRow<B>, ft: usize, fx: isize) -> bool {
     let mut cts = CellCounts::new(0, 0);
 
     cts += cp.get_cts(e, ct, cx - 1);
