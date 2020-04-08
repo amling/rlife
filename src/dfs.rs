@@ -354,14 +354,6 @@ fn find_firstest_aux<N: Clone>(tree: &Tree<N>, acc: &mut Vec<N>) -> bool {
 }
 
 fn dfs_single_thread<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: DfsLifecycle<N, R>>(ge: &GE, re: &RE, le: &LE, t1: &mut Tree<N>, path: &mut Path<N>, r: &mut R, on_enter: &mut impl FnMut(&Vec<N::KN>) -> bool) -> bool {
-    let cts1 = t1.proxy_cts();
-    let r = dfs_single_thread1(ge, re, le, t1, path, r, on_enter);
-    let cts2 = t1.proxy_cts();
-//eprintln!("dfs_single_thread: {:?} -> {:?}, {}", cts1, cts2, r);
-    r
-}
-
-fn dfs_single_thread1<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: DfsLifecycle<N, R>>(ge: &GE, re: &RE, le: &LE, t1: &mut Tree<N>, path: &mut Path<N>, r: &mut R, on_enter: &mut impl FnMut(&Vec<N::KN>) -> bool) -> bool {
     let add_result = |r: &mut R, r1| {
         let r0 = std::mem::replace(r, re.empty());
         *r = re.reduce(r0, r1);
