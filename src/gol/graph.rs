@@ -261,7 +261,7 @@ impl<B: Bits> PartialRow<B> {
     }
 
     fn get(&self, e: &GolGraph, t: usize, x: isize) -> Option<bool> {
-        assert!(t < e.mt);
+        debug_assert!(t < e.mt);
 
         let mut x = x;
         let mx = e.mx as isize;
