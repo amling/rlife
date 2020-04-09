@@ -313,6 +313,27 @@ impl<B: Bits> PartialRow<B> {
             None => CellCounts::new(0, 0),
         }
     }
+
+    fn format(&self, e: &GolGraph) -> String {
+        let mut s = String::new();
+        for t in 0..e.mt {
+            if t > 0 {
+                s.push(' ');
+            }
+            for x in 0..e.mx {
+                let idx = e.to_idx(x, t);
+                let c = match idx < self.len {
+                    true => match self.bits.get_bit(idx) {
+                        true => '*',
+                        false => '.',
+                    },
+                    false => '?',
+                };
+                s.push(c);
+            }
+        }
+        s
+    }
 }
 
 #[derive(Default)]
@@ -341,6 +362,13 @@ impl std::ops::AddAssign for CellCounts {
 // increase in binary size.
 #[inline(always)]
 fn check_compat<B: Bits>(e: &GolGraph, cp: PartialRow<B>, c: PartialRow<B>, cn: PartialRow<B>, ct: usize, cx: isize, f: PartialRow<B>, ft: usize, fx: isize) -> bool {
+    let r = check_compat1(e, cp, c, cn, ct, cx, f, ft, fx);
+//eprintln!("check_compat(cp {} c {} cn {} ct {} cx {} f {} ft {} fx {}) = {}", cp.format(e), c.format(e), cn.format(e), ct, cx, f.format(e), ft, fx, r);
+    r
+}
+
+#[inline(always)]
+fn check_compat1<B: Bits>(e: &GolGraph, cp: PartialRow<B>, c: PartialRow<B>, cn: PartialRow<B>, ct: usize, cx: isize, f: PartialRow<B>, ft: usize, fx: isize) -> bool {
     let mut cts = CellCounts::new(0, 0);
 
     cts += cp.get_cts(e, ct, cx - 1);
