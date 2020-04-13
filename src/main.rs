@@ -36,6 +36,7 @@ fn main1<B: Bits + DeserializeOwned + Serialize>() -> Result<(), StringError> {
         GolPreGraph {
             mt: 5,
             mx: 8,
+            wx: 8,
 
             left_sym: GolSym::Empty,
             right_sym: GolSym::Empty,
@@ -56,6 +57,8 @@ fn main1<B: Bits + DeserializeOwned + Serialize>() -> Result<(), StringError> {
             r1: cnst(0b00101100_00101000_00101000_00101000_00101000),
             r2: B::zero(),
             r2l: 0,
+            min_x: ge.mx - 1,
+            max_x: 0,
         };
         Tree(n0, TreeStatus::Unopened).to_serde_proxy()
     })?.to_tree();

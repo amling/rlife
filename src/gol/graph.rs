@@ -23,6 +23,8 @@ pub struct GolNode<B: Bits> {
     pub r1: B,
     pub r2: B,
     pub r2l: usize,
+    pub min_x: usize,
+    pub max_x: usize,
 }
 
 impl<B: Bits> DfsNode for GolNode<B> {
@@ -96,6 +98,7 @@ pub enum GolSym {
 pub struct GolPreGraph {
     pub mt: usize,
     pub mx: usize,
+    pub wx: usize,
 
     pub left_sym: GolSym,
     pub right_sym: GolSym,
@@ -126,6 +129,7 @@ impl GolPreGraph {
         GolGraph {
             mt: self.mt,
             mx: self.mx,
+            wx: self.wx,
 
             left_sym: self.left_sym,
             right_sym: self.right_sym,
@@ -140,6 +144,7 @@ impl GolPreGraph {
 pub struct GolGraph {
     pub mt: usize,
     pub mx: usize,
+    pub wx: usize,
 
     pub left_sym: GolSym,
     pub right_sym: GolSym,
@@ -500,6 +505,8 @@ fn expand_srch<B: Bits>(e: &GolGraph, n1: &GolNode<B>, n2s: &mut Vec<GolNode<B>>
             r1: r1,
             r2: B::zero(),
             r2l: 0,
+            min_x: e.mx - 1,
+            max_x: 0,
         });
         return;
     }
@@ -513,8 +520,21 @@ fn expand_srch<B: Bits>(e: &GolGraph, n1: &GolNode<B>, n2s: &mut Vec<GolNode<B>>
         r1: n1.r1,
         r2: n1.r2,
         r2l: n1.r2l + 1,
+        min_x: n1.min_x,
+        max_x: n1.max_x,
     };
     'v: for &v in &[false, true] {
+        if v {
+            if n1.max_x >= n1.min_x + e.wx {
+                continue;
+            }
+            n2.min_x = n1.min_x.min(x);
+            n2.max_x = n1.max_x.max(x);
+        }
+        else {
+            n2.min_x = n1.min_x;
+            n2.max_x = n1.max_x;
+        }
         Bits::set_bit(&mut n2.r2, idx, v);
 
         let r0 = PartialRow::full(e, n2.r0);
