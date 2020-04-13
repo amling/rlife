@@ -32,3 +32,13 @@ better adaptive window
     fancy impl is optimize that check earlier rather than constructing so much crap if it's gonna be violated
     definitely benchmark mx = mlx with recentering off to decide how much it's costing us
     then decide what searches we gotta run... :(
+
+overbias recentering?
+    in particular relevant for diagonal searches...
+
+ugh, parallel BFS...
+ugh, collecting BFS?
+
+sigh, faster exit from dfs
+    should probably recollect once any thread finishes
+    combine this with always expanding at least one workunit at least one level (before checking stop) and we don't need the first expansion recollect hack
