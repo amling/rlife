@@ -138,15 +138,15 @@ impl GolPreGraph {
 }
 
 pub struct GolGraph {
-    mt: usize,
-    mx: usize,
+    pub mt: usize,
+    pub mx: usize,
 
-    left_sym: GolSym,
-    right_sym: GolSym,
+    pub left_sym: GolSym,
+    pub right_sym: GolSym,
 
-    shifts: Vec<(isize, isize)>,
+    pub shifts: Vec<(isize, isize)>,
 
-    recenter: GolRecenter,
+    pub recenter: GolRecenter,
 }
 
 impl GolGraph {
