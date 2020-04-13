@@ -24,3 +24,11 @@ symmetries
 
 cycle finder
     in particular want this to find waves since we may not be able to find head/tail in same search
+
+better adaptive window
+    keep mx (max x) and mlx (max living x)
+    in addition to r2l: usize keep living: Option<(usize, usize)>
+    unoptimized impl is when cell is living update window and drop if goes over mlx
+    fancy impl is optimize that check earlier rather than constructing so much crap if it's gonna be violated
+    definitely benchmark mx = mlx with recentering off to decide how much it's costing us
+    then decide what searches we gotta run... :(
