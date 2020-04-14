@@ -525,11 +525,13 @@ fn expand_srch<B: Bits>(e: &GolGraph, n1: &GolNode<B>, n2s: &mut Vec<GolNode<B>>
     };
     'v: for &v in &[false, true] {
         if v {
-            if n1.max_x >= n1.min_x + e.wx {
+            let min_x = n1.min_x.min(x);
+            let max_x = n1.max_x.max(x);
+            if max_x >= min_x + e.wx {
                 continue;
             }
-            n2.min_x = n1.min_x.min(x);
-            n2.max_x = n1.max_x.max(x);
+            n2.min_x = min_x;
+            n2.max_x = max_x;
         }
         else {
             n2.min_x = n1.min_x;
