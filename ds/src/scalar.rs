@@ -14,16 +14,21 @@ marker_trait! {
     [BitAnd<Output=Self>]
     [BitAndAssign]
     [BitOrAssign]
+    [Copy]
+    [Eq]
+    [Hash]
     [Not<Output=Self>]
+    [Send]
     [Shl<usize, Output=Self>]
     [ShlAssign<usize>]
     [Shr<usize, Output=Self>]
     [ShrAssign<usize>]
     [Sized]
     [Sub<Output=Self>]
+    [Sync]
 }
 
-pub trait Scalar: ScalarMarker + Copy + Eq + Hash + Send + Sync {
+pub trait Scalar: ScalarMarker {
     fn size() -> usize;
     fn zero() -> Self;
     fn one() -> Self;
