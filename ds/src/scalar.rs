@@ -1,6 +1,8 @@
+use std::fmt::Debug;
 use std::hash::Hash;
 use std::ops::BitAnd;
 use std::ops::BitAndAssign;
+use std::ops::BitOr;
 use std::ops::BitOrAssign;
 use std::ops::Not;
 use std::ops::Shl;
@@ -13,8 +15,10 @@ marker_trait! {
     ScalarMarker:
     [BitAnd<Output=Self>]
     [BitAndAssign]
+    [BitOr<Output=Self>]
     [BitOrAssign]
     [Copy]
+    [Debug]
     [Eq]
     [Hash]
     [Not<Output=Self>]
