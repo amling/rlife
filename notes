@@ -38,7 +38,3 @@ overbias recentering?
 
 ugh, parallel BFS...
 ugh, collecting BFS?
-
-sigh, faster exit from dfs
-    should probably recollect once any thread finishes
-    combine this with always expanding at least one workunit at least one level (before checking stop) and we don't need the first expansion recollect hack

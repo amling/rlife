@@ -3,6 +3,8 @@ use crossbeam::queue::SegQueue;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap;
+use std::sync::Condvar;
+use std::sync::Mutex;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
@@ -179,7 +181,6 @@ pub fn sdfs<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: DfsLifecyc
 
 pub fn dfs<N: DfsNode, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R> + Sync, LE: DfsLifecycle<N, R> + Sync>(root: &mut Tree<N>, ge: &GE, re: &RE, le: &mut LE) {
     let mut very_longest: Option<Vec<N::KN>> = None;
-    let mut first = true;
 
     loop {
         if collapse(root) {
@@ -203,22 +204,24 @@ pub fn dfs<N: DfsNode, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R> + S
             }
 
             let stop = AtomicBool::new(false);
-            let stop = &stop;
+            let stopped = (Mutex::new(false), Condvar::new());
 
             crossbeam::scope(|sc| {
                 for _ in 0..le.threads() {
                     sc.spawn(|_| {
                         loop {
-                            // Previously dfs_single_thread would check stop before doing anything,
-                            // but now it always expands the first level.  It's better to skip
-                            // pointlessly calling it for every queue entry anyway...
-                            if stop.load(Ordering::Relaxed) {
-                                break;
-                            }
-
                             let (((tree, mut path), res), longest) = match q.pop() {
                                 Result::Ok(tuple) => tuple,
                                 Result::Err(PopError) => {
+                                    // we're out of work, force recollect
+                                    let mut mg = stopped.0.lock().unwrap();
+                                    *mg = true;
+
+                                    // It's important that notify occur strictly after having
+                                    // locked to ensure write is visible to main thread when it
+                                    // wakes up from this notify.
+                                    stopped.1.notify_all();
+
                                     return;
                                 }
                             };
@@ -233,17 +236,28 @@ pub fn dfs<N: DfsNode, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R> + S
                                 }
                                 !stop.load(Ordering::Relaxed)
                             });
+
+                            // Previously dfs_single_thread would check stop before doing anything,
+                            // but now it always expands the first level.  It's better to skip
+                            // pointlessly calling it for every queue entry anyway.  We do however
+                            // always expand at least one work unit if we can find one to ensure
+                            // progress.
+                            if stop.load(Ordering::Relaxed) {
+                                return;
+                            }
                         }
                     });
                 }
 
-                let mut wait_ms = le.recollect_ms();
-                if first {
-                    wait_ms = 1000;
-                    first = false;
-                }
-                std::thread::sleep(Duration::from_millis(wait_ms));
+                // Wait up to recollect time for some thread to decide we're done.  This is subject
+                // to spurious wakeups but we don't have wait_timeout_while yet (rage) and it's not
+                // a big deal to have occasional spurious wakeups.
+                let mg = stopped.0.lock().unwrap();
+                let (mg, _) = stopped.1.wait_timeout(mg, Duration::from_millis(le.recollect_ms())).unwrap();
+                // don't care, go away
+                std::mem::drop(mg);
 
+                // tell everyone else to bail
                 stop.store(true, Ordering::Relaxed);
             }).unwrap();
         }
