@@ -1,4 +1,4 @@
-use ars_ds::tuple::CTupleEnd;
+use ars_ds::tuple::TupleEnd;
 
 is_tuple_trait!(IsTuple);
 
@@ -33,7 +33,7 @@ impl ZModule for isize {
     }
 }
 
-impl<X: ZModule, Y: ZModule, T: CTupleEnd<F=X, B=Y> + Clone + IsTuple> ZModule for T {
+impl<X: ZModule, Y: ZModule, T: TupleEnd<F=X, B=Y> + Clone + IsTuple> ZModule for T {
     fn zero() -> Self {
         T::join_tuple_end(X::zero(), Y::zero())
     }

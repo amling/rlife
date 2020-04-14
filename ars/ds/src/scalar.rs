@@ -1,6 +1,10 @@
+#![allow(unused_parens)]
+
+use std::fmt::Debug;
 use std::hash::Hash;
 use std::ops::BitAnd;
 use std::ops::BitAndAssign;
+use std::ops::BitOr;
 use std::ops::BitOrAssign;
 use std::ops::Not;
 use std::ops::Shl;
@@ -10,25 +14,44 @@ use std::ops::ShrAssign;
 use std::ops::Sub;
 
 marker_trait! {
-    ScalarOps:
+    ScalarMarker:
     [BitAnd<Output=Self>]
     [BitAndAssign]
+    [BitOr<Output=Self>]
     [BitOrAssign]
+    [Copy]
+    [Debug]
+    [Eq]
+    [Hash]
     [Not<Output=Self>]
+    [Send]
     [Shl<usize, Output=Self>]
     [ShlAssign<usize>]
     [Shr<usize, Output=Self>]
     [ShrAssign<usize>]
     [Sized]
     [Sub<Output=Self>]
+    [Sync]
 }
 
-pub trait Scalar: ScalarOps + Copy + Eq + Hash + Send + Sync {
+pub trait Scalar: ScalarMarker {
     fn size() -> usize;
     fn zero() -> Self;
     fn one() -> Self;
     fn from_usize(c: usize) -> Self;
     fn to_usize(self) -> usize;
+    fn count_ones(&self) -> u32;
+
+    fn set_bit(&mut self, idx: usize, v: bool) {
+        *self &= !(Self::one() << idx);
+        if v {
+            *self |= (Self::one() << idx);
+        }
+    }
+
+    fn get_bit(&self, idx: usize) -> bool {
+        (*self & (Self::one() << idx)) != Self::zero()
+    }
 }
 
 // marker for unsigned
@@ -56,6 +79,10 @@ macro_rules! uxx_scalar_impl {
 
             fn to_usize(self) -> usize {
                 self as usize
+            }
+
+            fn count_ones(&self) -> u32 {
+                (*self).count_ones()
             }
         }
 
