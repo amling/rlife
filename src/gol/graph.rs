@@ -25,6 +25,7 @@ pub struct GolNode<B: UScalar> {
     pub r1: B,
     pub r2: B,
     pub r2l: usize,
+    pub r2l_x: usize,
     pub min_x: usize,
     pub max_x: usize,
 }
@@ -499,13 +500,14 @@ fn expand_srch<B: UScalar>(e: &GolGraph<B>, n1: &GolNode<B>, n2s: &mut Vec<GolNo
             r1: r1,
             r2: B::zero(),
             r2l: 0,
+            r2l_x: 0,
             min_x: e.mx - 1,
             max_x: 0,
         });
         return;
     }
 
-    let x = idx % e.mx;
+    let x = n1.r2l_x;
 
     let mut n2 = GolNode {
         dx: n1.dx,
@@ -513,6 +515,7 @@ fn expand_srch<B: UScalar>(e: &GolGraph<B>, n1: &GolNode<B>, n2s: &mut Vec<GolNo
         r1: n1.r1,
         r2: n1.r2,
         r2l: n1.r2l + 1,
+        r2l_x: if n1.r2l_x == e.mx - 1 { 0 } else { n1.r2l_x + 1},
         min_x: n1.min_x,
         max_x: n1.max_x,
     };

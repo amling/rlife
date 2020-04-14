@@ -57,6 +57,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
             r1: B::zero(),
             r2: B::zero(),
             r2l: 0,
+            r2l_x: 0,
             min_x: ge.mx - 1,
             max_x: 0,
         };
