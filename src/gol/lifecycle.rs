@@ -1,4 +1,4 @@
-use ars_ds::bit_state::Bits;
+use ars_ds::scalar::UScalar;
 use serde::Serialize;
 use std::fs::File;
 use std::io::BufWriter;
@@ -37,7 +37,7 @@ impl<'a> GolLifecycle<'a> {
     }
 }
 
-impl<'a, B: Bits + Serialize> DfsLifecycle<GolNode<B>, DfsResVec<GolKeyNode<B>>> for GolLifecycle<'a> {
+impl<'a, B: UScalar + Serialize> DfsLifecycle<GolNode<B>, DfsResVec<GolKeyNode<B>>> for GolLifecycle<'a> {
     fn threads(&self) -> usize {
         return self.threads;
     }

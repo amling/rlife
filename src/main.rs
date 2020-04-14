@@ -1,8 +1,8 @@
 #[macro_use]
 extern crate ars_macro;
 
-use ars_ds::bit_state::Bits;
 use ars_ds::err::StringError;
+use ars_ds::scalar::UScalar;
 use chrono::Local;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -28,7 +28,7 @@ fn main() {
     main1::<u64>().unwrap();
 }
 
-fn main1<B: Bits + DeserializeOwned + Serialize>() -> Result<(), StringError> {
+fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError> {
     let dir = std::env::args().skip(1).next().unwrap();
     std::fs::create_dir_all(&dir)?;
 
@@ -100,7 +100,7 @@ fn load_or_with<T: DeserializeOwned + Serialize>(dir: impl AsRef<str>, file: imp
     }
 }
 
-fn cnst<B: Bits>(c: u128) -> B {
+fn cnst<B: UScalar>(c: u128) -> B {
     let mut b = B::zero();
     let mut c = c;
     let mut idx = 0;

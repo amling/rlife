@@ -1,4 +1,6 @@
-use ars_ds::bit_state::Bits;
+#![allow(unused_parens)]
+
+use ars_ds::scalar::UScalar;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -17,7 +19,7 @@ use gol::printbag::PrintBag;
 #[derive(Hash)]
 #[derive(PartialEq)]
 #[derive(Serialize)]
-pub struct GolNode<B: Bits> {
+pub struct GolNode<B: UScalar> {
     pub dx: isize,
     pub r0: B,
     pub r1: B,
@@ -27,7 +29,7 @@ pub struct GolNode<B: Bits> {
     pub max_x: usize,
 }
 
-impl<B: Bits> DfsNode for GolNode<B> {
+impl<B: UScalar> DfsNode for GolNode<B> {
     type KN = GolKeyNode<B>;
 
     fn key_node(&self) -> Option<GolKeyNode<B>> {
@@ -48,13 +50,13 @@ impl<B: Bits> DfsNode for GolNode<B> {
 #[derive(Eq)]
 #[derive(Hash)]
 #[derive(PartialEq)]
-pub struct GolKeyNode<B: Bits> {
+pub struct GolKeyNode<B: UScalar> {
     pub dx: isize,
     pub r0: B,
     pub r1: B,
 }
 
-impl<B: Bits> DfsKeyNode for GolKeyNode<B> {
+impl<B: UScalar> DfsKeyNode for GolKeyNode<B> {
     type HN = GolHashNode<B>;
 
     fn hash_node(&self) -> GolHashNode<B> {
@@ -70,7 +72,7 @@ impl<B: Bits> DfsKeyNode for GolKeyNode<B> {
 #[derive(Eq)]
 #[derive(Hash)]
 #[derive(PartialEq)]
-pub struct GolHashNode<B: Bits> {
+pub struct GolHashNode<B: UScalar> {
     pub r0: B,
     pub r1: B,
 }
@@ -184,7 +186,7 @@ impl GolGraph {
         t + 1
     }
 
-    fn collect_row<B: Bits>(&self, pr: &mut PrintBag, row: B, x0: isize, y0: usize) {
+    fn collect_row<B: UScalar>(&self, pr: &mut PrintBag, row: B, x0: isize, y0: usize) {
         for t in 0..self.mt {
             for x in 0..self.mx {
                 pr.insert(x0 + (x as isize), y0, t, match B::get_bit(&row, self.to_idx(x, t)) {
@@ -203,7 +205,7 @@ impl GolGraph {
         }
     }
 
-    pub fn format_rows<B: Bits>(&self, rows: &Vec<GolKeyNode<B>>) -> Vec<String> {
+    pub fn format_rows<B: UScalar>(&self, rows: &Vec<GolKeyNode<B>>) -> Vec<String> {
         let mut pr = PrintBag::new(self.mt);
         let mut y = 0;
         for (n, row) in rows.iter().enumerate() {
@@ -221,7 +223,7 @@ impl GolGraph {
         pr.format()
     }
 
-    pub fn format_cycle_rows<B: Bits>(&self, path: &Vec<GolKeyNode<B>>, cycle: &Vec<GolKeyNode<B>>, last: &GolKeyNode<B>) -> Vec<String> {
+    pub fn format_cycle_rows<B: UScalar>(&self, path: &Vec<GolKeyNode<B>>, cycle: &Vec<GolKeyNode<B>>, last: &GolKeyNode<B>) -> Vec<String> {
         // Just need to output each first row once (since cycle continues forever).
         let mut pr = PrintBag::new(self.mt);
         let mut y = 0;
@@ -244,12 +246,12 @@ impl GolGraph {
 
 #[derive(Clone)]
 #[derive(Copy)]
-struct PartialRow<B: Bits> {
+struct PartialRow<B: UScalar> {
     bits: B,
     len: usize,
 }
 
-impl<B: Bits> PartialRow<B> {
+impl<B: UScalar> PartialRow<B> {
     fn new(bits: B, len: usize) -> Self {
         PartialRow {
             bits: bits,
@@ -308,7 +310,7 @@ impl<B: Bits> PartialRow<B> {
             return None;
         }
 
-        return Some(Bits::get_bit(&self.bits, idx));
+        return Some(self.bits.get_bit(idx));
     }
 
     fn get_cts(&self, e: &GolGraph, t: usize, x: isize) -> CellCounts {
@@ -366,14 +368,14 @@ impl std::ops::AddAssign for CellCounts {
 // I dislike trying to force the compiler's hand, but we really dearly value speed over the modest
 // increase in binary size.
 #[inline(always)]
-fn check_compat<B: Bits>(e: &GolGraph, cp: PartialRow<B>, c: PartialRow<B>, cn: PartialRow<B>, ct: usize, cx: isize, f: PartialRow<B>, ft: usize, fx: isize) -> bool {
+fn check_compat<B: UScalar>(e: &GolGraph, cp: PartialRow<B>, c: PartialRow<B>, cn: PartialRow<B>, ct: usize, cx: isize, f: PartialRow<B>, ft: usize, fx: isize) -> bool {
     let r = check_compat1(e, cp, c, cn, ct, cx, f, ft, fx);
 //eprintln!("check_compat(cp {} c {} cn {} ct {} cx {} f {} ft {} fx {}) = {}", cp.format(e), c.format(e), cn.format(e), ct, cx, f.format(e), ft, fx, r);
     r
 }
 
 #[inline(always)]
-fn check_compat1<B: Bits>(e: &GolGraph, cp: PartialRow<B>, c: PartialRow<B>, cn: PartialRow<B>, ct: usize, cx: isize, f: PartialRow<B>, ft: usize, fx: isize) -> bool {
+fn check_compat1<B: UScalar>(e: &GolGraph, cp: PartialRow<B>, c: PartialRow<B>, cn: PartialRow<B>, ct: usize, cx: isize, f: PartialRow<B>, ft: usize, fx: isize) -> bool {
     let mut cts = CellCounts::new(0, 0);
 
     cts += cp.get_cts(e, ct, cx - 1);
@@ -428,7 +430,7 @@ fn check_compat1<B: Bits>(e: &GolGraph, cp: PartialRow<B>, c: PartialRow<B>, cn:
     }
 }
 
-fn find_min_x<B: Bits>(e: &GolGraph, r: B) -> usize {
+fn find_min_x<B: UScalar>(e: &GolGraph, r: B) -> usize {
     for x in 0..e.mx {
         for t in 0..e.mt {
             if r.get_bit(e.to_idx(x, t)) {
@@ -440,7 +442,7 @@ fn find_min_x<B: Bits>(e: &GolGraph, r: B) -> usize {
     panic!();
 }
 
-fn find_max_x<B: Bits>(e: &GolGraph, r: B) -> usize {
+fn find_max_x<B: UScalar>(e: &GolGraph, r: B) -> usize {
     for x in (0..e.mx).rev() {
         for t in 0..e.mt {
             if r.get_bit(e.to_idx(x, t)) {
@@ -452,7 +454,7 @@ fn find_max_x<B: Bits>(e: &GolGraph, r: B) -> usize {
     panic!();
 }
 
-fn recenter<B: Bits>(e: &GolGraph, r0: B, r1: B) -> (isize, B, B) {
+fn recenter<B: UScalar>(e: &GolGraph, r0: B, r1: B) -> (isize, B, B) {
     let bias = match e.recenter {
         GolRecenter::None => {
             return (0, r0, r1);
@@ -461,7 +463,7 @@ fn recenter<B: Bits>(e: &GolGraph, r0: B, r1: B) -> (isize, B, B) {
         GolRecenter::BiasRight => 1,
     };
 
-    let r = r0.or(&r1);
+    let r = (r0 | r1);
     if r == B::zero() {
         return (0, r0, r1);
     }
@@ -488,7 +490,7 @@ fn recenter<B: Bits>(e: &GolGraph, r0: B, r1: B) -> (isize, B, B) {
     (shift, r0s, r1s)
 }
 
-fn expand_srch<B: Bits>(e: &GolGraph, n1: &GolNode<B>, n2s: &mut Vec<GolNode<B>>) {
+fn expand_srch<B: UScalar>(e: &GolGraph, n1: &GolNode<B>, n2s: &mut Vec<GolNode<B>>) {
     let idx = n1.r2l;
 
     if idx == e.mt * e.mx {
@@ -537,7 +539,7 @@ fn expand_srch<B: Bits>(e: &GolGraph, n1: &GolNode<B>, n2s: &mut Vec<GolNode<B>>
             n2.min_x = n1.min_x;
             n2.max_x = n1.max_x;
         }
-        Bits::set_bit(&mut n2.r2, idx, v);
+        n2.r2.set_bit(idx, v);
 
         let r0 = PartialRow::full(e, n2.r0);
         let r1 = PartialRow::full(e, n2.r1);
@@ -598,7 +600,7 @@ fn expand_srch<B: Bits>(e: &GolGraph, n1: &GolNode<B>, n2s: &mut Vec<GolNode<B>>
     }
 }
 
-impl<B: Bits> DfsGraph<GolNode<B>> for GolGraph {
+impl<B: UScalar> DfsGraph<GolNode<B>> for GolGraph {
     fn expand(&self, n1: &GolNode<B>) -> Vec<GolNode<B>> {
         let mut n2s = Vec::new();
         expand_srch(self, n1, &mut n2s);
