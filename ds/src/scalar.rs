@@ -10,7 +10,7 @@ use std::ops::ShrAssign;
 use std::ops::Sub;
 
 marker_trait! {
-    ScalarOps:
+    ScalarMarker:
     [BitAnd<Output=Self>]
     [BitAndAssign]
     [BitOrAssign]
@@ -23,7 +23,7 @@ marker_trait! {
     [Sub<Output=Self>]
 }
 
-pub trait Scalar: ScalarOps + Copy + Eq + Hash + Send + Sync {
+pub trait Scalar: ScalarMarker + Copy + Eq + Hash + Send + Sync {
     fn size() -> usize;
     fn zero() -> Self;
     fn one() -> Self;
