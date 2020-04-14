@@ -17,15 +17,15 @@ use gol::graph::GolGraph;
 use gol::graph::GolKeyNode;
 use gol::graph::GolNode;
 
-pub struct GolLifecycle<'a> {
-    pub ge: &'a GolGraph,
+pub struct GolLifecycle<'a, B: UScalar> {
+    pub ge: &'a GolGraph<B>,
     pub threads: usize,
     pub recollect_ms: u64,
     pub output_dir: Option<String>,
     pub log: Option<File>,
 }
 
-impl<'a> GolLifecycle<'a> {
+impl<'a, B: UScalar> GolLifecycle<'a, B> {
     fn log(&mut self, s: impl Into<String>) {
         let s = s.into();
         if let Some(log) = &mut self.log {
@@ -37,7 +37,7 @@ impl<'a> GolLifecycle<'a> {
     }
 }
 
-impl<'a, B: UScalar + Serialize> DfsLifecycle<GolNode<B>, DfsResVec<GolKeyNode<B>>> for GolLifecycle<'a> {
+impl<'a, B: UScalar + Serialize> DfsLifecycle<GolNode<B>, DfsResVec<GolKeyNode<B>>> for GolLifecycle<'a, B> {
     fn threads(&self) -> usize {
         return self.threads;
     }

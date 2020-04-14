@@ -111,22 +111,206 @@ pub struct GolPreGraph {
     pub recenter: GolRecenter,
 }
 
+enum PartialRowRead {
+    Off,
+    Unknown,
+    Read(usize),
+}
+
 impl GolPreGraph {
-    pub fn derived(self) -> GolGraph {
-        let compute_shift = |t, o| {
-            // cumulative shift after t steps can be floor(o * t / mt) so we diff cumulatives
-            let t = t as isize;
-            let mt = self.mt as isize;
-            let before = (o * t) / mt;
-            let after = (o * (t + 1)) / mt;
-            after - before
+    fn compute_shift(&self, t: usize, o: isize) -> isize {
+        // cumulative shift after t steps can be floor(o * t / mt) so we diff cumulatives
+        let t = t as isize;
+        let mt = self.mt as isize;
+        let before = (o * t) / mt;
+        let after = (o * (t + 1)) / mt;
+        after - before
+    }
+
+    fn compute_prow_read(&self, len: usize, t: usize, x: isize) -> PartialRowRead {
+        let mx = self.mx as isize;
+        let mut x = x;
+        loop {
+            if x < 0 {
+                x = match self.left_sym {
+                    GolSym::Empty => {
+                        return PartialRowRead::Off;
+                    },
+                    GolSym::Odd => -x,
+                    GolSym::Even => -x - 1,
+                    GolSym::Gutter => {
+                        if x == -1 {
+                            return PartialRowRead::Off;
+                        }
+                        -x - 2
+                    }
+                    GolSym::Wrap => x + mx,
+                };
+                // reinterpret for something weird like e.g.  -2 wrapped to 2 in mx 1
+                continue;
+            }
+
+            if x >= mx {
+                x = match self.right_sym {
+                    GolSym::Empty => {
+                        return PartialRowRead::Off;
+                    },
+                    GolSym::Odd => 2 * mx - 2 - x,
+                    GolSym::Even => 2 * mx - 1 - x,
+                    GolSym::Gutter => {
+                        if x == mx {
+                            return PartialRowRead::Off;
+                        }
+                        2 * mx - x
+                    },
+                    GolSym::Wrap => x - mx,
+                };
+                // reinterpret
+                continue;
+            }
+
+            let idx = (t * self.mx + (x as usize));
+            if idx >= len {
+                return PartialRowRead::Unknown;
+            }
+
+            return PartialRowRead::Read(idx);
+        }
+    }
+
+    fn compute_checks2<B: UScalar>(&self, acc: &mut Vec<(Vec<(usize, B)>, u32, (usize, B), (usize, B))>, cp: (usize, usize), c: (usize, usize), cn: (usize, usize), ct: usize, cx: isize, f: (usize, usize), ft: usize, fx: isize) {
+        let single_mask = |idx| {
+            let mut b = B::zero();
+            b.set_bit(idx, true);
+            b
         };
 
-        let shifts = (0..self.mt).map(|t| {
-            let sx = compute_shift(t, self.ox);
-            let sy = compute_shift(t, self.oy);
-            (sx, sy)
-        }).collect();
+        let mut nh_masks: Vec<(usize, B)> = Vec::new();
+        let mut nh_ct = 0;
+
+        let mut add_nh = |r: (usize, usize), t, x| {
+            match self.compute_prow_read(r.1, t, x) {
+                PartialRowRead::Off => {
+                    nh_ct += 1;
+                }
+                PartialRowRead::Unknown => {
+                }
+                PartialRowRead::Read(idx) => {
+                    nh_ct += 1;
+
+                    for &mut (nh_row_idx, ref mut nh_mask) in nh_masks.iter_mut() {
+                        if nh_row_idx != r.0 {
+                            continue;
+                        }
+                        if !nh_mask.get_bit(idx) {
+                            nh_mask.set_bit(idx, true);
+                            return;
+                        }
+                    }
+                    nh_masks.push((r.0, single_mask(idx)));
+                }
+            }
+        };
+
+        add_nh(cp, ct, cx - 1);
+        add_nh(cp, ct, cx);
+        add_nh(cp, ct, cx + 1);
+        add_nh(c, ct, cx - 1);
+        add_nh(c, ct, cx + 1);
+        add_nh(cn, ct, cx - 1);
+        add_nh(cn, ct, cx);
+        add_nh(cn, ct, cx + 1);
+
+        let cur_row_idx = c.0;
+        let cur_mask = match self.compute_prow_read(c.1, ct, cx) {
+            PartialRowRead::Off => B::zero(),
+            PartialRowRead::Unknown => {
+                return;
+            }
+            PartialRowRead::Read(idx) => single_mask(idx),
+        };
+
+        let fut_row_idx = f.0;
+        let fut_mask = match self.compute_prow_read(f.1, ft, fx) {
+            PartialRowRead::Off => B::zero(),
+            PartialRowRead::Unknown => {
+                return;
+            }
+            PartialRowRead::Read(idx) => single_mask(idx),
+        };
+
+        acc.push((nh_masks, nh_ct, (cur_row_idx, cur_mask), (fut_row_idx, fut_mask)));
+    }
+
+    fn compute_checks<B: UScalar>(&self, idx: usize) -> Vec<(Vec<(usize, B)>, u32, (usize, B), (usize, B))> {
+        let x = idx % self.mx;
+        let t = idx / self.mx;
+
+        let ix = x as isize;
+
+        // shift for the previous generation
+        let pt = match t {
+            0 => self.mt - 1,
+            _ => t - 1,
+        };
+        let sxp = self.compute_shift(pt, self.ox);
+        let syp = self.compute_shift(pt, self.oy);
+        let px = ix - sxp;
+
+        // shift from this time to the next
+        let ft = match t == self.mt - 1 {
+            true => 0,
+            false => t + 1,
+        };
+        let sx = self.compute_shift(t, self.ox);
+        let sy = self.compute_shift(t, self.oy);
+        let fx = ix + sx;
+
+        let mut acc = Vec::new();
+
+        let r0 = (0, self.mx * self.mt);
+        let r1 = (1, self.mx * self.mt);
+        let r2 = (2, idx + 1);
+        // TODO: this is wrong, we don't actually know what window is in next row and we should
+        // read even out of bounds stuff as unknown rather than whatever bounds rule.
+        let er = (3, 0);
+
+        // check past cell if there is one (y shifts backwards!)
+        match syp {
+            1 => self.compute_checks2(&mut acc, r0, r1, r2, pt, px, r2, t, ix),
+            0 => self.compute_checks2(&mut acc, r1, r2, er, pt, px, r2, t, ix),
+            -1 => {
+            },
+            _ => panic!(),
+        }
+
+        for &dx in &[-1, 0, 1] {
+            let ix = ix + dx;
+            let fx = fx + dx;
+
+            // check cell centered in r1
+            match sy {
+                -1 => self.compute_checks2(&mut acc, r0, r1, r2, t, ix, r0, ft, fx),
+                0 => self.compute_checks2(&mut acc, r0, r1, r2, t, ix, r1, ft, fx),
+                1 => self.compute_checks2(&mut acc, r0, r1, r2, t, ix, r2, ft, fx),
+                _ => panic!(),
+            }
+
+            // check cell centered in n2b
+            match sy {
+                -1 => self.compute_checks2(&mut acc, r1, r2, er, t, ix, r1, ft, fx),
+                0 => self.compute_checks2(&mut acc, r1, r2, er, t, ix, r2, ft, fx),
+                1 => {
+                },
+                _ => panic!(),
+            }
+        }
+
+        acc
+    }
+
+    pub fn derived<B: UScalar>(self) -> GolGraph<B> {
+        let checks = (0..(self.mx * self.mt)).map(|idx| self.compute_checks(idx)).collect();
 
         GolGraph {
             mt: self.mt,
@@ -136,14 +320,14 @@ impl GolPreGraph {
             left_sym: self.left_sym,
             right_sym: self.right_sym,
 
-            shifts: shifts,
+            checks: checks,
 
             recenter: self.recenter,
         }
     }
 }
 
-pub struct GolGraph {
+pub struct GolGraph<B: UScalar> {
     pub mt: usize,
     pub mx: usize,
     pub wx: usize,
@@ -151,42 +335,19 @@ pub struct GolGraph {
     pub left_sym: GolSym,
     pub right_sym: GolSym,
 
-    pub shifts: Vec<(isize, isize)>,
+    pub checks: Vec<Vec<(Vec<(usize, B)>, u32, (usize, B), (usize, B))>>,
 
     pub recenter: GolRecenter,
 }
 
-impl GolGraph {
+impl<B: UScalar> GolGraph<B> {
     fn to_idx(&self, x: usize, t: usize) -> usize {
         debug_assert!(x < self.mx);
         debug_assert!(t < self.mt);
         t * self.mx + x
     }
 
-    fn x_from_idx(&self, idx: usize) -> usize {
-        debug_assert!(idx < self.mx * self.mt);
-        idx % self.mx
-    }
-
-    fn t_from_idx(&self, idx: usize) -> usize {
-        idx / self.mx
-    }
-
-    fn prev_t(&self, t: usize) -> usize {
-        if t == 0 {
-            return self.mt - 1;
-        }
-        t - 1
-    }
-
-    fn next_t(&self, t: usize) -> usize {
-        if t == self.mt - 1 {
-            return 0;
-        }
-        t + 1
-    }
-
-    fn collect_row<B: UScalar>(&self, pr: &mut PrintBag, row: B, x0: isize, y0: usize) {
+    fn collect_row(&self, pr: &mut PrintBag, row: B, x0: isize, y0: usize) {
         for t in 0..self.mt {
             for x in 0..self.mx {
                 pr.insert(x0 + (x as isize), y0, t, match B::get_bit(&row, self.to_idx(x, t)) {
@@ -205,7 +366,7 @@ impl GolGraph {
         }
     }
 
-    pub fn format_rows<B: UScalar>(&self, rows: &Vec<GolKeyNode<B>>) -> Vec<String> {
+    pub fn format_rows(&self, rows: &Vec<GolKeyNode<B>>) -> Vec<String> {
         let mut pr = PrintBag::new(self.mt);
         let mut y = 0;
         for (n, row) in rows.iter().enumerate() {
@@ -223,7 +384,7 @@ impl GolGraph {
         pr.format()
     }
 
-    pub fn format_cycle_rows<B: UScalar>(&self, path: &Vec<GolKeyNode<B>>, cycle: &Vec<GolKeyNode<B>>, last: &GolKeyNode<B>) -> Vec<String> {
+    pub fn format_cycle_rows(&self, path: &Vec<GolKeyNode<B>>, cycle: &Vec<GolKeyNode<B>>, last: &GolKeyNode<B>) -> Vec<String> {
         // Just need to output each first row once (since cycle continues forever).
         let mut pr = PrintBag::new(self.mt);
         let mut y = 0;
@@ -244,193 +405,24 @@ impl GolGraph {
     }
 }
 
-#[derive(Clone)]
-#[derive(Copy)]
-struct PartialRow<B: UScalar> {
-    bits: B,
-    len: usize,
-}
-
-impl<B: UScalar> PartialRow<B> {
-    fn new(bits: B, len: usize) -> Self {
-        PartialRow {
-            bits: bits,
-            len: len,
-        }
-    }
-
-    fn full(e: &GolGraph, bits: B) -> Self {
-        Self::new(bits, e.mx * e.mt)
-    }
-
-    fn empty() -> Self {
-        Self::new(B::zero(), 0)
-    }
-
-    fn get(&self, e: &GolGraph, t: usize, x: isize) -> Option<bool> {
-        debug_assert!(t < e.mt);
-
-        let mut x = x;
-        let mx = e.mx as isize;
-        if x < 0 {
-            x = match e.left_sym {
-                GolSym::Empty => {
-                    return Some(false);
-                },
-                GolSym::Odd => -x,
-                GolSym::Even => -x - 1,
-                GolSym::Gutter => {
-                    if x == -1 {
-                        return Some(false);
-                    }
-                    -x - 2
-                }
-                GolSym::Wrap => x + mx,
-            };
-        }
-        if x >= mx {
-            x = match e.right_sym {
-                GolSym::Empty => {
-                    return Some(false);
-                },
-                GolSym::Odd => 2 * mx - 2 - x,
-                GolSym::Even => 2 * mx - 1 - x,
-                GolSym::Gutter => {
-                    if x == mx {
-                        return Some(false);
-                    }
-                    2 * mx - x
-                },
-                GolSym::Wrap => x - mx,
-            };
-        }
-
-        let idx = e.to_idx(x as usize, t);
-        if idx >= self.len {
-            return None;
-        }
-
-        return Some(self.bits.get_bit(idx));
-    }
-
-    fn get_cts(&self, e: &GolGraph, t: usize, x: isize) -> CellCounts {
-        match self.get(e, t, x) {
-            Some(true) => CellCounts::new(1, 0),
-            Some(false) => CellCounts::new(0, 1),
-            None => CellCounts::new(0, 0),
-        }
-    }
-
-    fn format(&self, e: &GolGraph) -> String {
-        let mut s = String::new();
-        for t in 0..e.mt {
-            if t > 0 {
-                s.push(' ');
-            }
-            for x in 0..e.mx {
-                let idx = e.to_idx(x, t);
-                let c = match idx < self.len {
-                    true => match self.bits.get_bit(idx) {
-                        true => '*',
-                        false => '.',
-                    },
-                    false => '?',
-                };
-                s.push(c);
-            }
-        }
-        s
-    }
-}
-
-#[derive(Default)]
-struct CellCounts {
-    living: usize,
-    dead: usize,
-}
-
-impl CellCounts {
-    fn new(living: usize, dead: usize) -> Self {
-        CellCounts {
-            living: living,
-            dead: dead,
-        }
-    }
-}
-
-impl std::ops::AddAssign for CellCounts {
-    fn add_assign(&mut self, rhs: Self) {
-        self.living += rhs.living;
-        self.dead += rhs.dead;
-    }
-}
-
-// I dislike trying to force the compiler's hand, but we really dearly value speed over the modest
-// increase in binary size.
-#[inline(always)]
-fn check_compat<B: UScalar>(e: &GolGraph, cp: PartialRow<B>, c: PartialRow<B>, cn: PartialRow<B>, ct: usize, cx: isize, f: PartialRow<B>, ft: usize, fx: isize) -> bool {
-    let r = check_compat1(e, cp, c, cn, ct, cx, f, ft, fx);
-//eprintln!("check_compat(cp {} c {} cn {} ct {} cx {} f {} ft {} fx {}) = {}", cp.format(e), c.format(e), cn.format(e), ct, cx, f.format(e), ft, fx, r);
-    r
-}
-
-#[inline(always)]
-fn check_compat1<B: UScalar>(e: &GolGraph, cp: PartialRow<B>, c: PartialRow<B>, cn: PartialRow<B>, ct: usize, cx: isize, f: PartialRow<B>, ft: usize, fx: isize) -> bool {
-    let mut cts = CellCounts::new(0, 0);
-
-    cts += cp.get_cts(e, ct, cx - 1);
-    cts += cp.get_cts(e, ct, cx);
-    cts += cp.get_cts(e, ct, cx + 1);
-    cts += c.get_cts(e, ct, cx - 1);
-    cts += c.get_cts(e, ct, cx + 1);
-    cts += cn.get_cts(e, ct, cx - 1);
-    cts += cn.get_cts(e, ct, cx);
-    cts += cn.get_cts(e, ct, cx + 1);
-
-    let fs = match f.get(e, ft, fx) {
-        Some(fs) => fs,
-        None => {
-            return true;
-        }
-    };
-
-    let cs = match c.get(e, ct, cx) {
-        Some(cs) => cs,
-        None => {
-            return match fs {
-                // need 2 or 3
-                true => cts.living <= 3 && cts.dead <= 6,
-
-                // need not exactly 3
-                false => cts.living != 3 || cts.dead != 5,
-            };
+fn check_compat2(living: u32, known: u32, c: bool, f: bool) -> bool {
+    let dead = known - living;
+    match c {
+        true => match f {
+            // need 2 or 3
+            true => (living <= 3 && dead <= 6),
+            // need 0, 1, or 4+
+            false => (living <= 1 || dead <= 4),
         },
-    };
-
-    match cs {
-        true => match fs {
-            true => {
-                // need 2 or 3
-                cts.living <= 3 && cts.dead <= 6
-            },
-            false => {
-                // need 0, 1, or 4+
-                cts.living <= 1 || cts.dead <= 4
-            },
-        },
-        false => match fs {
-            true => {
-                // need 3
-                cts.living <= 3 && cts.dead <= 5
-            },
-            false => {
-                cts.living <= 2 || cts.dead <= 4
-            },
+        false => match f {
+            // need 3
+            true => (living <= 3 && dead <= 5),
+            false => (living <= 2 || dead <= 4),
         },
     }
 }
 
-fn find_min_x<B: UScalar>(e: &GolGraph, r: B) -> usize {
+fn find_min_x<B: UScalar>(e: &GolGraph<B>, r: B) -> usize {
     for x in 0..e.mx {
         for t in 0..e.mt {
             if r.get_bit(e.to_idx(x, t)) {
@@ -442,7 +434,7 @@ fn find_min_x<B: UScalar>(e: &GolGraph, r: B) -> usize {
     panic!();
 }
 
-fn find_max_x<B: UScalar>(e: &GolGraph, r: B) -> usize {
+fn find_max_x<B: UScalar>(e: &GolGraph<B>, r: B) -> usize {
     for x in (0..e.mx).rev() {
         for t in 0..e.mt {
             if r.get_bit(e.to_idx(x, t)) {
@@ -454,7 +446,7 @@ fn find_max_x<B: UScalar>(e: &GolGraph, r: B) -> usize {
     panic!();
 }
 
-fn recenter<B: UScalar>(e: &GolGraph, r0: B, r1: B) -> (isize, B, B) {
+fn recenter<B: UScalar>(e: &GolGraph<B>, r0: B, r1: B) -> (isize, B, B) {
     let bias = match e.recenter {
         GolRecenter::None => {
             return (0, r0, r1);
@@ -490,7 +482,7 @@ fn recenter<B: UScalar>(e: &GolGraph, r0: B, r1: B) -> (isize, B, B) {
     (shift, r0s, r1s)
 }
 
-fn expand_srch<B: UScalar>(e: &GolGraph, n1: &GolNode<B>, n2s: &mut Vec<GolNode<B>>) {
+fn expand_srch<B: UScalar>(e: &GolGraph<B>, n1: &GolNode<B>, n2s: &mut Vec<GolNode<B>>) {
     let idx = n1.r2l;
 
     if idx == e.mt * e.mx {
@@ -513,8 +505,7 @@ fn expand_srch<B: UScalar>(e: &GolGraph, n1: &GolNode<B>, n2s: &mut Vec<GolNode<
         return;
     }
 
-    let x = e.x_from_idx(idx);
-    let t = e.t_from_idx(idx);
+    let x = idx % e.mx;
 
     let mut n2 = GolNode {
         dx: n1.dx,
@@ -541,57 +532,18 @@ fn expand_srch<B: UScalar>(e: &GolGraph, n1: &GolNode<B>, n2s: &mut Vec<GolNode<
         }
         n2.r2.set_bit(idx, v);
 
-        let r0 = PartialRow::full(e, n2.r0);
-        let r1 = PartialRow::full(e, n2.r1);
-        let r2 = PartialRow::new(n2.r2, idx + 1);
-        let er = PartialRow::empty();
+        let rows = [n2.r0, n2.r1, n2.r2];
 
-        let ix = x as isize;
-
-        // shift for the previous generation
-        let pt = e.prev_t(t);
-        let (sxp, syp) = e.shifts[pt];
-        let px = ix - sxp;
-
-        // shift from this time to the next
-        let ft = e.next_t(t);
-        let (sx, sy) = e.shifts[t];
-        let fx = ix + sx;
-
-        // check past cell if there is one (y shifts backwards!)
-        let b = match syp {
-            1 => check_compat(e, r0, r1, r2, pt, px, r2, t, ix),
-            0 => check_compat(e, r1, r2, er, pt, px, r2, t, ix),
-            -1 => true,
-            _ => panic!(),
-        };
-        if !b {
-            continue;
-        }
-
-        for &dx in &[-1, 0, 1] {
-            let ix = ix + dx;
-            let fx = fx + dx;
-
-            // check cell centered in n1.1
-            let b = match sy {
-                -1 => check_compat(e, r0, r1, r2, t, ix, r0, ft, fx),
-                0 => check_compat(e, r0, r1, r2, t, ix, r1, ft, fx),
-                1 => check_compat(e, r0, r1, r2, t, ix, r2, ft, fx),
-                _ => panic!(),
-            };
-            if !b {
-                continue 'v;
+        for &(ref nh_masks, nh_ct, (cur_row_idx, cur_mask), (fut_row_idx, fut_mask)) in e.checks[idx].iter() {
+            let mut nh = 0;
+            for &(nh_row_idx, nh_mask) in nh_masks {
+                nh += (rows[nh_row_idx] & nh_mask).count_ones()
             }
 
-            // check cell centered in n2b
-            let b = match sy {
-                -1 => check_compat(e, r1, r2, er, t, ix, r1, ft, fx),
-                0 => check_compat(e, r1, r2, er, t, ix, r2, ft, fx),
-                1 => true,
-                _ => panic!(),
-            };
-            if !b {
+            let cur_cell = (rows[cur_row_idx] & cur_mask != B::zero());
+            let fut_cell = (rows[fut_row_idx] & fut_mask != B::zero());
+
+            if !check_compat2(nh, nh_ct, cur_cell, fut_cell) {
                 continue 'v;
             }
         }
@@ -600,7 +552,7 @@ fn expand_srch<B: UScalar>(e: &GolGraph, n1: &GolNode<B>, n2s: &mut Vec<GolNode<
     }
 }
 
-impl<B: UScalar> DfsGraph<GolNode<B>> for GolGraph {
+impl<B: UScalar> DfsGraph<GolNode<B>> for GolGraph<B> {
     fn expand(&self, n1: &GolNode<B>) -> Vec<GolNode<B>> {
         let mut n2s = Vec::new();
         expand_srch(self, n1, &mut n2s);
