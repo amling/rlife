@@ -34,8 +34,8 @@ fn main1<B: Bits + DeserializeOwned + Serialize>() -> Result<(), StringError> {
 
     let ge: GolPreGraph = load_or_with(&dir, "ge", || {
         GolPreGraph {
-            mt: 5,
-            mx: 8,
+            mt: 6,
+            mx: 10,
             wx: 8,
 
             left_sym: GolSym::Empty,
@@ -53,8 +53,8 @@ fn main1<B: Bits + DeserializeOwned + Serialize>() -> Result<(), StringError> {
     let mut root = load_or_with(&dir, "tree", || {
         let n0 = GolNode {
             dx: 0,
-            r0: cnst(0b00011100_00001100_00001000_00010000_00010000),
-            r1: cnst(0b00101100_00101000_00101000_00101000_00101000),
+            r0: B::zero(),
+            r1: B::zero(),
             r2: B::zero(),
             r2l: 0,
             min_x: ge.mx - 1,
@@ -70,7 +70,7 @@ fn main1<B: Bits + DeserializeOwned + Serialize>() -> Result<(), StringError> {
     let mut le = GolLifecycle {
         ge: &ge,
         threads: 8,
-        recollect_ms: 60000,
+        recollect_ms: 5000,
         output_dir: Some(dir.clone()),
         log: Some(File::create(log)?),
     };
