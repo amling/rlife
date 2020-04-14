@@ -40,6 +40,7 @@ pub trait Scalar: ScalarMarker {
     fn one() -> Self;
     fn from_usize(c: usize) -> Self;
     fn to_usize(self) -> usize;
+    fn count_ones(&self) -> u32;
 
     fn set_bit(&mut self, idx: usize, v: bool) {
         *self &= !(Self::one() << idx);
@@ -78,6 +79,10 @@ macro_rules! uxx_scalar_impl {
 
             fn to_usize(self) -> usize {
                 self as usize
+            }
+
+            fn count_ones(&self) -> u32 {
+                (*self).count_ones()
             }
         }
 
