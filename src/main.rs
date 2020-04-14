@@ -107,7 +107,7 @@ fn cnst<B: UScalar>(c: u128) -> B {
     while c > 0 {
         if c % 2 == 1 {
             assert!(idx < B::size());
-            B::set_bit(&mut b, idx, true);
+            b.set_bit(idx, true);
         }
         c >>= 1;
         idx += 1;
