@@ -19,6 +19,7 @@ use dfs::Tree;
 use dfs::TreeStatus;
 use dfs::res::DfsResToVec;
 use gol::graph::GolNode;
+use gol::graph::GolNodeSerdeProxy;
 use gol::graph::GolPreGraph;
 use gol::graph::GolRecenter;
 use gol::graph::GolSym;
@@ -51,18 +52,15 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
     let ge = ge.derived();
 
     let mut root = load_or_with(&dir, "tree", || {
-        let n0 = GolNode {
+        let n0 = GolNodeSerdeProxy {
             dx: 0,
             r0: B::zero(),
             r1: B::zero(),
             r2: B::zero(),
             r2l: 0,
-            r2l_x: 0,
-            min_x: ge.mx - 1,
-            max_x: 0,
         };
         Tree(n0, TreeStatus::Unopened).to_serde_proxy()
-    })?.to_tree();
+    })?.to_tree().map(&mut |t| t.to_real(&ge));
 
     let re = DfsResToVec();
 

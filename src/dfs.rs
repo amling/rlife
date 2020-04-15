@@ -59,10 +59,38 @@ impl<N: DfsNode> Path<N> {
 
 pub struct Tree<N>(pub N, pub TreeStatus<N>);
 
+impl<N> Tree<N> {
+    pub fn map<N2>(self, f: &mut impl FnMut(N) -> N2) -> Tree<N2> {
+        Tree(f(self.0), self.1.map(f))
+    }
+
+    pub fn as_ref(&self) -> Tree<&N> {
+        Tree(&self.0, self.1.as_ref())
+    }
+}
+
 pub enum TreeStatus<N> {
     Unopened,
     Opened(Vec<Tree<N>>),
     Closed,
+}
+
+impl<N> TreeStatus<N> {
+    pub fn map<N2>(self, f: &mut impl FnMut(N) -> N2) -> TreeStatus<N2> {
+        match self {
+            TreeStatus::Unopened => TreeStatus::Unopened,
+            TreeStatus::Opened(children) => TreeStatus::Opened(children.into_iter().map(|t| t.map(f)).collect()),
+            TreeStatus::Closed => TreeStatus::Closed,
+        }
+    }
+
+    fn as_ref(&self) -> TreeStatus<&N> {
+        match self {
+            TreeStatus::Unopened => TreeStatus::Unopened,
+            TreeStatus::Opened(children) => TreeStatus::Opened(children.iter().map(|n| n.as_ref()).collect()),
+            TreeStatus::Closed => TreeStatus::Closed,
+        }
+    }
 }
 
 #[derive(Deserialize)]

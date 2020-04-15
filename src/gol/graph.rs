@@ -13,21 +13,61 @@ use dfs::graph::DfsNode;
 use gol::printbag::PrintBag;
 
 #[derive(Clone)]
-#[derive(Debug)]
 #[derive(Deserialize)]
-#[derive(Eq)]
-#[derive(Hash)]
-#[derive(PartialEq)]
 #[derive(Serialize)]
-pub struct GolNode<B: UScalar> {
+pub struct GolNodeSerdeProxy<B: UScalar> {
     pub dx: isize,
     pub r0: B,
     pub r1: B,
     pub r2: B,
     pub r2l: usize,
+}
+
+impl<B: UScalar> GolNodeSerdeProxy<B> {
+    pub fn to_real(&self, e: &GolGraph<B>) -> GolNode<B> {
+        GolNode {
+            dx: self.dx,
+            r0: self.r0,
+            r1: self.r1,
+            r2: self.r2,
+            r2_min_x: find_min_x(e, self.r2),
+            r2_max_x: find_max_x(e, self.r2),
+            r2l: self.r2l,
+            r2l_x: (self.r2l % e.mx),
+        }
+    }
+}
+
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(Eq)]
+#[derive(Hash)]
+#[derive(PartialEq)]
+pub struct GolNode<B: UScalar> {
+    pub dx: isize,
+    pub r0: B,
+    pub r1: B,
+    pub r2: B,
+    pub r2_min_x: usize,
+    pub r2_max_x: usize,
+    pub r2l: usize,
     pub r2l_x: usize,
-    pub min_x: usize,
-    pub max_x: usize,
+}
+
+impl<B: UScalar> GolNode<B> {
+    pub fn to_serde_proxy(&self, e: &GolGraph<B>) -> GolNodeSerdeProxy<B> {
+        debug_assert_eq!(self.r2_min_x, find_min_x(e, self.r2));
+        debug_assert_eq!(self.r2_max_x, find_max_x(e, self.r2));
+        debug_assert_eq!(self.r2l_x, self.r2l % e.mx);
+
+        GolNodeSerdeProxy {
+            dx: self.dx,
+            r0: self.r0,
+            r1: self.r1,
+            r2: self.r2,
+            r2l: self.r2l,
+        }
+    }
 }
 
 impl<B: UScalar> DfsNode for GolNode<B> {
@@ -432,7 +472,7 @@ fn find_min_x<B: UScalar>(e: &GolGraph<B>, r: B) -> usize {
         }
     }
 
-    panic!();
+    e.mx - 1
 }
 
 fn find_max_x<B: UScalar>(e: &GolGraph<B>, r: B) -> usize {
@@ -444,7 +484,7 @@ fn find_max_x<B: UScalar>(e: &GolGraph<B>, r: B) -> usize {
         }
     }
 
-    panic!();
+    0
 }
 
 fn recenter<B: UScalar>(e: &GolGraph<B>, r0: B, r1: B) -> (isize, B, B) {
@@ -499,10 +539,10 @@ fn expand_srch<B: UScalar>(e: &GolGraph<B>, n1: &GolNode<B>, n2s: &mut Vec<GolNo
             r0: r0,
             r1: r1,
             r2: B::zero(),
+            r2_min_x: e.mx - 1,
+            r2_max_x: 0,
             r2l: 0,
             r2l_x: 0,
-            min_x: e.mx - 1,
-            max_x: 0,
         });
         return;
     }
@@ -514,24 +554,24 @@ fn expand_srch<B: UScalar>(e: &GolGraph<B>, n1: &GolNode<B>, n2s: &mut Vec<GolNo
         r0: n1.r0,
         r1: n1.r1,
         r2: n1.r2,
+        r2_min_x: n1.r2_min_x,
+        r2_max_x: n1.r2_max_x,
         r2l: n1.r2l + 1,
         r2l_x: if n1.r2l_x == e.mx - 1 { 0 } else { n1.r2l_x + 1},
-        min_x: n1.min_x,
-        max_x: n1.max_x,
     };
     'v: for &v in &[false, true] {
         if v {
-            let min_x = n1.min_x.min(x);
-            let max_x = n1.max_x.max(x);
-            if max_x >= min_x + e.wx {
+            let r2_min_x = n1.r2_min_x.min(x);
+            let r2_max_x = n1.r2_max_x.max(x);
+            if r2_max_x >= r2_min_x + e.wx {
                 continue;
             }
-            n2.min_x = min_x;
-            n2.max_x = max_x;
+            n2.r2_min_x = r2_min_x;
+            n2.r2_max_x = r2_max_x;
         }
         else {
-            n2.min_x = n1.min_x;
-            n2.max_x = n1.max_x;
+            n2.r2_min_x = n1.r2_min_x;
+            n2.r2_max_x = n1.r2_max_x;
         }
         n2.r2.set_bit(idx, v);
 

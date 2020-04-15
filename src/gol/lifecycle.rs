@@ -107,6 +107,7 @@ impl<'a, B: UScalar + Serialize> DfsLifecycle<GolNode<B>, DfsResVec<GolKeyNode<B
             let path1 = format!("{}/{}", output_dir, ".tree.tmp");
             let f = File::create(&path1).unwrap();
             let f = BufWriter::new(f);
+            let tree = tree.as_ref().map(&mut |t| t.to_serde_proxy(self.ge));
             let tree = tree.to_serde_proxy();
             serde_json::to_writer(f, &tree).unwrap();
             std::fs::rename(&path1, &path2).unwrap();
