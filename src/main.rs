@@ -59,6 +59,10 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
             r2: B::zero(),
             r2l: 0,
         };
+
+        let (shift, _, _) = gol::graph::recenter(&ge, n0.r0, n0.r1);
+        assert_eq!(shift, 0);
+
         Tree(n0, TreeStatus::Unopened).to_serde_proxy()
     })?.to_tree().map(&mut |t| t.to_real(&ge));
 

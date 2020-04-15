@@ -486,7 +486,7 @@ fn find_max_x<B: UScalar>(e: &GolGraph<B>, r: B) -> usize {
     0
 }
 
-fn recenter<B: UScalar>(e: &GolGraph<B>, r0: B, r1: B) -> (isize, B, B) {
+pub fn recenter<B: UScalar>(e: &GolGraph<B>, r0: B, r1: B) -> (isize, B, B) {
     let bias = match e.recenter {
         GolRecenter::None => {
             return (0, r0, r1);
