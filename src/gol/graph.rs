@@ -219,7 +219,7 @@ impl GolPreGraph {
         }
     }
 
-    fn compute_checks2<B: UScalar>(&self, acc: &mut Vec<(Vec<(usize, B)>, u32, (usize, B), (usize, B))>, cp: (usize, usize), c: (usize, usize), cn: (usize, usize), ct: usize, cx: isize, f: (usize, usize), ft: usize, fx: isize) {
+    fn compute_checks2<B: UScalar>(&self, acc: &mut Vec<(Vec<(usize, B)>, u32, (usize, B), (usize, B))>, cp: (usize, usize), c: (usize, usize), cn: Option<(usize, usize)>, ct: usize, cx: isize, f: (usize, usize), ft: usize, fx: isize) {
         let single_mask = |idx| {
             let mut b = B::zero();
             b.set_bit(idx, true);
@@ -258,9 +258,11 @@ impl GolPreGraph {
         add_nh(cp, ct, cx + 1);
         add_nh(c, ct, cx - 1);
         add_nh(c, ct, cx + 1);
-        add_nh(cn, ct, cx - 1);
-        add_nh(cn, ct, cx);
-        add_nh(cn, ct, cx + 1);
+        if let Some(cn) = cn {
+            add_nh(cn, ct, cx - 1);
+            add_nh(cn, ct, cx);
+            add_nh(cn, ct, cx + 1);
+        }
 
         let cur_row_idx = c.0;
         let cur_mask = match self.compute_prow_read(c.1, ct, cx) {
@@ -312,14 +314,11 @@ impl GolPreGraph {
         let r0 = (0, self.mx * self.mt);
         let r1 = (1, self.mx * self.mt);
         let r2 = (2, idx + 1);
-        // TODO: this is wrong, we don't actually know what window is in next row and we should
-        // read even out of bounds stuff as unknown rather than whatever bounds rule.
-        let er = (3, 0);
 
         // check past cell if there is one (y shifts backwards!)
         match syp {
-            1 => self.compute_checks2(&mut acc, r0, r1, r2, pt, px, r2, t, ix),
-            0 => self.compute_checks2(&mut acc, r1, r2, er, pt, px, r2, t, ix),
+            1 => self.compute_checks2(&mut acc, r0, r1, Some(r2), pt, px, r2, t, ix),
+            0 => self.compute_checks2(&mut acc, r1, r2, None, pt, px, r2, t, ix),
             -1 => {
             },
             _ => panic!(),
@@ -331,16 +330,16 @@ impl GolPreGraph {
 
             // check cell centered in r1
             match sy {
-                -1 => self.compute_checks2(&mut acc, r0, r1, r2, t, ix, r0, ft, fx),
-                0 => self.compute_checks2(&mut acc, r0, r1, r2, t, ix, r1, ft, fx),
-                1 => self.compute_checks2(&mut acc, r0, r1, r2, t, ix, r2, ft, fx),
+                -1 => self.compute_checks2(&mut acc, r0, r1, Some(r2), t, ix, r0, ft, fx),
+                0 => self.compute_checks2(&mut acc, r0, r1, Some(r2), t, ix, r1, ft, fx),
+                1 => self.compute_checks2(&mut acc, r0, r1, Some(r2), t, ix, r2, ft, fx),
                 _ => panic!(),
             }
 
             // check cell centered in n2b
             match sy {
-                -1 => self.compute_checks2(&mut acc, r1, r2, er, t, ix, r1, ft, fx),
-                0 => self.compute_checks2(&mut acc, r1, r2, er, t, ix, r2, ft, fx),
+                -1 => self.compute_checks2(&mut acc, r1, r2, None, t, ix, r1, ft, fx),
+                0 => self.compute_checks2(&mut acc, r1, r2, None, t, ix, r2, ft, fx),
                 1 => {
                 },
                 _ => panic!(),
