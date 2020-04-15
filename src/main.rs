@@ -35,14 +35,14 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
 
     let ge: GolPreGraph = load_or_with(&dir, "ge", || {
         GolPreGraph {
-            mt: 3,
+            mt: 6,
             mx: 10,
-            wx: 10,
+            wx: 8,
 
             left_sym: GolSym::Empty,
             right_sym: GolSym::Empty,
 
-            ox: 0,
+            ox: 1,
             oy: 1,
 
             recenter: GolRecenter::BiasRight,
@@ -69,7 +69,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
     let mut le = GolLifecycle {
         ge: &ge,
         threads: 8,
-        recollect_ms: 1000,
+        recollect_ms: 5000,
         output_dir: Some(dir.clone()),
         log: Some(File::create(log)?),
     };
