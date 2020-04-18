@@ -38,6 +38,7 @@ fn check_cycle<N: DfsNode>(qs: &[Vec<(usize, N)>], idx: usize, kn: &N::KN) -> Op
 
 pub fn sbfs<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: DfsLifecycle<N, R>>(n0: N, ge: &GE, re: &RE, le: &mut LE) {
     let mut qs = vec![vec![(0, n0)]];
+    let mut ttl = 1;
 
     loop {
         let ql = qs.last().unwrap();
@@ -73,6 +74,8 @@ pub fn sbfs<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: DfsLifecyc
                 q2.push((idx, n2));
             }
         }
+        ttl += q2.len();
+        eprintln!("Completed BFS step ql {} => q2 {} (total {})", ql.len(), q2.len(), ttl);
         qs.push(q2);
         let firstest = match qs.last().unwrap().first() {
             Some(&(idx, ref n)) => {
