@@ -1,3 +1,6 @@
+use crossbeam::queue::PopError;
+use crossbeam::queue::SegQueue;
+
 use crate::dfs;
 
 use dfs::graph::DfsGraph;
@@ -36,7 +39,7 @@ fn check_cycle<N: DfsNode>(qs: &[Vec<(usize, N)>], idx: usize, kn: &N::KN) -> Op
     None
 }
 
-pub fn bfs<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: DfsLifecycle<N, R>>(n0: N, ge: &GE, re: &RE, le: &mut LE) {
+pub fn bfs<N: DfsNode, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R> + Sync, LE: DfsLifecycle<N, R> + Sync>(n0: N, ge: &GE, re: &RE, le: &mut LE) {
     let mut qs = vec![vec![(0, n0)]];
     let mut ttl = 1;
 
@@ -46,34 +49,76 @@ pub fn bfs<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: DfsLifecycl
             break;
         }
 
-        let mut q2 = Vec::new();
-        let mut r = re.empty();
-        for (idx, &(prev_idx, ref n)) in ql.iter().enumerate() {
-            for n2 in ge.expand(n) {
-                if let Some(kn2) = n2.key_node() {
-                    if ge.end(&kn2) {
-                        let path = materialize_path(&qs, prev_idx);
-                        let mut path = DfsNode::key_nodes(&path);
-                        path.push(kn2);
-                        le.debug_end(&path);
-                        r = re.reduce(r, re.map_end(path));
-                        continue;
-                    }
+        let threads = le.threads();
+        let shards = threads * 10;
 
-                    if let Some(idx) = check_cycle(&qs, prev_idx, &kn2) {
-                        let mut path = materialize_path(&qs, prev_idx);
-                        let cycle = path.drain(idx..).collect();
-                        let path = DfsNode::key_nodes(&path);
-                        let cycle = DfsNode::key_nodes(&cycle);
-                        le.debug_cycle(&path, &cycle, &kn2);
-                        r = re.reduce(r, re.map_cycle(path, cycle, kn2));
-                        continue;
-                    }
-                }
+        let mut rs: Vec<_> = (0..shards).map(|_| re.empty()).collect();
+        let mut q2s: Vec<_> = (0..shards).map(|_| Vec::new()).collect();
 
-                q2.push((idx, n2));
+        {
+            let q = SegQueue::new();
+            for tuple in (0..shards).zip(rs.iter_mut()).zip(q2s.iter_mut()) {
+                q.push(tuple);
             }
+
+            crossbeam::scope(|sc| {
+                for _ in 0..le.threads() {
+                    sc.spawn(|_| {
+                        loop {
+                            let ((i, r), q2) = match q.pop() {
+                                Result::Ok(tuple) => tuple,
+                                Result::Err(PopError) => {
+                                    return;
+                                }
+                            };
+
+                            let add_result = |r: &mut R, r1| {
+                                let r0 = std::mem::replace(r, re.empty());
+                                *r = re.reduce(r0, r1);
+                            };
+
+                            let start = ql.len() * i / shards;
+                            let end = ql.len() * (i + 1) / shards;
+                            for idx in start..end {
+                                let (prev_idx, ref n) = ql[idx];
+
+                                for n2 in ge.expand(n) {
+                                    if let Some(kn2) = n2.key_node() {
+                                        if ge.end(&kn2) {
+                                            let path = materialize_path(&qs, prev_idx);
+                                            let mut path = DfsNode::key_nodes(&path);
+                                            path.push(kn2);
+                                            le.debug_end(&path);
+                                            add_result(r, re.map_end(path));
+                                            continue;
+                                        }
+
+                                        if let Some(idx) = check_cycle(&qs, prev_idx, &kn2) {
+                                            let mut path = materialize_path(&qs, prev_idx);
+                                            let cycle = path.drain(idx..).collect();
+                                            let path = DfsNode::key_nodes(&path);
+                                            let cycle = DfsNode::key_nodes(&cycle);
+                                            le.debug_cycle(&path, &cycle, &kn2);
+                                            add_result(r, re.map_cycle(path, cycle, kn2));
+                                            continue;
+                                        }
+                                    }
+
+                                    q2.push((idx, n2));
+                                }
+                            }
+                        }
+                    });
+                }
+            }).unwrap();
         }
+
+        let mut r = re.empty();
+        for r1 in rs {
+            r = re.reduce(r, r1);
+        }
+        let q2: Vec<_> = q2s.into_iter().flatten().collect();
+
         ttl += q2.len();
         eprintln!("Completed BFS step ql {} => q2 {} (total {})", ql.len(), q2.len(), ttl);
         qs.push(q2);
