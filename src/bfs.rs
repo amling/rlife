@@ -36,7 +36,7 @@ fn check_cycle<N: DfsNode>(qs: &[Vec<(usize, N)>], idx: usize, kn: &N::KN) -> Op
     None
 }
 
-pub fn sbfs<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: DfsLifecycle<N, R>>(n0: N, ge: &GE, re: &RE, le: &mut LE) {
+pub fn bfs<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: DfsLifecycle<N, R>>(n0: N, ge: &GE, re: &RE, le: &mut LE) {
     let mut qs = vec![vec![(0, n0)]];
     let mut ttl = 1;
 
