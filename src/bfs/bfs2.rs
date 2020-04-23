@@ -96,6 +96,10 @@ pub fn bfs2<N: DfsNode, R, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R>, LE: Dfs
 
         // start over
         qa = qc;
+        qa_foresight = match qa_foresight {
+            0 => 0,
+            _ => qa_foresight - 1,
+        };
 
         eprintln!("Completed BFS step {} => {}, estimated memory {}", qa_size, qa.len(), kns_mem(&kns) + vd_mem(&qa));
 
