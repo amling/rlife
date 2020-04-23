@@ -128,7 +128,14 @@ fn compact<N: DfsNode>(kns: &mut KnPile<N::KN>, qa: &mut VecDeque<(usize, N)>, q
             (Path::from_vec(path), n.clone())
         });
 
-        // TODO: rebuild kns
+        let living = qa.iter().map(|&(idx, _)| idx).chain(qb.iter().map(|&(idx, _, _)| idx));
+        let live_remap = kns.rebuild(living);
+        for (idx, _) in qa.iter_mut() {
+            *idx = *live_remap.get(idx).unwrap();
+        }
+        for (idx, _, _) in qb.iter_mut() {
+            *idx = *live_remap.get(idx).unwrap();
+        }
     }
 }
 
