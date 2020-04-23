@@ -30,55 +30,42 @@ fn main() {
 }
 
 fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError> {
-    let dir = std::env::args().skip(1).next().unwrap();
-    std::fs::create_dir_all(&dir)?;
+    let ge: GolPreGraph = GolPreGraph {
+        mt: 5,
+        mx: 9,
+        wx: 6,
 
-    let ge: GolPreGraph = load_or_with(&dir, "ge", || {
-        GolPreGraph {
-            mt: 6,
-            mx: 10,
-            wx: 8,
+        left_sym: GolSym::Empty,
+        right_sym: GolSym::Empty,
 
-            left_sym: GolSym::Empty,
-            right_sym: GolSym::Empty,
+        ox: 1,
+        oy: 0,
 
-            ox: 1,
-            oy: 1,
-
-            recenter: GolRecenter::BiasRight,
-        }
-    })?;
+        recenter: GolRecenter::BiasRight,
+    };
     assert!(ge.mt * ge.mx <= B::size());
     let ge = ge.derived();
 
-    let mut root = load_or_with(&dir, "tree", || {
-        let n0 = GolNodeSerdeProxy {
-            dx: 0,
-            r0: B::zero(),
-            r1: B::zero(),
-            r2: B::zero(),
-            r2l: 0,
-        };
-
-        let (shift, _, _) = gol::graph::recenter(&ge, n0.r0, n0.r1);
-        assert_eq!(shift, 0);
-
-        Tree(n0, TreeStatus::Unopened).to_serde_proxy()
-    })?.to_tree().map(&mut |t| t.to_real(&ge));
+    let n0 = GolNodeSerdeProxy {
+        dx: 0,
+        r0: cnst(0b_000101000_000111000_000010000_000101000_000011000),
+        r1: cnst(0b_000001000_000110000_000110000_000010000_000100000),
+        r2: B::zero(),
+        r2l: 0,
+    };
+    let n0 = n0.to_real(&ge);
 
     let re = DfsResToVec();
-
-    let log = format!("{}/log.{}", dir, Local::now().format("%Y%m%d-%H%M%S"));
 
     let mut le = GolLifecycle {
         ge: &ge,
         threads: 8,
         recollect_ms: 5000,
-        output_dir: Some(dir.clone()),
-        log: Some(File::create(log)?),
+        output_dir: None,
+        log: None,
     };
 
-    dfs::dfs::<GolNode<B>, _, _, _, _>(&mut root, &ge, &re, &mut le);
+    bfs::bfs2::<GolNode<B>, _, _, _, _>(n0, &ge, &re, &mut le);
 
     Ok(())
 }
