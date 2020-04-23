@@ -84,7 +84,7 @@ pub fn bfs1<N: DfsNode, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R> + 
                                         if let Some(rep_idx) = kns.find(prev_idx, find_f) {
                                             let mut path = kns.materialize_cloned(rep_idx);
                                             path.pop().unwrap();
-                                            let mut cycle = kns.materialize_cloned(idx);
+                                            let mut cycle = kns.materialize_cloned(prev_idx);
                                             let path2: Vec<_> = cycle.drain(0..path.len()).collect();
                                             assert_eq!(path, path2);
                                             le.debug_cycle(&path, &cycle, kn2);
@@ -111,9 +111,8 @@ pub fn bfs1<N: DfsNode, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R> + 
         let mut q2: Vec<_> = q2s.into_iter().flatten().map(|(prev_idx, n, kn)| {
             let mut prev_idx = prev_idx;
             if let Some(kn) = kn {
-                let prev_idx_new = kns.push(prev_idx, kn);
+                prev_idx = kns.push(prev_idx, kn);
                 added = true;
-                prev_idx = prev_idx_new;
             }
             (prev_idx, n)
         }).collect();
