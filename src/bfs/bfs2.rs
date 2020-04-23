@@ -13,11 +13,13 @@ use dfs::res::DfsRes;
 pub fn bfs2<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: DfsLifecycle<N, R>>(n0: N, ge: &GE, re: &RE, le: &mut LE) {
     let mut kns;
     let mut q;
+    let mut q_foresight;
 
     if let Some(kn0) = n0.key_node() {
         kns = KnPile::new(kn0);
         q = VecDeque::new();
         q.push_back((0, n0));
+        q_foresight = 0;
     }
     else {
         panic!();
@@ -34,6 +36,7 @@ pub fn bfs2<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: DfsLifecyc
 
         // Step one: expand q into q2
         let mut q2 = VecDeque::new();
+        let mut q2_foresight = q_foresight + 1;
         while let Some((prev_idx, n)) = q.pop_front() {
             for n2 in ge.expand(&n) {
                 let kn2 = n2.key_node();
@@ -69,16 +72,21 @@ pub fn bfs2<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: DfsLifecyc
 
                 q2.push_back((prev_idx, n2, kn2));
             }
+
+            compact(&mut kns, &mut q, &mut q_foresight, &mut q2, &mut q2_foresight);
         }
 
         // Step two: fold q2 over into kns and q3
         let mut q3 = VecDeque::new();
+        let mut q3_foresight = q2_foresight;
         while let Some((prev_idx, n, kn)) = q2.pop_front() {
             let mut prev_idx = prev_idx;
             if let Some(kn) = kn {
                 prev_idx = kns.push(prev_idx, kn);
             }
             q3.push_back((prev_idx, n));
+
+            compact(&mut kns, &mut q3, &mut q3_foresight, &mut q2, &mut q2_foresight);
         }
 
         eprintln!("Completed BFS step {} => {}", q_size, q3.len());
@@ -95,4 +103,8 @@ pub fn bfs2<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: DfsLifecyc
             break;
         }
     }
+}
+
+fn compact<N: DfsNode>(kns: &mut KnPile<N::KN>, qa: &mut VecDeque<(usize, N)>, qa_foresight: &mut usize, qb: &mut VecDeque<(usize, N, Option<N::KN>)>, qb_foresight: &mut usize) {
+    // TODO: compact if too big
 }
