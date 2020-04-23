@@ -106,5 +106,15 @@ pub fn bfs2<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: DfsLifecyc
 }
 
 fn compact<N: DfsNode>(kns: &mut KnPile<N::KN>, qa: &mut VecDeque<(usize, N)>, qa_foresight: &mut usize, qb: &mut VecDeque<(usize, N, Option<N::KN>)>, qb_foresight: &mut usize) {
-    // TODO: compact if too big
+    // whatever kns thinks plus (usize, usize) for space during recompaction
+    loop {
+        let kns_size = kns.len() * (kns.esize() + std::mem::size_of::<(usize, usize)>());
+        let qa_size = qa.len() * std::mem::size_of::<(usize, N)>();
+        let qb_size = qb.len() * std::mem::size_of::<(usize, N, Option<N::KN>)>();
+        if kns_size + qa_size + qb_size <= (1 << 33) {
+            return;
+        }
+
+        // TODO: compact
+    }
 }

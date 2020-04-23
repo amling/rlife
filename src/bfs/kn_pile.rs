@@ -91,6 +91,10 @@ impl<N> KnPile<N> {
     pub fn len(&self) -> usize {
         self.pile.len()
     }
+
+    pub fn esize(&self) -> usize {
+        std::mem::size_of::<(usize, N)>()
+    }
 }
 
 impl<N: Clone> KnPile<N> {
