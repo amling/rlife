@@ -1,79 +1,25 @@
 use crossbeam::queue::PopError;
 use crossbeam::queue::SegQueue;
-use std::collections::HashMap;
 
+pub mod kn_pile;
+
+use crate::bfs;
 use crate::dfs;
 
+use bfs::kn_pile::KnPile;
 use dfs::graph::DfsGraph;
+use dfs::graph::DfsKeyNode;
 use dfs::graph::DfsNode;
 use dfs::lifecycle::DfsLifecycle;
 use dfs::res::DfsRes;
 
-fn materialize_path<N: Clone>(kns: &Vec<(usize, N)>, idx: usize) -> Vec<N> {
-    let mut r = Vec::new();
-    let mut idx = idx;
-    loop {
-        r.push(kns[idx].1.clone());
-
-        if idx == 0 {
-            break;
-        }
-
-        idx = kns[idx].0;
-    }
-    r.reverse();
-    r
-}
-
-fn check_cycle<N: DfsNode>(kns: &Vec<(usize, N::KN)>, idx0: usize, kn: &N::KN) -> Option<(Vec<N::KN>, Vec<N::KN>)> {
-    let mut idx = idx0;
-    loop {
-        if &kns[idx].1 == kn {
-            break;
-        }
-
-        if idx == 0 {
-            return None;
-        }
-
-        idx = kns[idx].0;
-    }
-
-    let mut cycle = Vec::new();
-    let mut idx2 = idx0;
-    loop {
-        cycle.push(kns[idx2].1.clone());
-
-        if idx2 == idx {
-            break;
-        }
-
-        idx2 = kns[idx2].0;
-    }
-    cycle.reverse();
-
-    let mut path = Vec::new();
-    let mut idx2 = idx;
-    loop {
-        if idx2 == 0 {
-            break;
-        }
-
-        idx2 = kns[idx2].0;
-        path.push(kns[idx2].1.clone());
-    }
-    path.reverse();
-
-    Some((path, cycle))
-}
-
 pub fn bfs<N: DfsNode, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R> + Sync, LE: DfsLifecycle<N, R> + Sync>(n0: N, ge: &GE, re: &RE, le: &mut LE) {
-    let mut ql;
     let mut kns;
+    let mut ql;
 
     if let Some(kn0) = n0.key_node() {
+        kns = KnPile::new(kn0);
         ql = vec![(0, n0)];
-        kns = vec![(0, kn0)];
     }
     else {
         panic!();
@@ -121,14 +67,28 @@ pub fn bfs<N: DfsNode, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R> + S
                                     let kn2 = n2.key_node();
                                     if let Some(kn2) = &kn2 {
                                         if ge.end(kn2) {
-                                            let mut path = materialize_path(&kns, prev_idx);
+                                            let mut path = kns.materialize_cloned(prev_idx);
                                             path.push(kn2.clone());
                                             le.debug_end(&path);
                                             add_result(r, re.map_end(path));
                                             continue;
                                         }
 
-                                        if let Some((path, cycle)) = check_cycle::<N>(&kns, prev_idx, kn2) {
+                                        let hn2 = kn2.hash_node();
+                                        let find_f = |idx, kn: &N::KN| {
+                                            if kn.hash_node() == hn2 {
+                                                Some(idx)
+                                            }
+                                            else {
+                                                None
+                                            }
+                                        };
+                                        if let Some(rep_idx) = kns.find(prev_idx, find_f) {
+                                            let mut path = kns.materialize_cloned(rep_idx);
+                                            path.pop().unwrap();
+                                            let mut cycle = kns.materialize_cloned(idx);
+                                            let path2: Vec<_> = cycle.drain(0..path.len()).collect();
+                                            assert_eq!(path, path2);
                                             le.debug_cycle(&path, &cycle, kn2);
                                             add_result(r, re.map_cycle(path, cycle, kn2.clone()));
                                             continue;
@@ -153,8 +113,7 @@ pub fn bfs<N: DfsNode, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R> + S
         let mut q2: Vec<_> = q2s.into_iter().flatten().map(|(prev_idx, n, kn)| {
             let mut prev_idx = prev_idx;
             if let Some(kn) = kn {
-                let prev_idx_new = kns.len();
-                kns.push((prev_idx, kn));
+                let prev_idx_new = kns.push(prev_idx, kn);
                 added = true;
                 prev_idx = prev_idx_new;
             }
@@ -165,7 +124,7 @@ pub fn bfs<N: DfsNode, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R> + S
 
         let ttl = kns.len();
         if added && ttl > 50_000_000 {
-            let live_remap = rebuild_kns(&mut kns, q2.iter().map(|&(idx, _)| idx));
+            let live_remap = kns.rebuild(q2.iter().map(|&(idx, _)| idx));
             q2 = q2.into_iter().map(|(idx, n)| (*live_remap.get(&idx).unwrap(), n)).collect();
             eprintln!("Rebuilt past size {} -> {}", ttl, kns.len());
         }
@@ -175,7 +134,7 @@ pub fn bfs<N: DfsNode, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R> + S
 
         ql = q2;
         let firstest = match ql.first() {
-            Some(&(idx, _)) => materialize_path(&kns, idx),
+            Some(&(idx, _)) => kns.materialize_cloned(idx),
             None => vec![],
         };
         le.on_recollect_firstest(firstest);
@@ -183,44 +142,4 @@ pub fn bfs<N: DfsNode, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R> + S
             break;
         }
     }
-}
-
-fn rebuild_kns<N>(ns: &mut Vec<(usize, N)>, live: impl Iterator<Item=usize>) -> HashMap<usize, usize> {
-    let mut live: Vec<_> = live.collect();
-    live.sort();
-    live.dedup();
-    live.reverse();
-    let mut i = 0;
-    while i < live.len() {
-        let idx = live[i];
-        if idx != 0 {
-            let prev_idx = ns[idx].0;
-            let last = *live.last().unwrap();
-            if prev_idx < last {
-                live.push(prev_idx);
-            }
-            else if prev_idx == last {
-            }
-            else {
-                panic!();
-            }
-        }
-        i += 1;
-    }
-
-    let mut live_remap = HashMap::new();
-    let mut rebuilt_idx = 0;
-    while let Some(idx) = live.pop() {
-        assert!(rebuilt_idx <= idx, "{} <= {}?", rebuilt_idx, idx);
-        ns.swap(rebuilt_idx, idx);
-        // insert ourselves first so link from 0 to 0 can be looked up
-        assert_eq!(idx == 0, rebuilt_idx == 0);
-        assert!(!live_remap.contains_key(&idx));
-        live_remap.insert(idx, rebuilt_idx);
-        ns[rebuilt_idx].0 = *live_remap.get(&ns[rebuilt_idx].0).unwrap();
-        rebuilt_idx += 1;
-    }
-
-    ns.truncate(rebuilt_idx);
-    live_remap
 }
