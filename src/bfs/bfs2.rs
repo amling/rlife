@@ -32,6 +32,10 @@ pub fn bfs2<N: DfsNode, R, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R>, LE: Dfs
     loop {
         let qa_size = qa.len();
 
+        if qa_size == 0 {
+            break;
+        }
+
         let mut r = re.empty();
         let add_result = |r: &mut R, r1| {
             let r0 = std::mem::replace(r, re.empty());
