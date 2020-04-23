@@ -118,6 +118,8 @@ pub struct GolHashNode<B: UScalar> {
     pub r1: B,
 }
 
+#[derive(Clone)]
+#[derive(Copy)]
 #[derive(Deserialize)]
 #[derive(Serialize)]
 pub enum GolRecenter {
@@ -126,6 +128,8 @@ pub enum GolRecenter {
     BiasRight,
 }
 
+#[derive(Clone)]
+#[derive(Copy)]
 #[derive(Deserialize)]
 #[derive(Serialize)]
 pub enum GolSym {
@@ -349,7 +353,7 @@ impl GolPreGraph {
         acc
     }
 
-    pub fn derived<B: UScalar>(self) -> GolGraph<B> {
+    pub fn derived<B: UScalar>(&self) -> GolGraph<B> {
         let checks = (0..(self.mx * self.mt)).map(|idx| self.compute_checks(idx)).collect();
 
         GolGraph {
