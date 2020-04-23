@@ -125,9 +125,11 @@ fn vd_mem<T>(q: &VecDeque<T>) -> usize {
 
 fn compact<N: DfsNode, GE: DfsGraph<N> + Sync>(ge: &GE, threads: usize, kns: &mut KnPile<N::KN>, qa_foresight: &mut usize, qa: &mut VecDeque<(usize, N)>, qb: &mut VecDeque<(usize, N, Option<N::KN>)>, qc: &mut VecDeque<(usize, N)>) {
     loop {
+        let mem = kns_mem(kns) + vd_mem(qa) + vd_mem(qb) + vd_mem(qc);
         if kns_mem(kns) + vd_mem(qa) + vd_mem(qb) + vd_mem(qc) <= (1 << 28) {
             return;
         }
+        eprintln!("Estimated memory {}, deepening...", mem);
 
         *qa_foresight += 1;
         deepen(ge, threads, "qa", qa, *qa_foresight, |&(idx, ref n)| {
