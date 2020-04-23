@@ -74,7 +74,7 @@ pub fn bfs2<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: DfsLifecyc
                 q2.push_back((prev_idx, n2, kn2));
             }
 
-            compact(&mut kns, &mut q, &mut q_foresight, &mut q2, &mut q2_foresight);
+            compact(ge, &mut kns, &mut q, &mut q_foresight, &mut q2, &mut q2_foresight);
         }
 
         // Step two: fold q2 over into kns and q3
@@ -87,7 +87,7 @@ pub fn bfs2<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: DfsLifecyc
             }
             q3.push_back((prev_idx, n));
 
-            compact(&mut kns, &mut q3, &mut q3_foresight, &mut q2, &mut q2_foresight);
+            compact(ge, &mut kns, &mut q3, &mut q3_foresight, &mut q2, &mut q2_foresight);
         }
 
         eprintln!("Completed BFS step {} => {}", q_size, q3.len());
@@ -106,7 +106,7 @@ pub fn bfs2<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: DfsLifecyc
     }
 }
 
-fn compact<N: DfsNode>(kns: &mut KnPile<N::KN>, qa: &mut VecDeque<(usize, N)>, qa_foresight: &mut usize, qb: &mut VecDeque<(usize, N, Option<N::KN>)>, qb_foresight: &mut usize) {
+fn compact<N: DfsNode, GE: DfsGraph<N>>(ge: &GE, kns: &mut KnPile<N::KN>, qa: &mut VecDeque<(usize, N)>, qa_foresight: &mut usize, qb: &mut VecDeque<(usize, N, Option<N::KN>)>, qb_foresight: &mut usize) {
     // whatever kns thinks plus (usize, usize) for space during recompaction
     loop {
         let kns_size = kns.len() * (kns.esize() + std::mem::size_of::<(usize, usize)>());
@@ -116,11 +116,11 @@ fn compact<N: DfsNode>(kns: &mut KnPile<N::KN>, qa: &mut VecDeque<(usize, N)>, q
             return;
         }
 
-        deepen(qa, qa_foresight, |&(idx, ref n)| {
-            let mut path = kns.materialize_cloned(idx);
+        deepen(ge, qa, qa_foresight, |&(idx, ref n)| {
+            let path = kns.materialize_cloned(idx);
             (Path::from_vec(path), n.clone())
         });
-        deepen(qb, qb_foresight, |&(idx, ref n, ref kn)| {
+        deepen(ge, qb, qb_foresight, |&(idx, ref n, ref kn)| {
             let mut path = kns.materialize_cloned(idx);
             if let Some(kn) = kn {
                 path.push(kn.clone());
@@ -139,6 +139,43 @@ fn compact<N: DfsNode>(kns: &mut KnPile<N::KN>, qa: &mut VecDeque<(usize, N)>, q
     }
 }
 
-fn deepen<T, N: DfsNode>(q: &mut VecDeque<T>, q_foresight: &mut usize, mut f: impl FnMut(&T) -> (Path<N>, N)) {
-    // TODO: deepen
+fn deepen<T, N: DfsNode, GE: DfsGraph<N>>(ge: &GE, q: &mut VecDeque<T>, q_foresight: &mut usize, mut f: impl FnMut(&T) -> (Path<N>, N)) {
+    let foresight = *q_foresight + 1;
+    q.retain(|t| {
+        let (mut path, n) = f(t);
+
+        deepen_search(ge, &mut path, n, foresight)
+    });
+    *q_foresight += 1;
+}
+
+fn deepen_search<N: DfsNode, GE: DfsGraph<N>>(ge: &GE, path: &mut Path<N>, n: N, foresight: usize) -> bool {
+    if foresight == 0 {
+        return true;
+    }
+
+    for n2 in ge.expand(&n) {
+        let kn2 = n2.key_node();
+        if let Some(kn2) = &kn2 {
+            if ge.end(kn2) {
+                return true;
+            }
+
+            if let Some(_) = path.find_or_push(kn2) {
+                return true;
+            }
+        }
+
+        let r = deepen_search(ge, path, n2, foresight - 1);
+
+        if let Some(kn2) = &kn2 {
+            path.pop(kn2);
+        }
+
+        if r {
+            return true;
+        }
+    }
+
+    false
 }

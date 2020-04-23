@@ -43,7 +43,7 @@ impl<N: DfsNode> Path<N> {
         }
     }
 
-    fn find_or_push(&mut self, kn: &N::KN) -> Option<usize> {
+    pub fn find_or_push(&mut self, kn: &N::KN) -> Option<usize> {
         let hn = kn.hash_node();
         if let Some(idx) = self.map.get(&hn) {
             return Some(*idx);
@@ -53,11 +53,11 @@ impl<N: DfsNode> Path<N> {
         return None;
     }
 
-    fn push(&mut self, kn: &N::KN) -> bool {
+    pub fn push(&mut self, kn: &N::KN) -> bool {
         return !self.find_or_push(kn).is_some();
     }
 
-    fn pop(&mut self, kn_verify: &N::KN) {
+    pub fn pop(&mut self, kn_verify: &N::KN) {
         let kn = self.vec.pop().unwrap();
         debug_assert!(&kn == kn_verify);
         let r = self.map.remove(&kn.hash_node());
