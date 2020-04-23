@@ -92,11 +92,12 @@ pub fn bfs2<N: DfsNode, R, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R>, LE: Dfs
 
             compact(ge, le.threads(), &mut kns, &mut qa_foresight, &mut q0, &mut qb, &mut qc);
         }
-
-        eprintln!("Completed BFS step {} => {}", qa_size, qc.len());
+        drop(qb);
 
         // start over
         qa = qc;
+
+        eprintln!("Completed BFS step {} => {}, estimated memory {}", qa_size, qa.len(), kns_mem(&kns) + vd_mem(&qa));
 
         let firstest = match qa.front() {
             Some(&(idx, _)) => kns.materialize_cloned(idx),
@@ -109,15 +110,18 @@ pub fn bfs2<N: DfsNode, R, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R>, LE: Dfs
     }
 }
 
+fn kns_mem<N>(kns: &KnPile<N>) -> usize {
+    // whatever kns thinks plus (usize, usize) for space during recompaction
+    kns.len() * (kns.esize() + std::mem::size_of::<(usize, usize)>())
+}
+
+fn vd_mem<T>(q: &VecDeque<T>) -> usize {
+    q.len() * std::mem::size_of::<T>()
+}
+
 fn compact<N: DfsNode, GE: DfsGraph<N> + Sync>(ge: &GE, threads: usize, kns: &mut KnPile<N::KN>, qa_foresight: &mut usize, qa: &mut VecDeque<(usize, N)>, qb: &mut VecDeque<(usize, N, Option<N::KN>)>, qc: &mut VecDeque<(usize, N)>) {
     loop {
-        let mut mem_size = 0;
-        // whatever kns thinks plus (usize, usize) for space during recompaction
-        mem_size += kns.len() * (kns.esize() + std::mem::size_of::<(usize, usize)>());
-        mem_size += qa.len() * std::mem::size_of::<(usize, N)>();
-        mem_size += qb.len() * std::mem::size_of::<(usize, N, Option<N::KN>)>();
-        mem_size += qc.len() * std::mem::size_of::<(usize, N)>();
-        if mem_size <= (1 << 33) {
+        if kns_mem(kns) + vd_mem(qa) + vd_mem(qb) + vd_mem(qc) <= (1 << 30) {
             return;
         }
 
