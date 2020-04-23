@@ -116,11 +116,11 @@ fn compact<N: DfsNode, GE: DfsGraph<N>>(ge: &GE, kns: &mut KnPile<N::KN>, qa: &m
             return;
         }
 
-        deepen(ge, qa, qa_foresight, |&(idx, ref n)| {
+        deepen(ge, "qa", qa, qa_foresight, |&(idx, ref n)| {
             let path = kns.materialize_cloned(idx);
             (Path::from_vec(path), n.clone())
         });
-        deepen(ge, qb, qb_foresight, |&(idx, ref n, ref kn)| {
+        deepen(ge, "qb", qb, qb_foresight, |&(idx, ref n, ref kn)| {
             let mut path = kns.materialize_cloned(idx);
             if let Some(kn) = kn {
                 path.push(kn.clone());
@@ -139,14 +139,18 @@ fn compact<N: DfsNode, GE: DfsGraph<N>>(ge: &GE, kns: &mut KnPile<N::KN>, qa: &m
     }
 }
 
-fn deepen<T, N: DfsNode, GE: DfsGraph<N>>(ge: &GE, q: &mut VecDeque<T>, q_foresight: &mut usize, mut f: impl FnMut(&T) -> (Path<N>, N)) {
-    let foresight = *q_foresight + 1;
+fn deepen<T, N: DfsNode, GE: DfsGraph<N>>(ge: &GE, name: &'static str, q: &mut VecDeque<T>, q_foresight: &mut usize, mut f: impl FnMut(&T) -> (Path<N>, N)) {
+    let t0 = std::time::Instant::now();
+    let size0 = q.len();
+    let foresight0 = *q_foresight;
+    let foresight1 = foresight0 + 1;
     q.retain(|t| {
         let (mut path, n) = f(t);
 
-        deepen_search(ge, &mut path, n, foresight)
+        deepen_search(ge, &mut path, n, foresight1)
     });
-    *q_foresight += 1;
+    *q_foresight = foresight1;
+    eprintln!("Deepened {} from size {} foresight {} to size {} foresight {} in {:?}", name, size0, foresight0, q.len(), foresight1, t0.elapsed());
 }
 
 fn deepen_search<N: DfsNode, GE: DfsGraph<N>>(ge: &GE, path: &mut Path<N>, n: N, foresight: usize) -> bool {

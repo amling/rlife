@@ -12,6 +12,9 @@ impl<N> KnPile<N> {
     }
 
     pub fn rebuild(&mut self, live: impl Iterator<Item=usize>) -> HashMap<usize, usize> {
+        let t0 = std::time::Instant::now();
+        let size = self.pile.len();
+
         let mut live: Vec<_> = live.collect();
         live.sort();
         live.dedup();
@@ -48,6 +51,9 @@ impl<N> KnPile<N> {
         }
 
         self.pile.truncate(rebuilt_idx);
+
+        eprintln!("Rebuilt kns from {} to {} in {:?}", size, self.pile.len(), t0.elapsed());
+
         live_remap
     }
 
