@@ -4,6 +4,7 @@ use crate::bfs;
 use crate::dfs;
 
 use bfs::kn_pile::KnPile;
+use dfs::Path;
 use dfs::graph::DfsGraph;
 use dfs::graph::DfsKeyNode;
 use dfs::graph::DfsNode;
@@ -115,6 +116,22 @@ fn compact<N: DfsNode>(kns: &mut KnPile<N::KN>, qa: &mut VecDeque<(usize, N)>, q
             return;
         }
 
-        // TODO: compact
+        deepen(qa, qa_foresight, |&(idx, ref n)| {
+            let mut path = kns.materialize_cloned(idx);
+            (Path::from_vec(path), n.clone())
+        });
+        deepen(qb, qb_foresight, |&(idx, ref n, ref kn)| {
+            let mut path = kns.materialize_cloned(idx);
+            if let Some(kn) = kn {
+                path.push(kn.clone());
+            }
+            (Path::from_vec(path), n.clone())
+        });
+
+        // TODO: rebuild kns
     }
+}
+
+fn deepen<T, N: DfsNode>(q: &mut VecDeque<T>, q_foresight: &mut usize, mut f: impl FnMut(&T) -> (Path<N>, N)) {
+    // TODO: deepen
 }

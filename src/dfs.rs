@@ -22,7 +22,7 @@ use dfs::lifecycle::DfsLifecycle;
 use dfs::res::DfsRes;
 
 #[derive(Clone)]
-struct Path<N: DfsNode> {
+pub struct Path<N: DfsNode> {
     vec: Vec<N::KN>,
     map: HashMap<<N::KN as DfsKeyNode>::HN, usize>,
 }
@@ -32,6 +32,14 @@ impl<N: DfsNode> Path<N> {
         Path {
             vec: Vec::new(),
             map: HashMap::new(),
+        }
+    }
+
+    pub fn from_vec(v: Vec<N::KN>) -> Self {
+        let map = v.iter().enumerate().map(|(idx, kn)| (kn.hash_node(), idx)).collect();
+        Path {
+            vec: v,
+            map: map,
         }
     }
 
