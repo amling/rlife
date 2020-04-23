@@ -15,21 +15,22 @@ use dfs::res::DfsRes;
 
 pub fn bfs2<N: DfsNode, R, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R>, LE: DfsLifecycle<N, R>>(n0: N, ge: &GE, re: &RE, le: &mut LE) {
     let mut kns;
-    let mut q;
-    let mut q_foresight;
+    let mut qa;
+    let mut qa_foresight;
+    let mut q0 = VecDeque::new();
 
     if let Some(kn0) = n0.key_node() {
         kns = KnPile::new(kn0);
-        q = VecDeque::new();
-        q.push_back((0, n0));
-        q_foresight = 0;
+        qa = VecDeque::new();
+        qa.push_back((0, n0));
+        qa_foresight = 0;
     }
     else {
         panic!();
     }
 
     loop {
-        let q_size = q.len();
+        let qa_size = qa.len();
 
         let mut r = re.empty();
         let add_result = |r: &mut R, r1| {
@@ -37,10 +38,9 @@ pub fn bfs2<N: DfsNode, R, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R>, LE: Dfs
             *r = re.reduce(r0, r1);
         };
 
-        // Step one: expand q into q2
-        let mut q2 = VecDeque::new();
-        let mut q2_foresight = q_foresight + 1;
-        while let Some((prev_idx, n)) = q.pop_front() {
+        // Step one: expand qa into qb
+        let mut qb = VecDeque::new();
+        while let Some((prev_idx, n)) = qa.pop_front() {
             for n2 in ge.expand(&n) {
                 let kn2 = n2.key_node();
                 if let Some(kn2) = &kn2 {
@@ -73,31 +73,32 @@ pub fn bfs2<N: DfsNode, R, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R>, LE: Dfs
                     }
                 }
 
-                q2.push_back((prev_idx, n2, kn2));
+                qb.push_back((prev_idx, n2, kn2));
             }
 
-            compact(ge, le.threads(), &mut kns, &mut q, &mut q_foresight, &mut q2, &mut q2_foresight);
+            compact(ge, le.threads(), &mut kns, &mut qa_foresight, &mut qa, &mut qb, &mut q0);
         }
+        // should be unused after this
+        drop(qa);
 
-        // Step two: fold q2 over into kns and q3
-        let mut q3 = VecDeque::new();
-        let mut q3_foresight = q2_foresight;
-        while let Some((prev_idx, n, kn)) = q2.pop_front() {
+        // Step two: fold qb over into kns and qc
+        let mut qc = VecDeque::new();
+        while let Some((prev_idx, n, kn)) = qb.pop_front() {
             let mut prev_idx = prev_idx;
             if let Some(kn) = kn {
                 prev_idx = kns.push(prev_idx, kn);
             }
-            q3.push_back((prev_idx, n));
+            qc.push_back((prev_idx, n));
 
-            compact(ge, le.threads(), &mut kns, &mut q3, &mut q3_foresight, &mut q2, &mut q2_foresight);
+            compact(ge, le.threads(), &mut kns, &mut qa_foresight, &mut q0, &mut qb, &mut qc);
         }
 
-        eprintln!("Completed BFS step {} => {}", q_size, q3.len());
+        eprintln!("Completed BFS step {} => {}", qa_size, qc.len());
 
         // start over
-        q = q3;
+        qa = qc;
 
-        let firstest = match q.front() {
+        let firstest = match qa.front() {
             Some(&(idx, _)) => kns.materialize_cloned(idx),
             None => vec![],
         };
@@ -108,29 +109,39 @@ pub fn bfs2<N: DfsNode, R, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R>, LE: Dfs
     }
 }
 
-fn compact<N: DfsNode, GE: DfsGraph<N> + Sync>(ge: &GE, threads: usize, kns: &mut KnPile<N::KN>, qa: &mut VecDeque<(usize, N)>, qa_foresight: &mut usize, qb: &mut VecDeque<(usize, N, Option<N::KN>)>, qb_foresight: &mut usize) {
-    // whatever kns thinks plus (usize, usize) for space during recompaction
+fn compact<N: DfsNode, GE: DfsGraph<N> + Sync>(ge: &GE, threads: usize, kns: &mut KnPile<N::KN>, qa_foresight: &mut usize, qa: &mut VecDeque<(usize, N)>, qb: &mut VecDeque<(usize, N, Option<N::KN>)>, qc: &mut VecDeque<(usize, N)>) {
     loop {
-        let kns_size = kns.len() * (kns.esize() + std::mem::size_of::<(usize, usize)>());
-        let qa_size = qa.len() * std::mem::size_of::<(usize, N)>();
-        let qb_size = qb.len() * std::mem::size_of::<(usize, N, Option<N::KN>)>();
-        if kns_size + qa_size + qb_size <= (1 << 33) {
+        let mut mem_size = 0;
+        // whatever kns thinks plus (usize, usize) for space during recompaction
+        mem_size += kns.len() * (kns.esize() + std::mem::size_of::<(usize, usize)>());
+        mem_size += qa.len() * std::mem::size_of::<(usize, N)>();
+        mem_size += qb.len() * std::mem::size_of::<(usize, N, Option<N::KN>)>();
+        mem_size += qc.len() * std::mem::size_of::<(usize, N)>();
+        if mem_size <= (1 << 33) {
             return;
         }
 
-        deepen(ge, threads, "qa", qa, qa_foresight, |&(idx, ref n)| {
+        *qa_foresight += 1;
+        deepen(ge, threads, "qa", qa, *qa_foresight, |&(idx, ref n)| {
             let path = kns.materialize_cloned(idx);
             (Path::from_vec(path), n.clone())
         });
-        deepen(ge, threads, "qb", qb, qb_foresight, |&(idx, ref n, ref kn)| {
+        deepen(ge, threads, "qb", qb, *qa_foresight - 1, |&(idx, ref n, ref kn)| {
             let mut path = kns.materialize_cloned(idx);
             if let Some(kn) = kn {
                 path.push(kn.clone());
             }
             (Path::from_vec(path), n.clone())
         });
+        deepen(ge, threads, "qc", qc, *qa_foresight - 1, |&(idx, ref n)| {
+            let path = kns.materialize_cloned(idx);
+            (Path::from_vec(path), n.clone())
+        });
 
-        let living = qa.iter().map(|&(idx, _)| idx).chain(qb.iter().map(|&(idx, _, _)| idx));
+        let living = vec![].into_iter();
+        let living = living.chain(qa.iter().map(|&(idx, _)| idx));
+        let living = living.chain(qb.iter().map(|&(idx, _, _)| idx));
+        let living = living.chain(qc.iter().map(|&(idx, _)| idx));
         let live_remap = kns.rebuild(living);
         for (idx, _) in qa.iter_mut() {
             *idx = *live_remap.get(idx).unwrap();
@@ -138,15 +149,23 @@ fn compact<N: DfsNode, GE: DfsGraph<N> + Sync>(ge: &GE, threads: usize, kns: &mu
         for (idx, _, _) in qb.iter_mut() {
             *idx = *live_remap.get(idx).unwrap();
         }
+        for (idx, _) in qc.iter_mut() {
+            *idx = *live_remap.get(idx).unwrap();
+        }
     }
 }
 
-fn deepen<T: Send, N: DfsNode, GE: DfsGraph<N> + Sync, F: Fn(&T) -> (Path<N>, N) + Send + Sync>(ge: &GE, threads: usize, name: &'static str, q: &mut VecDeque<T>, q_foresight: &mut usize, f: F) {
-    let t0 = std::time::Instant::now();
+fn deepen<T: Send, N: DfsNode, GE: DfsGraph<N> + Sync, F: Fn(&T) -> (Path<N>, N) + Send + Sync>(ge: &GE, threads: usize, name: &'static str, q: &mut VecDeque<T>, foresight: usize, f: F) {
+    if foresight == 0 {
+        return;
+    }
     let size0 = q.len();
-    let foresight0 = *q_foresight;
-    let foresight1 = foresight0 + 1;
-    eprintln!("Deepening {} from size {} foresight {}...", name, size0, foresight0);
+    if size0 == 0 {
+        return;
+    }
+
+    let t0 = std::time::Instant::now();
+    eprintln!("Deepening {} from size {}...", name, size0);
 
     let shards = threads * 10;
     let mut q1s: Vec<_> = (0..shards).map(|i| {
@@ -175,7 +194,7 @@ fn deepen<T: Send, N: DfsNode, GE: DfsGraph<N> + Sync, F: Fn(&T) -> (Path<N>, N)
                         q1.retain(|t| {
                             let (mut path, n) = f(t);
 
-                            deepen_search(ge, &mut path, n, foresight1)
+                            deepen_search(ge, &mut path, n, foresight)
                         });
                     }
                 });
@@ -187,8 +206,7 @@ fn deepen<T: Send, N: DfsNode, GE: DfsGraph<N> + Sync, F: Fn(&T) -> (Path<N>, N)
         q.append(&mut q1);
     }
 
-    *q_foresight = foresight1;
-    eprintln!("Deepened {} from size {} foresight {} to size {} foresight {} in {:?}", name, size0, foresight0, q.len(), foresight1, t0.elapsed());
+    eprintln!("Deepened {} from size {} to size {} foresight {} in {:?}", name, size0, q.len(), foresight, t0.elapsed());
 }
 
 fn deepen_search<N: DfsNode, GE: DfsGraph<N>>(ge: &GE, path: &mut Path<N>, n: N, foresight: usize) -> bool {
