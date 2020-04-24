@@ -133,7 +133,7 @@ pub fn bfs2<N: DfsNode, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R> + 
                         }
                     });
                 }
-            });
+            }).unwrap();
         }
 
         let mut r = re.empty();
