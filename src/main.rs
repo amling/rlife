@@ -33,7 +33,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
     let ge: GolPreGraph = GolPreGraph {
         mt: 5,
         mx: 9,
-        wx: 6,
+        wx: 7,
 
         left_sym: GolSym::Empty,
         right_sym: GolSym::Empty,
