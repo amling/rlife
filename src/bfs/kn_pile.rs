@@ -92,7 +92,9 @@ impl<N> KnPile<N> {
             rebuilt_idx += 1;
         }
 
-        self.pile.truncate(rebuilt_idx);
+        let (rebuilt_outer, rebuilt_inner) = self.split_index(rebuilt_idx);
+        self.pile.truncate(rebuilt_outer + 1);
+        self.pile[rebuilt_outer].truncate(rebuilt_inner);
 
         eprintln!("Rebuilt kns from {} to {} in {:?}", size, self.len(), t0.elapsed());
 
