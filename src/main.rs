@@ -42,7 +42,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
         ox: 1,
         oy: 0,
 
-        recenter: GolRecenter::BiasRight,
+        recenter: GolRecenter::BiasLeft,
     };
     assert!(ge.mt * ge.mx <= B::size());
     let ge = ge.derived(mk_ends(&ge));
