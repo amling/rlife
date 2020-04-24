@@ -2,11 +2,11 @@
 
 use crossbeam::queue::PopError;
 use crossbeam::queue::SegQueue;
-use std::collections::VecDeque;
 
 use crate::bfs;
 use crate::dfs;
 
+use bfs::chunk_queue::ChunkQueue;
 use bfs::kn_pile::KnPile;
 use dfs::Path;
 use dfs::graph::DfsGraph;
@@ -19,11 +19,11 @@ pub fn bfs2<N: DfsNode, R, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R>, LE: Dfs
     let mut kns;
     let mut qa;
     let mut qa_foresight;
-    let mut q0 = VecDeque::new();
+    let mut q0 = ChunkQueue::new();
 
     if let Some(kn0) = n0.key_node() {
         kns = KnPile::new(kn0);
-        qa = VecDeque::new();
+        qa = ChunkQueue::new();
         qa.push_back((0, n0));
         qa_foresight = 0;
     }
@@ -45,7 +45,7 @@ pub fn bfs2<N: DfsNode, R, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R>, LE: Dfs
         };
 
         // Step one: expand qa into qb
-        let mut qb = VecDeque::new();
+        let mut qb = ChunkQueue::new();
         while let Some((prev_idx, n)) = qa.pop_front() {
             for n2 in ge.expand(&n) {
                 let kn2 = n2.key_node();
@@ -88,7 +88,7 @@ pub fn bfs2<N: DfsNode, R, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R>, LE: Dfs
         drop(qa);
 
         // Step two: fold qb over into kns and qc
-        let mut qc = VecDeque::new();
+        let mut qc = ChunkQueue::new();
         while let Some((prev_idx, n, kn)) = qb.pop_front() {
             let mut prev_idx = prev_idx;
             if let Some(kn) = kn {
@@ -107,7 +107,7 @@ pub fn bfs2<N: DfsNode, R, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R>, LE: Dfs
             _ => qa_foresight - 1,
         };
 
-        eprintln!("Completed BFS step {} => {}, estimated memory {}", qa_size, qa.len(), fmt_mem(kns_mem(&kns) + vd_mem(&qa)));
+        eprintln!("Completed BFS step {} => {}, estimated memory {}", qa_size, qa.len(), fmt_mem(kns_mem(&kns) + q_mem(&qa)));
 
         let firstest = match qa.front() {
             Some(&(idx, _)) => kns.materialize_cloned(idx),
@@ -125,7 +125,7 @@ fn kns_mem<N>(kns: &KnPile<N>) -> usize {
     kns.len() * (kns.esize() + std::mem::size_of::<(usize, usize)>())
 }
 
-fn vd_mem<T>(q: &VecDeque<T>) -> usize {
+fn q_mem<T>(q: &ChunkQueue<T>) -> usize {
     q.len() * std::mem::size_of::<T>()
 }
 
@@ -148,10 +148,10 @@ fn fmt_mem(mem: usize) -> String {
     return format!("{} B", mem);
 }
 
-fn compact<N: DfsNode, GE: DfsGraph<N> + Sync>(ge: &GE, threads: usize, kns: &mut KnPile<N::KN>, qa_foresight: &mut usize, qa: &mut VecDeque<(usize, N)>, qb: &mut VecDeque<(usize, N, Option<N::KN>)>, qc: &mut VecDeque<(usize, N)>) {
+fn compact<N: DfsNode, GE: DfsGraph<N> + Sync>(ge: &GE, threads: usize, kns: &mut KnPile<N::KN>, qa_foresight: &mut usize, qa: &mut ChunkQueue<(usize, N)>, qb: &mut ChunkQueue<(usize, N, Option<N::KN>)>, qc: &mut ChunkQueue<(usize, N)>) {
     loop {
-        let mem = kns_mem(kns) + vd_mem(qa) + vd_mem(qb) + vd_mem(qc);
-        if kns_mem(kns) + vd_mem(qa) + vd_mem(qb) + vd_mem(qc) <= (1 << 26) {
+        let mem = kns_mem(kns) + q_mem(qa) + q_mem(qb) + q_mem(qc);
+        if kns_mem(kns) + q_mem(qa) + q_mem(qb) + q_mem(qc) <= (1 << 26) {
             return;
         }
         eprintln!("Estimated memory {}, deepening...", fmt_mem(mem));
@@ -190,7 +190,7 @@ fn compact<N: DfsNode, GE: DfsGraph<N> + Sync>(ge: &GE, threads: usize, kns: &mu
     }
 }
 
-fn deepen<T: Send, N: DfsNode, GE: DfsGraph<N> + Sync, F: Fn(&T) -> (Path<N>, N) + Send + Sync>(ge: &GE, threads: usize, name: &'static str, q: &mut VecDeque<T>, foresight: usize, f: F) {
+fn deepen<T: Send, N: DfsNode, GE: DfsGraph<N> + Sync, F: Fn(&T) -> (Path<N>, N) + Send + Sync>(ge: &GE, threads: usize, name: &'static str, q: &mut ChunkQueue<T>, foresight: usize, f: F) {
     if foresight == 0 {
         return;
     }
@@ -203,11 +203,7 @@ fn deepen<T: Send, N: DfsNode, GE: DfsGraph<N> + Sync, F: Fn(&T) -> (Path<N>, N)
     eprintln!("Deepening {} from size {}...", name, size0);
 
     let shards = threads * 10;
-    let mut q1s: Vec<_> = (0..shards).map(|i| {
-        let ct = ((i + 1) * size0 / shards) - (i * size0 / shards);
-        let q1: VecDeque<_> = q.drain(0..ct).collect();
-        q1
-    }).collect();
+    let mut q1s = q.drain_partition(shards);
 
     {
         let wq = SegQueue::new();

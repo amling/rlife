@@ -1,3 +1,4 @@
+pub mod chunk_queue;
 pub mod bfs1;
 pub mod bfs2;
 pub mod kn_pile;
