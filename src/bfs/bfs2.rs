@@ -56,9 +56,34 @@ pub fn bfs2<N: DfsNode, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R> + 
             let living = vec![].into_iter();
             let living = living.chain(qa.iter().map(|&(idx, _)| idx));
             let live_remap = kns.rebuild(living);
-            for (idx, _) in qa.iter_mut() {
-                *idx = *live_remap.get(idx).unwrap();
+
+            let t0 = std::time::Instant::now();
+            {
+                let wq = SegQueue::new();
+                for chunk in qa.chunks_mut() {
+                    wq.push(chunk);
+                }
+
+                crossbeam::scope(|sc| {
+                    for _ in 0..threads {
+                        sc.spawn(|_| {
+                            loop {
+                                let chunk = match wq.pop() {
+                                    Ok(chunk) => chunk,
+                                    Err(PopError) => {
+                                        return;
+                                    }
+                                };
+
+                                for (idx, _) in chunk {
+                                    *idx = *live_remap.get(idx).unwrap();
+                                }
+                            }
+                        });
+                    }
+                }).unwrap();
             }
+            eprintln!("Reindexed qa in {:?}", t0.elapsed());
         }
 
         let qa_size = qa.len();

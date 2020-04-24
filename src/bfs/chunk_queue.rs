@@ -78,6 +78,13 @@ impl<N> ChunkQueue<N> {
         self.q.iter_mut().map(|q| q.iter_mut()).flatten()
     }
 
+    pub fn chunks_mut(&mut self) -> impl Iterator<Item=&mut [N]> {
+        self.q.iter_mut().map(|q| {
+            let (s1, s2) = q.as_mut_slices();
+            vec![s1, s2]
+        }).flatten()
+    }
+
     pub fn drain_partition(&mut self, shards: usize) -> Vec<ChunkQueue<N>> {
         let len = self.q.len();
         let ret = (0..shards).map(|i| {
