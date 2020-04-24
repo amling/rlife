@@ -108,3 +108,6 @@ uxx_scalar_impl!(u16, 16);
 uxx_scalar_impl!(u32, 32);
 uxx_scalar_impl!(u64, 64);
 uxx_scalar_impl!(u128, 128);
+
+// wtf, I can't find a better way to get bit count...
+uxx_scalar_impl!(usize, (std::usize::MAX.count_ones() as usize));
