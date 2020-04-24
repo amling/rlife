@@ -20,6 +20,7 @@ pub fn bfs2<N: DfsNode, R, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R>, LE: Dfs
     let mut qa;
     let mut qa_foresight;
     let mut q0 = ChunkQueue::new();
+    let mut depth = 0;
 
     if let Some(kn0) = n0.key_node() {
         kns = KnPile::new(kn0);
@@ -106,8 +107,9 @@ pub fn bfs2<N: DfsNode, R, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R>, LE: Dfs
             0 => 0,
             _ => qa_foresight - 1,
         };
+        depth += 1;
 
-        eprintln!("Completed BFS step {} => {}, estimated memory {}", qa_size, qa.len(), fmt_mem(kns_mem(&kns) + q_mem(&qa)));
+        eprintln!("Completed BFS step to depth {}, size {} => {}, estimated memory {}", depth, qa_size, qa.len(), fmt_mem(kns_mem(&kns) + q_mem(&qa)));
 
         let firstest = match qa.front() {
             Some(&(idx, _)) => kns.materialize_cloned(idx),
