@@ -3,6 +3,7 @@
 use std::collections::VecDeque;
 
 pub struct ChunkQueue<N> {
+    len: usize,
     q: VecDeque<VecDeque<N>>,
 }
 
@@ -14,11 +15,14 @@ impl<N> ChunkQueue<N> {
 
     pub fn new() -> Self {
         ChunkQueue {
+            len: 0,
             q: VecDeque::new(),
         }
     }
 
     pub fn push_back(&mut self, n: N) {
+        self.len += 1;
+
         let chunk_size = self.chunk_size();
         if let Some(last) = self.q.back_mut() {
             if last.len() < chunk_size {
@@ -31,7 +35,8 @@ impl<N> ChunkQueue<N> {
     }
 
     pub fn len(&self) -> usize {
-        self.q.iter().map(|q| q.len()).sum()
+        debug_assert_eq!(self.len, self.q.iter().map(|q| q.len()).sum::<usize>());
+        self.len
     }
 
     pub fn pop_front(&mut self) -> Option<N> {
@@ -40,6 +45,7 @@ impl<N> ChunkQueue<N> {
                 Some(q) => {
                     match q.pop_front() {
                         Some(n) => {
+                            self.len -= 1;
                             return Some(n);
                         }
                         None => {
@@ -76,21 +82,29 @@ impl<N> ChunkQueue<N> {
         let len = self.q.len();
         let ret = (0..shards).map(|i| {
             let ct = ((i + 1) * len / shards - i * len / shards);
+            let q: VecDeque<_> = self.q.drain(0..ct).collect();
             ChunkQueue {
-                q: self.q.drain(0..ct).collect()
+                len: q.iter().map(|q| q.len()).sum(),
+                q: q,
             }
         }).collect();
+        self.len = 0;
         assert_eq!(self.q.len(), 0);
         ret
     }
 
     pub fn retain(&mut self, mut f: impl FnMut(&N) -> bool) {
+        let mut len = 0;
         for q in self.q.iter_mut() {
             q.retain(&mut f);
+            len += q.len();
         }
+        self.len = len;
     }
 
     pub fn append(&mut self, other: &mut ChunkQueue<N>) {
         self.q.append(&mut other.q);
+        self.len += other.len;
+        other.len = 0;
     }
 }
