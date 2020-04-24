@@ -15,11 +15,13 @@ use dfs::graph::DfsNode;
 use dfs::lifecycle::DfsLifecycle;
 use dfs::res::DfsRes;
 
-pub fn bfs2<N: DfsNode, R, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R>, LE: DfsLifecycle<N, R>>(n0: N, ge: &GE, re: &RE, le: &mut LE) {
+pub fn bfs2<N: DfsNode, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R> + Sync, LE: DfsLifecycle<N, R> + Sync>(n0: N, ge: &GE, re: &RE, le: &mut LE) {
+    let threads = le.threads();
+    let shards = threads * 10;
+
     let mut kns;
     let mut qa;
     let mut qa_foresight;
-    let mut q0 = ChunkQueue::new();
     let mut depth = 0;
 
     if let Some(kn0) = n0.key_node() {
@@ -33,6 +35,32 @@ pub fn bfs2<N: DfsNode, R, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R>, LE: Dfs
     }
 
     loop {
+        // space each element of qa may expand into, either in qb or in kns and qc
+        // TODO: this 2 expansion factor is a total hack
+        let per_element_space = 2 * (std::mem::size_of::<(usize, N, N::KN)>().max(kns.esize() + std::mem::size_of::<(usize, N)>()));
+
+        loop {
+            let mem = kns.len() * kns_el_mem(&kns) + per_element_space * qa.len();
+            if mem <= (1 << 34) {
+                eprintln!("Estimated required memory {}, expanding...", fmt_mem(mem));
+                break;
+            }
+            eprintln!("Estimated required memory {}, deepening...", fmt_mem(mem));
+
+            qa_foresight += 1;
+            deepen(ge, threads, "qa", &mut qa, qa_foresight, |&(idx, ref n)| {
+                let path = kns.materialize_cloned(idx);
+                (Path::from_vec(path), n.clone())
+            });
+
+            let living = vec![].into_iter();
+            let living = living.chain(qa.iter().map(|&(idx, _)| idx));
+            let live_remap = kns.rebuild(living);
+            for (idx, _) in qa.iter_mut() {
+                *idx = *live_remap.get(idx).unwrap();
+            }
+        }
+
         let qa_size = qa.len();
 
         if qa_size == 0 {
@@ -46,47 +74,78 @@ pub fn bfs2<N: DfsNode, R, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R>, LE: Dfs
         };
 
         // Step one: expand qa into qb
-        let mut qb = ChunkQueue::new();
-        while let Some((prev_idx, n)) = qa.pop_front() {
-            for n2 in ge.expand(&n) {
-                let kn2 = n2.key_node();
-                if let Some(kn2) = &kn2 {
-                    if ge.end(kn2) {
-                        let mut path = kns.materialize_cloned(prev_idx);
-                        path.push(kn2.clone());
-                        le.debug_end(&path);
-                        add_result(&mut r, re.map_end(path));
-                        continue;
-                    }
+        let mut qa1s = qa.drain_partition(shards);
+        let mut qb1s: Vec<_> = qa1s.iter().map(|_| ChunkQueue::new()).collect();
+        let mut r1s: Vec<_> = qa1s.iter().map(|_| re.empty()).collect();
 
-                    let hn2 = kn2.hash_node();
-                    let find_f = |idx, kn: &N::KN| {
-                        if kn.hash_node() == hn2 {
-                            Some(idx)
-                        }
-                        else {
-                            None
-                        }
-                    };
-                    if let Some(rep_idx) = kns.find(prev_idx, find_f) {
-                        let mut path = kns.materialize_cloned(rep_idx);
-                        path.pop().unwrap();
-                        let mut cycle = kns.materialize_cloned(prev_idx);
-                        let path2: Vec<_> = cycle.drain(0..path.len()).collect();
-                        assert_eq!(path, path2);
-                        le.debug_cycle(&path, &cycle, kn2);
-                        add_result(&mut r, re.map_cycle(path, cycle, kn2.clone()));
-                        continue;
-                    }
-                }
-
-                qb.push_back((prev_idx, n2, kn2));
+        {
+            let wq = SegQueue::new();
+            for tuple in qa1s.iter_mut().zip(qb1s.iter_mut()).zip(r1s.iter_mut()) {
+                wq.push(tuple);
             }
 
-            compact(ge, le.threads(), &mut kns, &mut qa_foresight, &mut qa, &mut qb, &mut q0);
+            crossbeam::scope(|sc| {
+                for _ in 0..threads {
+                    sc.spawn(|_| {
+                        loop {
+                            let ((qa1, qb1), r1) = match wq.pop() {
+                                Ok(tuple) => tuple,
+                                Err(PopError) => {
+                                    return;
+                                }
+                            };
+
+                            while let Some((prev_idx, n)) = qa1.pop_front() {
+                                for n2 in ge.expand(&n) {
+                                    let kn2 = n2.key_node();
+                                    if let Some(kn2) = &kn2 {
+                                        if ge.end(kn2) {
+                                            let mut path = kns.materialize_cloned(prev_idx);
+                                            path.push(kn2.clone());
+                                            le.debug_end(&path);
+                                            add_result(r1, re.map_end(path));
+                                            continue;
+                                        }
+
+                                        let hn2 = kn2.hash_node();
+                                        let find_f = |idx, kn: &N::KN| {
+                                            if kn.hash_node() == hn2 {
+                                                Some(idx)
+                                            }
+                                            else {
+                                                None
+                                            }
+                                        };
+                                        if let Some(rep_idx) = kns.find(prev_idx, find_f) {
+                                            let mut path = kns.materialize_cloned(rep_idx);
+                                            path.pop().unwrap();
+                                            let mut cycle = kns.materialize_cloned(prev_idx);
+                                            let path2: Vec<_> = cycle.drain(0..path.len()).collect();
+                                            assert_eq!(path, path2);
+                                            le.debug_cycle(&path, &cycle, kn2);
+                                            add_result(r1, re.map_cycle(path, cycle, kn2.clone()));
+                                            continue;
+                                        }
+                                    }
+
+                                    qb1.push_back((prev_idx, n2, kn2));
+                                }
+                            }
+                        }
+                    });
+                }
+            });
         }
-        // should be unused after this
-        drop(qa);
+
+        let mut r = re.empty();
+        for r1 in r1s {
+            r = re.reduce(r, r1);
+        }
+
+        let mut qb = ChunkQueue::new();
+        for mut qb1 in qb1s {
+            qb.append(&mut qb1);
+        }
 
         // Step two: fold qb over into kns and qc
         let mut qc = ChunkQueue::new();
@@ -96,10 +155,7 @@ pub fn bfs2<N: DfsNode, R, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R>, LE: Dfs
                 prev_idx = kns.push(prev_idx, kn);
             }
             qc.push_back((prev_idx, n));
-
-            compact(ge, le.threads(), &mut kns, &mut qa_foresight, &mut q0, &mut qb, &mut qc);
         }
-        drop(qb);
 
         // start over
         qa = qc;
@@ -122,9 +178,13 @@ pub fn bfs2<N: DfsNode, R, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R>, LE: Dfs
     }
 }
 
-fn kns_mem<N>(kns: &KnPile<N>) -> usize {
+fn kns_el_mem<N>(kns: &KnPile<N>) -> usize {
     // whatever kns thinks plus (usize, usize) for space during recompaction
-    kns.len() * (kns.esize() + std::mem::size_of::<(usize, usize)>())
+    kns.esize() + std::mem::size_of::<(usize, usize)>()
+}
+
+fn kns_mem<N>(kns: &KnPile<N>) -> usize {
+    kns.len() * kns_el_mem(kns)
 }
 
 fn q_mem<T>(q: &ChunkQueue<T>) -> usize {
@@ -148,48 +208,6 @@ fn fmt_mem(mem: usize) -> String {
     }
 
     return format!("{} B", mem);
-}
-
-fn compact<N: DfsNode, GE: DfsGraph<N> + Sync>(ge: &GE, threads: usize, kns: &mut KnPile<N::KN>, qa_foresight: &mut usize, qa: &mut ChunkQueue<(usize, N)>, qb: &mut ChunkQueue<(usize, N, Option<N::KN>)>, qc: &mut ChunkQueue<(usize, N)>) {
-    loop {
-        let mem = kns_mem(kns) + q_mem(qa) + q_mem(qb) + q_mem(qc);
-        if kns_mem(kns) + q_mem(qa) + q_mem(qb) + q_mem(qc) <= (1 << 34) {
-            return;
-        }
-        eprintln!("Estimated memory {}, deepening...", fmt_mem(mem));
-
-        *qa_foresight += 1;
-        deepen(ge, threads, "qa", qa, *qa_foresight, |&(idx, ref n)| {
-            let path = kns.materialize_cloned(idx);
-            (Path::from_vec(path), n.clone())
-        });
-        deepen(ge, threads, "qb", qb, *qa_foresight - 1, |&(idx, ref n, ref kn)| {
-            let mut path = kns.materialize_cloned(idx);
-            if let Some(kn) = kn {
-                path.push(kn.clone());
-            }
-            (Path::from_vec(path), n.clone())
-        });
-        deepen(ge, threads, "qc", qc, *qa_foresight - 1, |&(idx, ref n)| {
-            let path = kns.materialize_cloned(idx);
-            (Path::from_vec(path), n.clone())
-        });
-
-        let living = vec![].into_iter();
-        let living = living.chain(qa.iter().map(|&(idx, _)| idx));
-        let living = living.chain(qb.iter().map(|&(idx, _, _)| idx));
-        let living = living.chain(qc.iter().map(|&(idx, _)| idx));
-        let live_remap = kns.rebuild(living);
-        for (idx, _) in qa.iter_mut() {
-            *idx = *live_remap.get(idx).unwrap();
-        }
-        for (idx, _, _) in qb.iter_mut() {
-            *idx = *live_remap.get(idx).unwrap();
-        }
-        for (idx, _) in qc.iter_mut() {
-            *idx = *live_remap.get(idx).unwrap();
-        }
-    }
 }
 
 fn deepen<T: Send, N: DfsNode, GE: DfsGraph<N> + Sync, F: Fn(&T) -> (Path<N>, N) + Send + Sync>(ge: &GE, threads: usize, name: &'static str, q: &mut ChunkQueue<T>, foresight: usize, f: F) {
