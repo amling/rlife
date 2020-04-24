@@ -153,7 +153,7 @@ fn fmt_mem(mem: usize) -> String {
 fn compact<N: DfsNode, GE: DfsGraph<N> + Sync>(ge: &GE, threads: usize, kns: &mut KnPile<N::KN>, qa_foresight: &mut usize, qa: &mut ChunkQueue<(usize, N)>, qb: &mut ChunkQueue<(usize, N, Option<N::KN>)>, qc: &mut ChunkQueue<(usize, N)>) {
     loop {
         let mem = kns_mem(kns) + q_mem(qa) + q_mem(qb) + q_mem(qc);
-        if kns_mem(kns) + q_mem(qa) + q_mem(qb) + q_mem(qc) <= (1 << 26) {
+        if kns_mem(kns) + q_mem(qa) + q_mem(qb) + q_mem(qc) <= (1 << 34) {
             return;
         }
         eprintln!("Estimated memory {}, deepening...", fmt_mem(mem));
