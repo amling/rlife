@@ -41,7 +41,7 @@ pub fn bfs2<N: DfsNode, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R> + 
 
         loop {
             let mem = kns.len() * kns_el_mem(&kns) + per_element_space * qa.len();
-            if mem <= (1 << 34) {
+            if mem <= (1 << 33) {
                 eprintln!("Estimated required memory {}, expanding...", fmt_mem(mem));
                 break;
             }
