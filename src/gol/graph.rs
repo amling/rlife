@@ -17,11 +17,11 @@ use gol::printbag::PrintBag;
 #[derive(Deserialize)]
 #[derive(Serialize)]
 pub struct GolNodeSerdeProxy<B: UScalar> {
-    pub dx: isize,
+    pub dx: i16,
     pub r0: B,
     pub r1: B,
     pub r2: B,
-    pub r2l: usize,
+    pub r2l: u8,
 }
 
 impl<B: UScalar> GolNodeSerdeProxy<B> {
@@ -31,10 +31,10 @@ impl<B: UScalar> GolNodeSerdeProxy<B> {
             r0: self.r0,
             r1: self.r1,
             r2: self.r2,
-            r2_min_x: find_min_x(e, self.r2),
-            r2_max_x: find_max_x(e, self.r2),
+            r2_min_x: find_min_x(e, self.r2) as u8,
+            r2_max_x: find_max_x(e, self.r2) as u8,
             r2l: self.r2l,
-            r2l_x: (self.r2l % e.mx),
+            r2l_x: ((self.r2l as usize) % e.mx) as u8,
         }
     }
 }
@@ -45,21 +45,21 @@ impl<B: UScalar> GolNodeSerdeProxy<B> {
 #[derive(Hash)]
 #[derive(PartialEq)]
 pub struct GolNode<B: UScalar> {
-    pub dx: isize,
+    pub dx: i16,
     pub r0: B,
     pub r1: B,
     pub r2: B,
-    pub r2_min_x: usize,
-    pub r2_max_x: usize,
-    pub r2l: usize,
-    pub r2l_x: usize,
+    pub r2_min_x: u8,
+    pub r2_max_x: u8,
+    pub r2l: u8,
+    pub r2l_x: u8,
 }
 
 impl<B: UScalar> GolNode<B> {
     pub fn to_serde_proxy(&self, e: &GolGraph<B>) -> GolNodeSerdeProxy<B> {
-        debug_assert_eq!(self.r2_min_x, find_min_x(e, self.r2));
-        debug_assert_eq!(self.r2_max_x, find_max_x(e, self.r2));
-        debug_assert_eq!(self.r2l_x, self.r2l % e.mx);
+        debug_assert_eq!(self.r2_min_x as usize, find_min_x(e, self.r2));
+        debug_assert_eq!(self.r2_max_x as usize, find_max_x(e, self.r2));
+        debug_assert_eq!(self.r2l_x as usize, (self.r2l as usize) % e.mx);
 
         GolNodeSerdeProxy {
             dx: self.dx,
@@ -93,7 +93,7 @@ impl<B: UScalar> DfsNode for GolNode<B> {
 #[derive(Hash)]
 #[derive(PartialEq)]
 pub struct GolKeyNode<B: UScalar> {
-    pub dx: isize,
+    pub dx: i16,
     pub r0: B,
     pub r1: B,
 }
@@ -421,12 +421,12 @@ impl<B: UScalar> GolGraph<B> {
         for (n, row) in rows.iter().enumerate() {
             if n == rows.len() - 1 {
                 // last, output both
-                self.collect_row(&mut pr, row.r0, row.dx, y);
-                self.collect_row(&mut pr, row.r1, row.dx, y + 1);
+                self.collect_row(&mut pr, row.r0, row.dx as isize, y);
+                self.collect_row(&mut pr, row.r1, row.dx as isize, y + 1);
             }
             else {
                 // output each first row before that exactly once
-                self.collect_row(&mut pr, row.r0, row.dx, y);
+                self.collect_row(&mut pr, row.r0, row.dx as isize, y);
                 y += 1;
             }
         }
@@ -438,18 +438,18 @@ impl<B: UScalar> GolGraph<B> {
         let mut pr = PrintBag::new(self.mt);
         let mut y = 0;
         for row in path.iter() {
-            self.collect_row(&mut pr, row.r0, row.dx, y);
+            self.collect_row(&mut pr, row.r0, row.dx as isize, y);
             y += 1;
         }
         for (n, row) in cycle.iter().enumerate() {
             if n == 0 {
-                self.collect_dash_row(&mut pr, row.dx, y);
+                self.collect_dash_row(&mut pr, row.dx as isize, y);
                 y += 1;
             }
-            self.collect_row(&mut pr, row.r0, row.dx, y);
+            self.collect_row(&mut pr, row.r0, row.dx as isize, y);
             y += 1;
         }
-        self.collect_dash_row(&mut pr, last.dx, y);
+        self.collect_dash_row(&mut pr, last.dx as isize, y);
         pr.format()
     }
 }
@@ -532,7 +532,7 @@ pub fn recenter<B: UScalar>(e: &GolGraph<B>, r0: B, r1: B) -> (isize, B, B) {
 }
 
 fn expand_srch<B: UScalar>(e: &GolGraph<B>, n1: &GolNode<B>, n2s: &mut Vec<GolNode<B>>) {
-    let idx = n1.r2l;
+    let idx = n1.r2l as usize;
 
     if idx == e.mt * e.mx {
         let (shift, r0, r1) = recenter(e, n1.r1, n1.r2);
@@ -543,11 +543,11 @@ fn expand_srch<B: UScalar>(e: &GolGraph<B>, n1: &GolNode<B>, n2s: &mut Vec<GolNo
         }
 
         n2s.push(GolNode {
-            dx: n1.dx + shift,
+            dx: ((n1.dx as isize) + shift) as i16,
             r0: r0,
             r1: r1,
             r2: B::zero(),
-            r2_min_x: e.mx - 1,
+            r2_min_x: (e.mx - 1) as u8,
             r2_max_x: 0,
             r2l: 0,
             r2l_x: 0,
@@ -565,13 +565,13 @@ fn expand_srch<B: UScalar>(e: &GolGraph<B>, n1: &GolNode<B>, n2s: &mut Vec<GolNo
         r2_min_x: n1.r2_min_x,
         r2_max_x: n1.r2_max_x,
         r2l: n1.r2l + 1,
-        r2l_x: if n1.r2l_x == e.mx - 1 { 0 } else { n1.r2l_x + 1},
+        r2l_x: if (n1.r2l_x as usize) == e.mx - 1 { 0 } else { n1.r2l_x + 1},
     };
     'v: for &v in &[false, true] {
         if v {
             let r2_min_x = n1.r2_min_x.min(x);
             let r2_max_x = n1.r2_max_x.max(x);
-            if r2_max_x >= r2_min_x + e.wx {
+            if (r2_max_x as usize) >= (r2_min_x as usize) + e.wx {
                 continue;
             }
             n2.r2_min_x = r2_min_x;
