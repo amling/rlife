@@ -67,7 +67,6 @@ pub fn bfs2<N: DfsNode, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R> + 
             break;
         }
 
-        let mut r = re.empty();
         let add_result = |r: &mut R, r1| {
             let r0 = std::mem::replace(r, re.empty());
             *r = re.reduce(r0, r1);
