@@ -1,3 +1,5 @@
+#![allow(unused_parens)]
+
 use crossbeam::queue::PopError;
 use crossbeam::queue::SegQueue;
 use std::collections::VecDeque;
@@ -105,7 +107,7 @@ pub fn bfs2<N: DfsNode, R, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R>, LE: Dfs
             _ => qa_foresight - 1,
         };
 
-        eprintln!("Completed BFS step {} => {}, estimated memory {}", qa_size, qa.len(), kns_mem(&kns) + vd_mem(&qa));
+        eprintln!("Completed BFS step {} => {}, estimated memory {}", qa_size, qa.len(), fmt_mem(kns_mem(&kns) + vd_mem(&qa)));
 
         let firstest = match qa.front() {
             Some(&(idx, _)) => kns.materialize_cloned(idx),
@@ -127,13 +129,32 @@ fn vd_mem<T>(q: &VecDeque<T>) -> usize {
     q.len() * std::mem::size_of::<T>()
 }
 
+fn fmt_mem(mem: usize) -> String {
+    let g = (1 << 30);
+    if mem >= g {
+        return format!("{:.2} GB", (mem as f64) / (g as f64));
+    }
+
+    let m = (1 << 20);
+    if mem >= m {
+        return format!("{:.2} MB", (mem as f64) / (m as f64));
+    }
+
+    let k = (1 << 20);
+    if mem >= k {
+        return format!("{:.2} KB", (mem as f64) / (k as f64));
+    }
+
+    return format!("{} B", mem);
+}
+
 fn compact<N: DfsNode, GE: DfsGraph<N> + Sync>(ge: &GE, threads: usize, kns: &mut KnPile<N::KN>, qa_foresight: &mut usize, qa: &mut VecDeque<(usize, N)>, qb: &mut VecDeque<(usize, N, Option<N::KN>)>, qc: &mut VecDeque<(usize, N)>) {
     loop {
         let mem = kns_mem(kns) + vd_mem(qa) + vd_mem(qb) + vd_mem(qc);
         if kns_mem(kns) + vd_mem(qa) + vd_mem(qb) + vd_mem(qc) <= (1 << 34) {
             return;
         }
-        eprintln!("Estimated memory {}, deepening...", mem);
+        eprintln!("Estimated memory {}, deepening...", fmt_mem(mem));
 
         *qa_foresight += 1;
         deepen(ge, threads, "qa", qa, *qa_foresight, |&(idx, ref n)| {
