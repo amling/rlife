@@ -94,7 +94,7 @@ impl<N> KnPile<N> {
 
         self.pile.truncate(rebuilt_idx);
 
-        eprintln!("Rebuilt kns from {} to {} in {:?}", size, self.pile.len(), t0.elapsed());
+        eprintln!("Rebuilt kns from {} to {} in {:?}", size, self.len(), t0.elapsed());
 
         live_remap
     }
