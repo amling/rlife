@@ -95,8 +95,9 @@ impl<N> KnPile<N> {
         let (rebuilt_outer, rebuilt_inner) = self.split_index(rebuilt_idx);
         self.pile.truncate(rebuilt_outer + 1);
         self.pile[rebuilt_outer].truncate(rebuilt_inner);
+        debug_assert_eq!(self.len(), rebuilt_idx);
 
-        eprintln!("Rebuilt kns from {} to {} in {:?}", size, self.len(), t0.elapsed());
+        eprintln!("Rebuilt kns from {} to {} in {:?}", size, rebuilt_idx, t0.elapsed());
 
         live_remap
     }
