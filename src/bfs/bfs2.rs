@@ -37,7 +37,7 @@ pub fn bfs2<N: DfsNode, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R> + 
     loop {
         // space each element of qa may expand into, either in qb or in kns and qc
         // TODO: this 2 expansion factor is a total hack
-        let per_element_space = 2 * (std::mem::size_of::<(usize, N, N::KN)>().max(kns.esize() + std::mem::size_of::<(usize, N)>()));
+        let per_element_space = 2 * (std::mem::size_of::<(usize, N, Option<N::KN>)>().max(kns.esize() + std::mem::size_of::<(usize, N)>()));
 
         loop {
             let mem = kns.len() * kns_el_mem(&kns) + per_element_space * qa.len();
