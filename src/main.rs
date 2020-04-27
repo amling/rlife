@@ -33,8 +33,8 @@ fn main() {
 fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError> {
     let ge: GolPreGraph = GolPreGraph {
         mt: 5,
-        mx: 10,
-        wx: 8,
+        mx: 11,
+        wx: 9,
 
         left_sym: GolSym::Empty,
         right_sym: GolSym::Empty,
@@ -49,8 +49,8 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
 
     let n0 = GolNodeSerdeProxy {
         dx: 0,
-        r0: cnst(0b_0000000000_0011011100_0001011100_0001001100_0000011000),
-        r1: cnst(0b_0000010100_0011011100_0011001000_0010000000_0011110000),
+        r0: cnst(0b_00000000000_00011011100_00001011100_00001001100_00000011000),
+        r1: cnst(0b_00000010100_00011011100_00011001000_00010000000_00011110000),
         r2: B::zero(),
         r2l: 0,
     };
