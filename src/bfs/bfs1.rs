@@ -130,11 +130,9 @@ pub fn bfs1<N: DfsNode, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R> + 
         }
 
         ql = q2;
-        let firstest = match ql.first() {
-            Some(&(idx, _)) => kns.materialize_cloned(idx),
-            None => vec![],
-        };
-        le.on_recollect_firstest(firstest);
+        if let Some(&(idx, ref n)) = ql.first() {
+            le.on_recollect_firstest((kns.materialize_cloned(idx), n.clone()));
+        }
         if !le.on_recollect_results(r) {
             break;
         }

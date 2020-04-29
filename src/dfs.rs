@@ -317,7 +317,7 @@ pub fn dfs<N: DfsNode, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R> + S
         }
 
         let firstest = find_firstest(root);
-        let firstest = DfsNode::key_nodes(&firstest);
+        let firstest = (DfsNode::key_nodes(&firstest), firstest.last().unwrap().clone());
         le.on_recollect_firstest(firstest);
 
         let cont = le.on_recollect_results(res);
@@ -472,7 +472,7 @@ fn dfs_single_thread<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: D
 
         // this is the point where we'd be [re]entering in the old recursive version
 
-        le.debug_enter(&path.vec);
+        le.debug_enter((&path.vec, &n1));
         let stop = !on_enter(&path.vec);
 
         if stop {

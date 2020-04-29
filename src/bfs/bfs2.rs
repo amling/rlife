@@ -191,11 +191,9 @@ pub fn bfs2<N: DfsNode, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R> + 
 
         eprintln!("Completed BFS step to depth {}, size {} => {}, estimated memory {}", depth, qa_size, qa.len(), fmt_mem(kns_mem(&kns) + q_mem(&qa)));
 
-        let firstest = match qa.front() {
-            Some(&(idx, _)) => kns.materialize_cloned(idx),
-            None => vec![],
-        };
-        le.on_recollect_firstest(firstest);
+        if let Some(&(idx, ref n)) = qa.front() {
+            le.on_recollect_firstest((kns.materialize_cloned(idx), n.clone()));
+        }
         if !le.on_recollect_results(r) {
             break;
         }

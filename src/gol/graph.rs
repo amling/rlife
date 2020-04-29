@@ -396,13 +396,20 @@ impl<B: UScalar> GolGraph<B> {
         t * self.mx + x
     }
 
-    fn collect_row(&self, pr: &mut PrintBag, row: B, x0: isize, y0: usize) {
+    fn collect_row(&self, pr: &mut PrintBag, row: B, rl: Option<usize>, x0: isize, y0: usize) {
         for t in 0..self.mt {
             for x in 0..self.mx {
-                pr.insert(x0 + (x as isize), y0, t, match B::get_bit(&row, self.to_idx(x, t)) {
+                let idx = self.to_idx(x, t);
+                let mut c = match B::get_bit(&row, idx) {
                     true => '*',
                     false => '.',
-                });
+                };
+                if let Some(rl) = rl {
+                    if idx >= rl {
+                        c = '?';
+                    }
+                }
+                pr.insert(x0 + (x as isize), y0, t, c);
             }
         }
     }
@@ -415,20 +422,24 @@ impl<B: UScalar> GolGraph<B> {
         }
     }
 
-    pub fn format_rows(&self, rows: &Vec<GolKeyNode<B>>) -> Vec<String> {
+    pub fn format_rows(&self, rows: &Vec<GolKeyNode<B>>, last: Option<&GolNode<B>>) -> Vec<String> {
         let mut pr = PrintBag::new(self.mt);
         let mut y = 0;
         for (n, row) in rows.iter().enumerate() {
             if n == rows.len() - 1 {
                 // last, output both
-                self.collect_row(&mut pr, row.r0, row.dx as isize, y);
-                self.collect_row(&mut pr, row.r1, row.dx as isize, y + 1);
+                self.collect_row(&mut pr, row.r0, None, row.dx as isize, y);
+                self.collect_row(&mut pr, row.r1, None, row.dx as isize, y + 1);
+                y += 2;
             }
             else {
                 // output each first row before that exactly once
-                self.collect_row(&mut pr, row.r0, row.dx as isize, y);
+                self.collect_row(&mut pr, row.r0, None, row.dx as isize, y);
                 y += 1;
             }
+        }
+        if let Some(last) = last {
+            self.collect_row(&mut pr, last.r2, Some(last.r2l as usize), last.dx as isize, y);
         }
         pr.format()
     }
@@ -438,7 +449,7 @@ impl<B: UScalar> GolGraph<B> {
         let mut pr = PrintBag::new(self.mt);
         let mut y = 0;
         for row in path.iter() {
-            self.collect_row(&mut pr, row.r0, row.dx as isize, y);
+            self.collect_row(&mut pr, row.r0, None, row.dx as isize, y);
             y += 1;
         }
         for (n, row) in cycle.iter().enumerate() {
@@ -446,7 +457,7 @@ impl<B: UScalar> GolGraph<B> {
                 self.collect_dash_row(&mut pr, row.dx as isize, y);
                 y += 1;
             }
-            self.collect_row(&mut pr, row.r0, row.dx as isize, y);
+            self.collect_row(&mut pr, row.r0, None, row.dx as isize, y);
             y += 1;
         }
         self.collect_dash_row(&mut pr, last.dx as isize, y);

@@ -46,9 +46,9 @@ impl<'a, B: UScalar + Serialize> DfsLifecycle<GolNode<B>, DfsResVec<GolKeyNode<B
         return self.recollect_ms;
     }
 
-    fn on_recollect_firstest(&mut self, firstest: Vec<GolKeyNode<B>>) {
+    fn on_recollect_firstest(&mut self, firstest: (Vec<GolKeyNode<B>>, GolNode<B>)) {
         eprintln!("Recollect firstest...");
-        for line in self.ge.format_rows(&firstest) {
+        for line in self.ge.format_rows(&firstest.0, Some(&firstest.1)) {
             eprintln!("{}", line);
         }
     }
@@ -65,7 +65,7 @@ impl<'a, B: UScalar + Serialize> DfsLifecycle<GolNode<B>, DfsResVec<GolKeyNode<B
 
         for path in &r.ends {
             self.log("End:");
-            for line in self.ge.format_rows(path) {
+            for line in self.ge.format_rows(path, None) {
                 self.log(line);
             }
             self.log("");
@@ -116,7 +116,7 @@ impl<'a, B: UScalar + Serialize> DfsLifecycle<GolNode<B>, DfsResVec<GolKeyNode<B
 
     fn debug_longest(&mut self, path: &Vec<GolKeyNode<B>>) {
         self.log(format!("Longest {}", path.len()));
-        for line in self.ge.format_rows(path) {
+        for line in self.ge.format_rows(path, None) {
             self.log(line);
         }
         self.log("");
