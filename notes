@@ -25,16 +25,61 @@ symmetries
 cycle finder
     in particular want this to find waves since we may not be able to find head/tail in same search
 
-better adaptive window
-    keep mx (max x) and mlx (max living x)
-    in addition to r2l: usize keep living: Option<(usize, usize)>
-    unoptimized impl is when cell is living update window and drop if goes over mlx
-    fancy impl is optimize that check earlier rather than constructing so much crap if it's gonna be violated
-    definitely benchmark mx = mlx with recentering off to decide how much it's costing us
-    then decide what searches we gotta run... :(
-
 overbias recentering?
     in particular relevant for diagonal searches...
 
-ugh, parallel BFS...
-ugh, collecting BFS?
+step table madness
+    for each idx we have some number of bits we plan to step from there
+    have pre-computed masks and shifts to build the step table key from r0, r1, and r2
+    then step table output is all possibilities for next however many bits (plus minx/maxx contributions...)
+    at each point build as big a step table as "can afford", probably take max number of query bits as parameter of search
+    use inside-out-query-tree trick to build step table from fairly normal-looking compat-check algo (which takes scary callback for bit queries)
+    rather than store r2l we may store index into array of step tables to indicate which one to use next
+    mmm, not so sure, even conservative estimates of query bits for minimal checks suggest stepping is only gonna be maybe 3-4 bits under optimal circumstances
+        hmm, if we split future check and past check...
+        future check common case (no shift, mid-row) requires 15 for one bit plus 3 per
+        past check common case requires 6 for one bit plus 2 per
+        so even with 24 bit table we can do a 4 bit step
+        and if step is <= 6 bits we can store possibilities in u64 mask so we can and together result from future table and result from past table
+            we'll have to recompute contribution to r2 bounding box but that's okay
+        non-common case can just step a single bit, that's fine
+        if we strip checks as brutally as possible it seems like it maybe doubles time (quick BM was between 1.5x and 2x for some smallish searches), but what does it do to step size?
+            future is 9 for one plus 3 per
+            past check doesn't even exist in common case
+            so maybe we can step 6 bits?
+    although it may be possible that stepping even one bit outperforms current...
+
+DB of known solvable states?
+    fairly complex problem...
+        completely different database of rows by speed and orientation
+        don't apply at all to various really weird searches
+        matchable rows limited by wx, but whatever
+        actual r0/r1 values changes by mx
+        may need to duplicate nodes in non-recentering search
+        may need to rephase, etc.
+
+bfs2
+    parallelize?
+        normal stepping, probably
+            jackassed up with fully pre-reserving memory
+        kns recollect?
+            we did parallelize the reindex, but the actual sliding recollect seems impossible to parallelize
+        maybe actually figure out what percentage of time is where
+            ugh, seems like normal stepping is dominating some of these...
+    checkpoint?
+        sort of a mess, need to go back to having directory
+        dropping state is very, very expensive
+            maybe not so bad?
+            "bincode" I hope can be somewhat fast?
+        so only want to drop something like once an hour and/or when indicated...
+            well, benchmark and see how bad it is...
+    arggh, memory limit is still off and debugging it sucks
+
+hacks to enforce "gappiness" of unchecked edges
+    track if we're in zeros or nonzeros, track length of segment
+        don't allow nonzeros longer than thresh
+        don't allow zeros shorter than [second] thresh
+
+handy syntax for search parameters
+ge.init_zero() -> GolNodeSerdeProxy
+ge.init_str(S, S) -> GolNodeSerdeProxy (parse, verify dims, pad and recenter if recenter, etc.)
