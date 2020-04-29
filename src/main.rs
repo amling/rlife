@@ -19,11 +19,11 @@ mod gol;
 use dfs::Tree;
 use dfs::TreeStatus;
 use dfs::res::DfsResToVec;
+use gol::graph::GolEdge;
 use gol::graph::GolNode;
 use gol::graph::GolNodeSerdeProxy;
 use gol::graph::GolPreGraph;
 use gol::graph::GolRecenter;
-use gol::graph::GolSym;
 use gol::lifecycle::GolLifecycle;
 
 fn main() {
@@ -36,8 +36,8 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
         mx: 12,
         wx: 10,
 
-        left_sym: GolSym::Empty,
-        right_sym: GolSym::Empty,
+        left_edge: GolEdge::Empty,
+        right_edge: GolEdge::Empty,
 
         ox: 1,
         oy: 0,

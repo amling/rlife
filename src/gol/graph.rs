@@ -133,7 +133,7 @@ pub enum GolRecenter {
 #[derive(Copy)]
 #[derive(Deserialize)]
 #[derive(Serialize)]
-pub enum GolSym {
+pub enum GolEdge {
     Empty,
     Odd,
     Even,
@@ -148,8 +148,8 @@ pub struct GolPreGraph {
     pub mx: usize,
     pub wx: usize,
 
-    pub left_sym: GolSym,
-    pub right_sym: GolSym,
+    pub left_edge: GolEdge,
+    pub right_edge: GolEdge,
 
     pub ox: isize,
     pub oy: isize,
@@ -178,38 +178,38 @@ impl GolPreGraph {
         let mut x = x;
         loop {
             if x < 0 {
-                x = match self.left_sym {
-                    GolSym::Empty => {
+                x = match self.left_edge {
+                    GolEdge::Empty => {
                         return PartialRowRead::Off;
                     },
-                    GolSym::Odd => -x,
-                    GolSym::Even => -x - 1,
-                    GolSym::Gutter => {
+                    GolEdge::Odd => -x,
+                    GolEdge::Even => -x - 1,
+                    GolEdge::Gutter => {
                         if x == -1 {
                             return PartialRowRead::Off;
                         }
                         -x - 2
                     }
-                    GolSym::Wrap => x + mx,
+                    GolEdge::Wrap => x + mx,
                 };
                 // reinterpret for something weird like e.g.  -2 wrapped to 2 in mx 1
                 continue;
             }
 
             if x >= mx {
-                x = match self.right_sym {
-                    GolSym::Empty => {
+                x = match self.right_edge {
+                    GolEdge::Empty => {
                         return PartialRowRead::Off;
                     },
-                    GolSym::Odd => 2 * mx - 2 - x,
-                    GolSym::Even => 2 * mx - 1 - x,
-                    GolSym::Gutter => {
+                    GolEdge::Odd => 2 * mx - 2 - x,
+                    GolEdge::Even => 2 * mx - 1 - x,
+                    GolEdge::Gutter => {
                         if x == mx {
                             return PartialRowRead::Off;
                         }
                         2 * mx - x
                     },
-                    GolSym::Wrap => x - mx,
+                    GolEdge::Wrap => x - mx,
                 };
                 // reinterpret
                 continue;
@@ -362,8 +362,8 @@ impl GolPreGraph {
             mx: self.mx,
             wx: self.wx,
 
-            left_sym: self.left_sym,
-            right_sym: self.right_sym,
+            left_edge: self.left_edge,
+            right_edge: self.right_edge,
 
             checks: checks,
 
@@ -379,8 +379,8 @@ pub struct GolGraph<B: UScalar> {
     pub mx: usize,
     pub wx: usize,
 
-    pub left_sym: GolSym,
-    pub right_sym: GolSym,
+    pub left_edge: GolEdge,
+    pub right_edge: GolEdge,
 
     pub checks: Vec<Vec<(Vec<(usize, B)>, u32, (usize, B), (usize, B))>>,
 
