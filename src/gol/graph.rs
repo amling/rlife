@@ -139,6 +139,7 @@ pub enum GolEdge {
     Even,
     Gutter,
     Wrap,
+    Unknown,
 }
 
 #[derive(Deserialize)]
@@ -191,6 +192,9 @@ impl GolPreGraph {
                         -x - 2
                     }
                     GolEdge::Wrap => x + mx,
+                    GolEdge::Unknown => {
+                        return PartialRowRead::Unknown;
+                    },
                 };
                 // reinterpret for something weird like e.g.  -2 wrapped to 2 in mx 1
                 continue;
@@ -210,6 +214,9 @@ impl GolPreGraph {
                         2 * mx - x
                     },
                     GolEdge::Wrap => x - mx,
+                    GolEdge::Unknown => {
+                        return PartialRowRead::Unknown;
+                    },
                 };
                 // reinterpret
                 continue;
