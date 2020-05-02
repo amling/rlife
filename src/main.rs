@@ -66,7 +66,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
         log: None,
     };
 
-    bfs::bfs2::<GolNode<B, _>, _, _>(n0, &ge, &mut le);
+    bfs::bfs2::<GolNode<B, _>, _, _>(vec![n0], &ge, &mut le);
 
     Ok(())
 }

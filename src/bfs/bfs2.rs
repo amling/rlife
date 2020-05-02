@@ -15,24 +15,17 @@ use dfs::graph::DfsNode;
 use dfs::lifecycle::DfsLifecycle;
 use dfs::res::DfsRes;
 
-pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(n0: N, ge: &GE, le: &mut LE) {
+pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(n0s: Vec<N>, ge: &GE, le: &mut LE) {
     let threads = le.threads();
     let shards = threads * 10;
 
-    let mut kns;
-    let mut qa;
-    let mut qa_foresight;
+    let mut kns = KnPile::of(n0s.iter().map(|n0| n0.key_node().unwrap()));
+    let mut qa = ChunkQueue::new();
+    for (idx, n0) in n0s.into_iter().enumerate() {
+        qa.push_back((idx, n0));
+    }
+    let mut qa_foresight = 0;
     let mut depth = 0;
-
-    if let Some(kn0) = n0.key_node() {
-        kns = KnPile::new(kn0);
-        qa = ChunkQueue::new();
-        qa.push_back((0, n0));
-        qa_foresight = 0;
-    }
-    else {
-        panic!();
-    }
 
     loop {
         // space each element of qa may expand into, either in qb or in kns and qc

@@ -16,7 +16,7 @@ pub fn bfs1<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(n0: 
     let mut ql;
 
     if let Some(kn0) = n0.key_node() {
-        kns = KnPile::new(kn0);
+        kns = KnPile::of(vec![kn0]);
         ql = vec![(0, n0)];
     }
     else {

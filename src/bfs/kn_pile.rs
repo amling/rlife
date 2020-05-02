@@ -19,10 +19,18 @@ impl<N> KnPile<N> {
         outer * self.shard_size() + inner
     }
 
-    pub fn new(n0: N) -> Self {
+    pub fn new() -> Self {
         KnPile {
-            pile: vec![vec![(0, n0)]],
+            pile: Vec::new(),
         }
+    }
+
+    pub fn of(n0s: impl IntoIterator<Item=N>) -> Self {
+        let mut r = Self::new();
+        for (idx, n0) in n0s.into_iter().enumerate() {
+            assert_eq!(idx, r.push(idx, n0));
+        }
+        r
     }
 
     fn get(&self, idx: usize) -> &(usize, N) {
@@ -67,7 +75,10 @@ impl<N> KnPile<N> {
             if idx != 0 {
                 let prev_idx = self.get(idx).0;
                 let last = *live.last().unwrap();
-                if prev_idx < last {
+                if prev_idx == idx {
+                    // root, fine
+                }
+                else if prev_idx < last {
                     live.push(prev_idx);
                 }
                 else if prev_idx == last {
@@ -81,14 +92,19 @@ impl<N> KnPile<N> {
 
         let mut live_remap = HashMap::new();
         let mut rebuilt_idx = 0;
+        let mut root_ct = 0;
         while let Some(idx) = live.pop() {
             assert!(rebuilt_idx <= idx, "{} <= {}?", rebuilt_idx, idx);
             self.swap(rebuilt_idx, idx);
-            // insert ourselves first so link from 0 to 0 can be looked up
-            assert_eq!(idx == 0, rebuilt_idx == 0);
+            // insert ourselves first so self-parent of roots can be looked up
             assert!(!live_remap.contains_key(&idx));
             live_remap.insert(idx, rebuilt_idx);
-            self.get_mut(rebuilt_idx).0 = *live_remap.get(&self.get(rebuilt_idx).0).unwrap();
+            let parent_idx = self.get(rebuilt_idx).0;
+            let parent_idx = *live_remap.get(&parent_idx).unwrap();
+            if parent_idx == rebuilt_idx {
+                root_ct += 1;
+            }
+            self.get_mut(rebuilt_idx).0 = parent_idx;
             rebuilt_idx += 1;
         }
 
@@ -97,7 +113,7 @@ impl<N> KnPile<N> {
         self.pile[rebuilt_outer].truncate(rebuilt_inner);
         debug_assert_eq!(self.len(), rebuilt_idx);
 
-        eprintln!("Rebuilt kns from {} to {} in {:?}", size, rebuilt_idx, t0.elapsed());
+        eprintln!("Rebuilt kns from {} to {} ({} roots) in {:?}", size, rebuilt_idx, root_ct, t0.elapsed());
 
         live_remap
     }
@@ -108,11 +124,13 @@ impl<N> KnPile<N> {
         loop {
             r.push(f(&self.get(idx).1));
 
-            if idx == 0 {
+            let next_idx = self.get(idx).0;
+
+            if idx == next_idx {
                 break;
             }
 
-            idx = self.get(idx).0;
+            idx = next_idx;
         }
         r.reverse();
         r
@@ -125,11 +143,13 @@ impl<N> KnPile<N> {
                 return Some(t);
             }
 
-            if idx == 0 {
+            let next_idx = self.get(idx).0;
+
+            if idx == next_idx {
                 return None;
             }
 
-            idx = self.get(idx).0;
+            idx = next_idx;
         }
     }
 
