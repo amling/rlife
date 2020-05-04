@@ -55,7 +55,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
     };
     let n0 = n0.to_real(&ge);
 
-    let (shift, _, _) = gol::graph::recenter(&ge, n0.r0, n0.r1);
+    let (shift, _, _) = ge.recenter(n0.r0, n0.r1);
     assert_eq!(0, shift);
 
     let mut le = GolLifecycle {

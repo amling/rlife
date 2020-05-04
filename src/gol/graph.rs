@@ -60,8 +60,8 @@ impl<B: UScalar, Y: GolDy> GolNodeSerdeProxy<B, Y> {
             r0: self.r0,
             r1: self.r1,
             r2: self.r2,
-            r2_min_x: find_min_x(e, self.r2) as u8,
-            r2_max_x: find_max_x(e, self.r2) as u8,
+            r2_min_x: e.find_min_x(self.r2) as u8,
+            r2_max_x: e.find_max_x(self.r2) as u8,
             r2l: self.r2l,
             r2l_x: ((self.r2l as usize) % e.mx) as u8,
         }
@@ -87,8 +87,8 @@ pub struct GolNode<B: UScalar, Y: GolDy> {
 
 impl<B: UScalar, Y: GolDy> GolNode<B, Y> {
     pub fn to_serde_proxy(&self, e: &GolGraph<B>) -> GolNodeSerdeProxy<B, Y> {
-        debug_assert_eq!(self.r2_min_x as usize, find_min_x(e, self.r2));
-        debug_assert_eq!(self.r2_max_x as usize, find_max_x(e, self.r2));
+        debug_assert_eq!(self.r2_min_x as usize, e.find_min_x(self.r2));
+        debug_assert_eq!(self.r2_max_x as usize, e.find_max_x(self.r2));
         debug_assert_eq!(self.r2l_x as usize, (self.r2l as usize) % e.mx);
 
         GolNodeSerdeProxy {
@@ -497,6 +497,140 @@ impl<B: UScalar> GolGraph<B> {
         self.collect_dash_row(&mut pr, last.dx as isize, y);
         pr.format()
     }
+
+    fn find_min_x(&self, r: B) -> usize {
+        for x in 0..self.mx {
+            for t in 0..self.mt {
+                if r.get_bit(self.to_idx(x, t)) {
+                    return x;
+                }
+            }
+        }
+
+        self.mx - 1
+    }
+
+    fn find_max_x(&self, r: B) -> usize {
+        for x in (0..self.mx).rev() {
+            for t in 0..self.mt {
+                if r.get_bit(self.to_idx(x, t)) {
+                    return x;
+                }
+            }
+        }
+
+        0
+    }
+
+    pub fn recenter(&self, r0: B, r1: B) -> (isize, B, B) {
+        let bias = match self.recenter {
+            GolRecenter::None => {
+                return (0, r0, r1);
+            }
+            GolRecenter::BiasLeft => 0,
+            GolRecenter::BiasRight => 1,
+        };
+
+        let r = (r0 | r1);
+        if r == B::zero() {
+            return (0, r0, r1);
+        }
+
+        let min_x = self.find_min_x(r) as isize;
+        let max_x = self.find_max_x(r) as isize;
+
+        let shift = ((min_x + max_x) - (0 + (self.mx as isize) - 1) + bias).div_euclid(2);
+
+        let mut r0s = B::zero();
+        let mut r1s = B::zero();
+        for x in 0..self.mx {
+            let ix = x as isize;
+            for t in 0..self.mt {
+                if r0.get_bit(self.to_idx(x, t)) {
+                    r0s.set_bit(self.to_idx((ix - shift) as usize, t), true);
+                }
+                if r1.get_bit(self.to_idx(x, t)) {
+                    r1s.set_bit(self.to_idx((ix - shift) as usize, t), true);
+                }
+            }
+        }
+
+        (shift, r0s, r1s)
+    }
+
+    fn expand_srch<Y: GolDy>(&self, n1: &GolNode<B, Y>, n2s: &mut Vec<GolNode<B, Y>>) {
+        let idx = n1.r2l as usize;
+
+        if idx == self.mt * self.mx {
+            let (shift, r0, r1) = self.recenter(n1.r1, n1.r2);
+
+            if n1.r0 == B::zero() && n1.r1 == B::zero() && shift != 0 {
+                // refuse since we'll find it anyway when we generate it already centered
+                return;
+            }
+
+            n2s.push(GolNode {
+                dx: ((n1.dx as isize) + shift) as i16,
+                dy: n1.dy.inc(),
+                r0: r0,
+                r1: r1,
+                r2: B::zero(),
+                r2_min_x: (self.mx - 1) as u8,
+                r2_max_x: 0,
+                r2l: 0,
+                r2l_x: 0,
+            });
+            return;
+        }
+
+        let x = n1.r2l_x;
+
+        let mut n2 = GolNode {
+            dx: n1.dx,
+            dy: n1.dy,
+            r0: n1.r0,
+            r1: n1.r1,
+            r2: n1.r2,
+            r2_min_x: n1.r2_min_x,
+            r2_max_x: n1.r2_max_x,
+            r2l: n1.r2l + 1,
+            r2l_x: if (n1.r2l_x as usize) == self.mx - 1 { 0 } else { n1.r2l_x + 1},
+        };
+        'v: for &v in &[false, true] {
+            if v {
+                let r2_min_x = n1.r2_min_x.min(x);
+                let r2_max_x = n1.r2_max_x.max(x);
+                if (r2_max_x as usize) >= (r2_min_x as usize) + self.wx {
+                    continue;
+                }
+                n2.r2_min_x = r2_min_x;
+                n2.r2_max_x = r2_max_x;
+            }
+            else {
+                n2.r2_min_x = n1.r2_min_x;
+                n2.r2_max_x = n1.r2_max_x;
+            }
+            n2.r2.set_bit(idx, v);
+
+            let rows = [n2.r0, n2.r1, n2.r2];
+
+            for &(ref nh_masks, nh_ct, (cur_row_idx, cur_mask), (fut_row_idx, fut_mask)) in self.checks[idx].iter() {
+                let mut nh = 0;
+                for &(nh_row_idx, nh_mask) in nh_masks {
+                    nh += (rows[nh_row_idx] & nh_mask).count_ones()
+                }
+
+                let cur_cell = (rows[cur_row_idx] & cur_mask != B::zero());
+                let fut_cell = (rows[fut_row_idx] & fut_mask != B::zero());
+
+                if !check_compat2(nh, nh_ct, cur_cell, fut_cell) {
+                    continue 'v;
+                }
+            }
+
+            n2s.push(n2.clone());
+        }
+    }
 }
 
 fn check_compat2(living: u32, known: u32, c: bool, f: bool) -> bool {
@@ -516,144 +650,10 @@ fn check_compat2(living: u32, known: u32, c: bool, f: bool) -> bool {
     }
 }
 
-fn find_min_x<B: UScalar>(e: &GolGraph<B>, r: B) -> usize {
-    for x in 0..e.mx {
-        for t in 0..e.mt {
-            if r.get_bit(e.to_idx(x, t)) {
-                return x;
-            }
-        }
-    }
-
-    e.mx - 1
-}
-
-fn find_max_x<B: UScalar>(e: &GolGraph<B>, r: B) -> usize {
-    for x in (0..e.mx).rev() {
-        for t in 0..e.mt {
-            if r.get_bit(e.to_idx(x, t)) {
-                return x;
-            }
-        }
-    }
-
-    0
-}
-
-pub fn recenter<B: UScalar>(e: &GolGraph<B>, r0: B, r1: B) -> (isize, B, B) {
-    let bias = match e.recenter {
-        GolRecenter::None => {
-            return (0, r0, r1);
-        }
-        GolRecenter::BiasLeft => 0,
-        GolRecenter::BiasRight => 1,
-    };
-
-    let r = (r0 | r1);
-    if r == B::zero() {
-        return (0, r0, r1);
-    }
-
-    let min_x = find_min_x(e, r) as isize;
-    let max_x = find_max_x(e, r) as isize;
-
-    let shift = ((min_x + max_x) - (0 + (e.mx as isize) - 1) + bias).div_euclid(2);
-
-    let mut r0s = B::zero();
-    let mut r1s = B::zero();
-    for x in 0..e.mx {
-        let ix = x as isize;
-        for t in 0..e.mt {
-            if r0.get_bit(e.to_idx(x, t)) {
-                r0s.set_bit(e.to_idx((ix - shift) as usize, t), true);
-            }
-            if r1.get_bit(e.to_idx(x, t)) {
-                r1s.set_bit(e.to_idx((ix - shift) as usize, t), true);
-            }
-        }
-    }
-
-    (shift, r0s, r1s)
-}
-
-fn expand_srch<B: UScalar, Y: GolDy>(e: &GolGraph<B>, n1: &GolNode<B, Y>, n2s: &mut Vec<GolNode<B, Y>>) {
-    let idx = n1.r2l as usize;
-
-    if idx == e.mt * e.mx {
-        let (shift, r0, r1) = recenter(e, n1.r1, n1.r2);
-
-        if n1.r0 == B::zero() && n1.r1 == B::zero() && shift != 0 {
-            // refuse since we'll find it anyway when we generate it already centered
-            return;
-        }
-
-        n2s.push(GolNode {
-            dx: ((n1.dx as isize) + shift) as i16,
-            dy: n1.dy.inc(),
-            r0: r0,
-            r1: r1,
-            r2: B::zero(),
-            r2_min_x: (e.mx - 1) as u8,
-            r2_max_x: 0,
-            r2l: 0,
-            r2l_x: 0,
-        });
-        return;
-    }
-
-    let x = n1.r2l_x;
-
-    let mut n2 = GolNode {
-        dx: n1.dx,
-        dy: n1.dy,
-        r0: n1.r0,
-        r1: n1.r1,
-        r2: n1.r2,
-        r2_min_x: n1.r2_min_x,
-        r2_max_x: n1.r2_max_x,
-        r2l: n1.r2l + 1,
-        r2l_x: if (n1.r2l_x as usize) == e.mx - 1 { 0 } else { n1.r2l_x + 1},
-    };
-    'v: for &v in &[false, true] {
-        if v {
-            let r2_min_x = n1.r2_min_x.min(x);
-            let r2_max_x = n1.r2_max_x.max(x);
-            if (r2_max_x as usize) >= (r2_min_x as usize) + e.wx {
-                continue;
-            }
-            n2.r2_min_x = r2_min_x;
-            n2.r2_max_x = r2_max_x;
-        }
-        else {
-            n2.r2_min_x = n1.r2_min_x;
-            n2.r2_max_x = n1.r2_max_x;
-        }
-        n2.r2.set_bit(idx, v);
-
-        let rows = [n2.r0, n2.r1, n2.r2];
-
-        for &(ref nh_masks, nh_ct, (cur_row_idx, cur_mask), (fut_row_idx, fut_mask)) in e.checks[idx].iter() {
-            let mut nh = 0;
-            for &(nh_row_idx, nh_mask) in nh_masks {
-                nh += (rows[nh_row_idx] & nh_mask).count_ones()
-            }
-
-            let cur_cell = (rows[cur_row_idx] & cur_mask != B::zero());
-            let fut_cell = (rows[fut_row_idx] & fut_mask != B::zero());
-
-            if !check_compat2(nh, nh_ct, cur_cell, fut_cell) {
-                continue 'v;
-            }
-        }
-
-        n2s.push(n2.clone());
-    }
-}
-
 impl<B: UScalar, Y: GolDy> DfsGraph<GolNode<B, Y>> for GolGraph<B> {
     fn expand(&self, n1: &GolNode<B, Y>) -> Vec<GolNode<B, Y>> {
         let mut n2s = Vec::new();
-        expand_srch(self, n1, &mut n2s);
+        self.expand_srch(n1, &mut n2s);
         n2s
     }
 
