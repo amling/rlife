@@ -3,7 +3,6 @@
 use ars_ds::scalar::UScalar;
 use serde::Deserialize;
 use serde::Serialize;
-use std::collections::HashSet;
 
 use crate::dfs;
 use crate::gol;
@@ -361,7 +360,7 @@ impl GolPreGraph {
         acc
     }
 
-    pub fn derived<B: UScalar>(&self, ends: HashSet<(B, B)>) -> GolGraph<B> {
+    pub fn derived<B: UScalar>(&self) -> GolGraph<B> {
         let checks = (0..(self.mx * self.mt)).map(|idx| self.compute_checks(idx)).collect();
 
         GolGraph {
@@ -375,8 +374,6 @@ impl GolPreGraph {
             checks: checks,
 
             recenter: self.recenter,
-
-            ends: ends,
         }
     }
 }
@@ -392,8 +389,6 @@ pub struct GolGraph<B: UScalar> {
     pub checks: Vec<Vec<(Vec<(usize, B)>, u32, (usize, B), (usize, B))>>,
 
     pub recenter: GolRecenter,
-
-    pub ends: HashSet<(B, B)>,
 }
 
 impl<B: UScalar> GolGraph<B> {
@@ -629,7 +624,7 @@ impl<B: UScalar> DfsGraph<GolNode<B>> for GolGraph<B> {
     }
 
     fn end(&self, n: &GolKeyNode<B>) -> Option<&'static str> {
-        if self.ends.contains(&(n.r0, n.r1)) {
+        if n.r0 == B::zero() && n.r1 == B::zero() {
             Some("")
         }
         else {
