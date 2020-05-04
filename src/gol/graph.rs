@@ -3,6 +3,8 @@
 use ars_ds::scalar::UScalar;
 use serde::Deserialize;
 use serde::Serialize;
+use std::fmt::Debug;
+use std::hash::Hash;
 
 use crate::dfs;
 use crate::gol;
@@ -12,21 +14,49 @@ use dfs::graph::DfsKeyNode;
 use dfs::graph::DfsNode;
 use gol::printbag::PrintBag;
 
+marker_trait! {
+    GolDyMarker:
+    [Clone]
+    [Copy]
+    [Debug]
+    [Eq]
+    [Hash]
+    [Send]
+    [Sync]
+}
+
+pub trait GolDy: GolDyMarker {
+    fn inc(self) -> Self;
+}
+
+impl GolDy for () {
+    fn inc(self) -> Self {
+    }
+}
+
+impl GolDy for u16 {
+    fn inc(self) -> Self {
+        self + 1
+    }
+}
+
 #[derive(Clone)]
 #[derive(Deserialize)]
 #[derive(Serialize)]
-pub struct GolNodeSerdeProxy<B: UScalar> {
+pub struct GolNodeSerdeProxy<B: UScalar, Y: GolDy> {
     pub dx: i16,
+    pub dy: Y,
     pub r0: B,
     pub r1: B,
     pub r2: B,
     pub r2l: u8,
 }
 
-impl<B: UScalar> GolNodeSerdeProxy<B> {
-    pub fn to_real(&self, e: &GolGraph<B>) -> GolNode<B> {
+impl<B: UScalar, Y: GolDy> GolNodeSerdeProxy<B, Y> {
+    pub fn to_real(&self, e: &GolGraph<B>) -> GolNode<B, Y> {
         GolNode {
             dx: self.dx,
+            dy: self.dy,
             r0: self.r0,
             r1: self.r1,
             r2: self.r2,
@@ -43,8 +73,9 @@ impl<B: UScalar> GolNodeSerdeProxy<B> {
 #[derive(Eq)]
 #[derive(Hash)]
 #[derive(PartialEq)]
-pub struct GolNode<B: UScalar> {
+pub struct GolNode<B: UScalar, Y: GolDy> {
     pub dx: i16,
+    pub dy: Y,
     pub r0: B,
     pub r1: B,
     pub r2: B,
@@ -54,14 +85,15 @@ pub struct GolNode<B: UScalar> {
     pub r2l_x: u8,
 }
 
-impl<B: UScalar> GolNode<B> {
-    pub fn to_serde_proxy(&self, e: &GolGraph<B>) -> GolNodeSerdeProxy<B> {
+impl<B: UScalar, Y: GolDy> GolNode<B, Y> {
+    pub fn to_serde_proxy(&self, e: &GolGraph<B>) -> GolNodeSerdeProxy<B, Y> {
         debug_assert_eq!(self.r2_min_x as usize, find_min_x(e, self.r2));
         debug_assert_eq!(self.r2_max_x as usize, find_max_x(e, self.r2));
         debug_assert_eq!(self.r2l_x as usize, (self.r2l as usize) % e.mx);
 
         GolNodeSerdeProxy {
             dx: self.dx,
+            dy: self.dy,
             r0: self.r0,
             r1: self.r1,
             r2: self.r2,
@@ -70,7 +102,7 @@ impl<B: UScalar> GolNode<B> {
     }
 }
 
-impl<B: UScalar> DfsNode for GolNode<B> {
+impl<B: UScalar, Y: GolDy> DfsNode for GolNode<B, Y> {
     type KN = GolKeyNode<B>;
 
     fn key_node(&self) -> Option<GolKeyNode<B>> {
@@ -424,7 +456,7 @@ impl<B: UScalar> GolGraph<B> {
         }
     }
 
-    pub fn format_rows(&self, rows: &Vec<GolKeyNode<B>>, last: Option<&GolNode<B>>) -> Vec<String> {
+    pub fn format_rows<Y: GolDy>(&self, rows: &Vec<GolKeyNode<B>>, last: Option<&GolNode<B, Y>>) -> Vec<String> {
         let mut pr = PrintBag::new(self.mt);
         let mut y = 0;
         for (n, row) in rows.iter().enumerate() {
@@ -544,7 +576,7 @@ pub fn recenter<B: UScalar>(e: &GolGraph<B>, r0: B, r1: B) -> (isize, B, B) {
     (shift, r0s, r1s)
 }
 
-fn expand_srch<B: UScalar>(e: &GolGraph<B>, n1: &GolNode<B>, n2s: &mut Vec<GolNode<B>>) {
+fn expand_srch<B: UScalar, Y: GolDy>(e: &GolGraph<B>, n1: &GolNode<B, Y>, n2s: &mut Vec<GolNode<B, Y>>) {
     let idx = n1.r2l as usize;
 
     if idx == e.mt * e.mx {
@@ -557,6 +589,7 @@ fn expand_srch<B: UScalar>(e: &GolGraph<B>, n1: &GolNode<B>, n2s: &mut Vec<GolNo
 
         n2s.push(GolNode {
             dx: ((n1.dx as isize) + shift) as i16,
+            dy: n1.dy.inc(),
             r0: r0,
             r1: r1,
             r2: B::zero(),
@@ -572,6 +605,7 @@ fn expand_srch<B: UScalar>(e: &GolGraph<B>, n1: &GolNode<B>, n2s: &mut Vec<GolNo
 
     let mut n2 = GolNode {
         dx: n1.dx,
+        dy: n1.dy,
         r0: n1.r0,
         r1: n1.r1,
         r2: n1.r2,
@@ -616,8 +650,8 @@ fn expand_srch<B: UScalar>(e: &GolGraph<B>, n1: &GolNode<B>, n2s: &mut Vec<GolNo
     }
 }
 
-impl<B: UScalar> DfsGraph<GolNode<B>> for GolGraph<B> {
-    fn expand(&self, n1: &GolNode<B>) -> Vec<GolNode<B>> {
+impl<B: UScalar, Y: GolDy> DfsGraph<GolNode<B, Y>> for GolGraph<B> {
+    fn expand(&self, n1: &GolNode<B, Y>) -> Vec<GolNode<B, Y>> {
         let mut n2s = Vec::new();
         expand_srch(self, n1, &mut n2s);
         n2s

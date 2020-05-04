@@ -47,6 +47,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
 
     let n0 = GolNodeSerdeProxy {
         dx: 0,
+        dy: (),
         r0: B::zero(),
         r1: B::zero(),
         r2: B::zero(),
@@ -65,7 +66,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
         log: None,
     };
 
-    bfs::bfs2::<GolNode<B>, _, _>(n0, &ge, &mut le);
+    bfs::bfs2::<GolNode<B, _>, _, _>(n0, &ge, &mut le);
 
     Ok(())
 }

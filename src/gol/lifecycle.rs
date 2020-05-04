@@ -13,6 +13,7 @@ use dfs::Tree;
 use dfs::TreeStatus;
 use dfs::lifecycle::DfsLifecycle;
 use dfs::res::DfsRes;
+use gol::graph::GolDy;
 use gol::graph::GolGraph;
 use gol::graph::GolKeyNode;
 use gol::graph::GolNode;
@@ -37,7 +38,7 @@ impl<'a, B: UScalar> GolLifecycle<'a, B> {
     }
 }
 
-impl<'a, B: UScalar + Serialize> DfsLifecycle<GolNode<B>> for GolLifecycle<'a, B> {
+impl<'a, B: UScalar + Serialize, Y: GolDy + Serialize> DfsLifecycle<GolNode<B, Y>> for GolLifecycle<'a, B> {
     fn threads(&self) -> usize {
         return self.threads;
     }
@@ -46,7 +47,7 @@ impl<'a, B: UScalar + Serialize> DfsLifecycle<GolNode<B>> for GolLifecycle<'a, B
         return self.recollect_ms;
     }
 
-    fn on_recollect_firstest(&mut self, firstest: (Vec<GolKeyNode<B>>, GolNode<B>)) {
+    fn on_recollect_firstest(&mut self, firstest: (Vec<GolKeyNode<B>>, GolNode<B, Y>)) {
         eprintln!("Recollect firstest...");
         for line in self.ge.format_rows(&firstest.0, Some(&firstest.1)) {
             eprintln!("{}", line);
@@ -64,7 +65,7 @@ impl<'a, B: UScalar + Serialize> DfsLifecycle<GolNode<B>> for GolLifecycle<'a, B
 
         for (path, label) in &r.ends {
             self.log(format!("End {:?}:", label));
-            for line in self.ge.format_rows(path, None) {
+            for line in self.ge.format_rows::<()>(path, None) {
                 self.log(line);
             }
             self.log("");
@@ -80,7 +81,7 @@ impl<'a, B: UScalar + Serialize> DfsLifecycle<GolNode<B>> for GolLifecycle<'a, B
     //    }
     //}
 
-    fn debug_checkpoint(&mut self, tree: &Tree<GolNode<B>>) {
+    fn debug_checkpoint(&mut self, tree: &Tree<GolNode<B, Y>>) {
         if let Some(ref output_dir) = self.output_dir {
             let path2 = format!("{}/{}", output_dir, "tree");
 
@@ -115,7 +116,7 @@ impl<'a, B: UScalar + Serialize> DfsLifecycle<GolNode<B>> for GolLifecycle<'a, B
 
     fn debug_longest(&mut self, path: &Vec<GolKeyNode<B>>) {
         self.log(format!("Longest {}", path.len()));
-        for line in self.ge.format_rows(path, None) {
+        for line in self.ge.format_rows::<()>(path, None) {
             self.log(line);
         }
         self.log("");
