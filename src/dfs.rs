@@ -193,7 +193,7 @@ eprintln!("to tree cts {:?}", r.proxy_cts());
     }
 }
 
-pub fn sdfs<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: DfsLifecycle<N, R>>(root: &mut Tree<N>, ge: &GE, re: &RE, le: &mut LE) {
+pub fn sdfs<N: DfsNode, GE: DfsGraph<N>, LE: DfsLifecycle<N>>(root: &mut Tree<N>, ge: &GE, le: &mut LE) {
     loop {
         let mut unopened = Vec::new();
         {
@@ -206,8 +206,8 @@ pub fn sdfs<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: DfsLifecyc
         }
 
         for (tree, mut path) in unopened {
-            let mut res = re.empty();
-            dfs_single_thread(ge, re, le, tree, &mut path, &mut res, &mut |_| true);
+            let mut res = DfsRes::new();
+            dfs_single_thread(ge, le, tree, &mut path, &mut res, &mut |_| true);
             if !le.on_recollect_results(res) {
                 break;
             }
@@ -215,7 +215,7 @@ pub fn sdfs<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: DfsLifecyc
     }
 }
 
-pub fn dfs<N: DfsNode, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R> + Sync, LE: DfsLifecycle<N, R> + Sync>(root: &mut Tree<N>, ge: &GE, re: &RE, le: &mut LE) {
+pub fn dfs<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(root: &mut Tree<N>, ge: &GE, le: &mut LE) {
     let mut very_longest: Option<Vec<N::KN>> = None;
 
     loop {
@@ -230,7 +230,7 @@ pub fn dfs<N: DfsNode, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R> + S
             find_unopened(ge, &mut unopened, root, &mut path);
         }
 
-        let mut results: Vec<_> = unopened.iter().map(|_| re.empty()).collect();
+        let mut results: Vec<_> = unopened.iter().map(|_| DfsRes::new()).collect();
         let mut longests: Vec<Option<Vec<N::KN>>> = unopened.iter().map(|_| None).collect();
 
         {
@@ -262,7 +262,7 @@ pub fn dfs<N: DfsNode, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R> + S
                                 }
                             };
 
-                            dfs_single_thread(ge, re, le, tree, &mut path, res, &mut |path| {
+                            dfs_single_thread(ge, le, tree, &mut path, res, &mut |path| {
                                 let replace = match longest {
                                     Some(longest) => path.len() > longest.len(),
                                     None => true,
@@ -298,9 +298,9 @@ pub fn dfs<N: DfsNode, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R> + S
             }).unwrap();
         }
 
-        let mut res = re.empty();
-        for res1 in results {
-            res = re.reduce(res, res1);
+        let mut res = DfsRes::new();
+        for mut res1 in results {
+            res.append(&mut res1);
         }
 
         for longest in longests {
@@ -403,12 +403,7 @@ fn find_firstest_aux<N: Clone>(tree: &Tree<N>, acc: &mut Vec<N>) -> bool {
     false
 }
 
-fn dfs_single_thread<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: DfsLifecycle<N, R>>(ge: &GE, re: &RE, le: &LE, t1: &mut Tree<N>, path: &mut Path<N>, r: &mut R, on_enter: &mut impl FnMut(&Vec<N::KN>) -> bool) -> bool {
-    let add_result = |r: &mut R, r1| {
-        let r0 = std::mem::replace(r, re.empty());
-        *r = re.reduce(r0, r1);
-    };
-
+fn dfs_single_thread<N: DfsNode, GE: DfsGraph<N>, LE: DfsLifecycle<N>>(ge: &GE, le: &LE, t1: &mut Tree<N>, path: &mut Path<N>, r: &mut DfsRes<N::KN>, on_enter: &mut impl FnMut(&Vec<N::KN>) -> bool) -> bool {
     // Unpack to just the node
     let n1 = t1.0.clone();
     match t1.1 {
@@ -458,14 +453,14 @@ fn dfs_single_thread<N: DfsNode, R, GE: DfsGraph<N>, RE: DfsRes<N::KN, R>, LE: D
                 let mut path = path.vec.clone();
                 path.push(kn1.clone());
                 le.debug_end(&path);
-                add_result(r, re.map_end(path));
+                r.add_end(path);
                 continue 'top;
             }
 
             if let Some(idx) = path.find_or_push(kn1) {
                 let (path, cycle) = ((&path.vec[0..idx]).to_vec(), (&path.vec[idx..]).to_vec());
                 le.debug_cycle(&path, &cycle, kn1);
-                add_result(r, re.map_cycle(path, cycle, kn1.clone()));
+                r.add_cycle(path, cycle, kn1.clone());
                 continue 'top;
             }
         }

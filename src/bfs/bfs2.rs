@@ -15,7 +15,7 @@ use dfs::graph::DfsNode;
 use dfs::lifecycle::DfsLifecycle;
 use dfs::res::DfsRes;
 
-pub fn bfs2<N: DfsNode, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R> + Sync, LE: DfsLifecycle<N, R> + Sync>(n0: N, ge: &GE, re: &RE, le: &mut LE) {
+pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(n0: N, ge: &GE, le: &mut LE) {
     let threads = le.threads();
     let shards = threads * 10;
 
@@ -92,15 +92,10 @@ pub fn bfs2<N: DfsNode, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R> + 
             break;
         }
 
-        let add_result = |r: &mut R, r1| {
-            let r0 = std::mem::replace(r, re.empty());
-            *r = re.reduce(r0, r1);
-        };
-
         // Step one: expand qa into qb
         let mut qa1s = qa.drain_partition(shards);
         let mut qb1s: Vec<_> = qa1s.iter().map(|_| ChunkQueue::new()).collect();
-        let mut r1s: Vec<_> = qa1s.iter().map(|_| re.empty()).collect();
+        let mut r1s: Vec<_> = qa1s.iter().map(|_| DfsRes::new()).collect();
 
         {
             let wq = SegQueue::new();
@@ -127,7 +122,7 @@ pub fn bfs2<N: DfsNode, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R> + 
                                             let mut path = kns.materialize_cloned(prev_idx);
                                             path.push(kn2.clone());
                                             le.debug_end(&path);
-                                            add_result(r1, re.map_end(path));
+                                            r1.add_end(path);
                                             continue;
                                         }
 
@@ -147,7 +142,7 @@ pub fn bfs2<N: DfsNode, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R> + 
                                             let path2: Vec<_> = cycle.drain(0..path.len()).collect();
                                             assert_eq!(path, path2);
                                             le.debug_cycle(&path, &cycle, kn2);
-                                            add_result(r1, re.map_cycle(path, cycle, kn2.clone()));
+                                            r1.add_cycle(path, cycle, kn2.clone());
                                             continue;
                                         }
                                     }
@@ -161,9 +156,9 @@ pub fn bfs2<N: DfsNode, R: Send, GE: DfsGraph<N> + Sync, RE: DfsRes<N::KN, R> + 
             }).unwrap();
         }
 
-        let mut r = re.empty();
-        for r1 in r1s {
-            r = re.reduce(r, r1);
+        let mut r = DfsRes::new();
+        for mut r1 in r1s {
+            r.append(&mut r1);
         }
 
         let mut qb = ChunkQueue::new();

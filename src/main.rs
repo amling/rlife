@@ -18,7 +18,7 @@ mod gol;
 
 use dfs::Tree;
 use dfs::TreeStatus;
-use dfs::res::DfsResToVec;
+use dfs::res::DfsRes;
 use gol::graph::GolEdge;
 use gol::graph::GolNode;
 use gol::graph::GolNodeSerdeProxy;
@@ -56,8 +56,6 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
     };
     let n0 = n0.to_real(&ge);
 
-    let re = DfsResToVec();
-
     let mut le = GolLifecycle {
         ge: &ge,
         threads: 8,
@@ -66,7 +64,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
         log: None,
     };
 
-    bfs::bfs2::<GolNode<B>, _, _, _, _>(n0, &ge, &re, &mut le);
+    bfs::bfs2::<GolNode<B>, _, _>(n0, &ge, &mut le);
 
     Ok(())
 }

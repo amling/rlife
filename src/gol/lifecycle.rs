@@ -12,7 +12,7 @@ use crate::gol;
 use dfs::Tree;
 use dfs::TreeStatus;
 use dfs::lifecycle::DfsLifecycle;
-use dfs::res::DfsResVec;
+use dfs::res::DfsRes;
 use gol::graph::GolGraph;
 use gol::graph::GolKeyNode;
 use gol::graph::GolNode;
@@ -37,7 +37,7 @@ impl<'a, B: UScalar> GolLifecycle<'a, B> {
     }
 }
 
-impl<'a, B: UScalar + Serialize> DfsLifecycle<GolNode<B>, DfsResVec<GolKeyNode<B>>> for GolLifecycle<'a, B> {
+impl<'a, B: UScalar + Serialize> DfsLifecycle<GolNode<B>> for GolLifecycle<'a, B> {
     fn threads(&self) -> usize {
         return self.threads;
     }
@@ -53,7 +53,7 @@ impl<'a, B: UScalar + Serialize> DfsLifecycle<GolNode<B>, DfsResVec<GolKeyNode<B
         }
     }
 
-    fn on_recollect_results(&mut self, r: DfsResVec<GolKeyNode<B>>) -> bool {
+    fn on_recollect_results(&mut self, r: DfsRes<GolKeyNode<B>>) -> bool {
         for cycle in &r.cycles {
             let (path, cycle, last) = cycle;
             self.log("Cycle:");
