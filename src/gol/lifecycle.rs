@@ -54,8 +54,7 @@ impl<'a, B: UScalar + Serialize> DfsLifecycle<GolNode<B>> for GolLifecycle<'a, B
     }
 
     fn on_recollect_results(&mut self, r: DfsRes<GolKeyNode<B>>) -> bool {
-        for cycle in &r.cycles {
-            let (path, cycle, last) = cycle;
+        for (path, cycle, last) in &r.cycles {
             self.log("Cycle:");
             for line in self.ge.format_cycle_rows(path, cycle, last) {
                 self.log(line);
