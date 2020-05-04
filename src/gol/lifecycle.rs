@@ -14,20 +14,21 @@ use dfs::TreeStatus;
 use dfs::lifecycle::DfsLifecycle;
 use dfs::res::DfsRes;
 use gol::graph::GolDy;
+use gol::graph::GolEnds;
 use gol::graph::GolForce;
 use gol::graph::GolGraph;
 use gol::graph::GolKeyNode;
 use gol::graph::GolNode;
 
-pub struct GolLifecycle<'a, B: UScalar, Y: GolDy, F: GolForce<Y>> {
-    pub ge: &'a GolGraph<B, Y, F>,
+pub struct GolLifecycle<'a, B: UScalar, Y: GolDy, F: GolForce<Y>, E: GolEnds<B>> {
+    pub ge: &'a GolGraph<B, Y, F, E>,
     pub threads: usize,
     pub recollect_ms: u64,
     pub output_dir: Option<String>,
     pub log: Option<File>,
 }
 
-impl<'a, B: UScalar, Y: GolDy, F: GolForce<Y>> GolLifecycle<'a, B, Y, F> {
+impl<'a, B: UScalar, Y: GolDy, F: GolForce<Y>, E: GolEnds<B>> GolLifecycle<'a, B, Y, F, E> {
     fn log(&mut self, s: impl Into<String>) {
         let s = s.into();
         if let Some(log) = &mut self.log {
@@ -39,7 +40,7 @@ impl<'a, B: UScalar, Y: GolDy, F: GolForce<Y>> GolLifecycle<'a, B, Y, F> {
     }
 }
 
-impl<'a, B: UScalar + Serialize, Y: GolDy + Serialize, F: GolForce<Y>> DfsLifecycle<GolNode<B, Y>> for GolLifecycle<'a, B, Y, F> {
+impl<'a, B: UScalar + Serialize, Y: GolDy + Serialize, F: GolForce<Y>, E: GolEnds<B>> DfsLifecycle<GolNode<B, Y>> for GolLifecycle<'a, B, Y, F, E> {
     fn threads(&self) -> usize {
         return self.threads;
     }

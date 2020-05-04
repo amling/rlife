@@ -54,7 +54,7 @@ pub struct GolNodeSerdeProxy<B: UScalar, Y: GolDy> {
 }
 
 impl<B: UScalar, Y: GolDy> GolNodeSerdeProxy<B, Y> {
-    pub fn to_real<F: GolForce<Y>>(&self, e: &GolGraph<B, Y, F>) -> GolNode<B, Y> {
+    pub fn to_real<F: GolForce<Y>, E: GolEnds<B>>(&self, e: &GolGraph<B, Y, F, E>) -> GolNode<B, Y> {
         GolNode {
             dx: self.dx,
             dy: self.dy,
@@ -87,7 +87,7 @@ pub struct GolNode<B: UScalar, Y: GolDy> {
 }
 
 impl<B: UScalar, Y: GolDy> GolNode<B, Y> {
-    pub fn to_serde_proxy<F: GolForce<Y>>(&self, e: &GolGraph<B, Y, F>) -> GolNodeSerdeProxy<B, Y> {
+    pub fn to_serde_proxy<F: GolForce<Y>, E: GolEnds<B>>(&self, e: &GolGraph<B, Y, F, E>) -> GolNodeSerdeProxy<B, Y> {
         debug_assert_eq!(self.r2_min_x as usize, e.find_min_x(self.r2));
         debug_assert_eq!(self.r2_max_x as usize, e.find_max_x(self.r2));
         debug_assert_eq!(self.r2l_x as usize, (self.r2l as usize) % e.mx);
@@ -393,7 +393,7 @@ impl GolPreGraph {
         acc
     }
 
-    pub fn derived<B: UScalar, Y: GolDy, F: GolForce<Y>>(&self, force: F) -> GolGraph<B, Y, F> {
+    pub fn derived<B: UScalar, Y: GolDy, F: GolForce<Y>, E: GolEnds<B>>(&self, force: F, ends: E) -> GolGraph<B, Y, F, E> {
         let checks = (0..(self.mx * self.mt)).map(|idx| self.compute_checks(idx)).collect();
 
         GolGraph {
@@ -409,6 +409,7 @@ impl GolPreGraph {
             recenter: self.recenter,
 
             force: force,
+            ends: ends,
 
             _y: PhantomData::default(),
         }
@@ -425,7 +426,22 @@ impl<Y: GolDy> GolForce<Y> for () {
     }
 }
 
-pub struct GolGraph<B: UScalar, Y: GolDy, F: GolForce<Y>> {
+pub trait GolEnds<B: UScalar> {
+    fn end(&self, n: &GolKeyNode<B>) -> Option<&'static str>;
+}
+
+impl<B: UScalar> GolEnds<B> for () {
+    fn end(&self, n: &GolKeyNode<B>) -> Option<&'static str> {
+        if n.r0 == B::zero() && n.r1 == B::zero() {
+            Some("")
+        }
+        else {
+            None
+        }
+    }
+}
+
+pub struct GolGraph<B: UScalar, Y: GolDy, F: GolForce<Y>, E: GolEnds<B>> {
     pub mt: usize,
     pub mx: usize,
     pub wx: usize,
@@ -438,11 +454,12 @@ pub struct GolGraph<B: UScalar, Y: GolDy, F: GolForce<Y>> {
     pub recenter: GolRecenter,
 
     pub force: F,
+    pub ends: E,
 
     _y: PhantomData<Y>,
 }
 
-impl<B: UScalar, Y: GolDy, F: GolForce<Y>> GolGraph<B, Y, F> {
+impl<B: UScalar, Y: GolDy, F: GolForce<Y>, E: GolEnds<B>> GolGraph<B, Y, F, E> {
     fn to_idx(&self, x: usize, t: usize) -> usize {
         debug_assert!(x < self.mx);
         debug_assert!(t < self.mt);
@@ -672,7 +689,7 @@ fn check_compat2(living: u32, known: u32, c: bool, f: bool) -> bool {
     }
 }
 
-impl<B: UScalar, Y: GolDy, F: GolForce<Y>> DfsGraph<GolNode<B, Y>> for GolGraph<B, Y, F> {
+impl<B: UScalar, Y: GolDy, F: GolForce<Y>, E: GolEnds<B>> DfsGraph<GolNode<B, Y>> for GolGraph<B, Y, F, E> {
     fn expand(&self, n1: &GolNode<B, Y>) -> Vec<GolNode<B, Y>> {
         let mut n2s = Vec::new();
         self.expand_srch(n1, &mut n2s);
@@ -680,11 +697,6 @@ impl<B: UScalar, Y: GolDy, F: GolForce<Y>> DfsGraph<GolNode<B, Y>> for GolGraph<
     }
 
     fn end(&self, n: &GolKeyNode<B>) -> Option<&'static str> {
-        if n.r0 == B::zero() && n.r1 == B::zero() {
-            Some("")
-        }
-        else {
-            None
-        }
+        self.ends.end(n)
     }
 }
