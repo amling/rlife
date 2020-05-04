@@ -1,6 +1,7 @@
 #![allow(unused_parens)]
 
 use ars_ds::scalar::UScalar;
+use core::marker::PhantomData;
 use serde::Deserialize;
 use serde::Serialize;
 use std::fmt::Debug;
@@ -53,7 +54,7 @@ pub struct GolNodeSerdeProxy<B: UScalar, Y: GolDy> {
 }
 
 impl<B: UScalar, Y: GolDy> GolNodeSerdeProxy<B, Y> {
-    pub fn to_real(&self, e: &GolGraph<B>) -> GolNode<B, Y> {
+    pub fn to_real<F: GolForce<Y>>(&self, e: &GolGraph<B, Y, F>) -> GolNode<B, Y> {
         GolNode {
             dx: self.dx,
             dy: self.dy,
@@ -86,7 +87,7 @@ pub struct GolNode<B: UScalar, Y: GolDy> {
 }
 
 impl<B: UScalar, Y: GolDy> GolNode<B, Y> {
-    pub fn to_serde_proxy(&self, e: &GolGraph<B>) -> GolNodeSerdeProxy<B, Y> {
+    pub fn to_serde_proxy<F: GolForce<Y>>(&self, e: &GolGraph<B, Y, F>) -> GolNodeSerdeProxy<B, Y> {
         debug_assert_eq!(self.r2_min_x as usize, e.find_min_x(self.r2));
         debug_assert_eq!(self.r2_max_x as usize, e.find_max_x(self.r2));
         debug_assert_eq!(self.r2l_x as usize, (self.r2l as usize) % e.mx);
@@ -392,7 +393,7 @@ impl GolPreGraph {
         acc
     }
 
-    pub fn derived<B: UScalar>(&self) -> GolGraph<B> {
+    pub fn derived<B: UScalar, Y: GolDy, F: GolForce<Y>>(&self, force: F) -> GolGraph<B, Y, F> {
         let checks = (0..(self.mx * self.mt)).map(|idx| self.compute_checks(idx)).collect();
 
         GolGraph {
@@ -406,11 +407,25 @@ impl GolPreGraph {
             checks: checks,
 
             recenter: self.recenter,
+
+            force: force,
+
+            _y: PhantomData::default(),
         }
     }
 }
 
-pub struct GolGraph<B: UScalar> {
+pub trait GolForce<Y: GolDy> {
+    fn okay(&self, x: usize, y: Y, t: impl FnOnce() -> usize, v: bool) -> bool;
+}
+
+impl<Y: GolDy> GolForce<Y> for () {
+    fn okay(&self, _x: usize, _y: Y, _t: impl FnOnce() -> usize, _v: bool) -> bool {
+        true
+    }
+}
+
+pub struct GolGraph<B: UScalar, Y: GolDy, F: GolForce<Y>> {
     pub mt: usize,
     pub mx: usize,
     pub wx: usize,
@@ -421,9 +436,13 @@ pub struct GolGraph<B: UScalar> {
     pub checks: Vec<Vec<(Vec<(usize, B)>, u32, (usize, B), (usize, B))>>,
 
     pub recenter: GolRecenter,
+
+    pub force: F,
+
+    _y: PhantomData<Y>,
 }
 
-impl<B: UScalar> GolGraph<B> {
+impl<B: UScalar, Y: GolDy, F: GolForce<Y>> GolGraph<B, Y, F> {
     fn to_idx(&self, x: usize, t: usize) -> usize {
         debug_assert!(x < self.mx);
         debug_assert!(t < self.mt);
@@ -456,7 +475,7 @@ impl<B: UScalar> GolGraph<B> {
         }
     }
 
-    pub fn format_rows<Y: GolDy>(&self, rows: &Vec<GolKeyNode<B>>, last: Option<&GolNode<B, Y>>) -> Vec<String> {
+    pub fn format_rows(&self, rows: &Vec<GolKeyNode<B>>, last: Option<&GolNode<B, Y>>) -> Vec<String> {
         let mut pr = PrintBag::new(self.mt);
         let mut y = 0;
         for (n, row) in rows.iter().enumerate() {
@@ -558,7 +577,7 @@ impl<B: UScalar> GolGraph<B> {
         (shift, r0s, r1s)
     }
 
-    fn expand_srch<Y: GolDy>(&self, n1: &GolNode<B, Y>, n2s: &mut Vec<GolNode<B, Y>>) {
+    fn expand_srch(&self, n1: &GolNode<B, Y>, n2s: &mut Vec<GolNode<B, Y>>) {
         let idx = n1.r2l as usize;
 
         if idx == self.mt * self.mx {
@@ -597,6 +616,9 @@ impl<B: UScalar> GolGraph<B> {
             r2l_x: if (n1.r2l_x as usize) == self.mx - 1 { 0 } else { n1.r2l_x + 1},
         };
         'v: for &v in &[false, true] {
+            if !self.force.okay(x as usize, n1.dy.inc().inc(), || (idx / self.mx), v) {
+                continue;
+            }
             if v {
                 let r2_min_x = n1.r2_min_x.min(x);
                 let r2_max_x = n1.r2_max_x.max(x);
@@ -650,7 +672,7 @@ fn check_compat2(living: u32, known: u32, c: bool, f: bool) -> bool {
     }
 }
 
-impl<B: UScalar, Y: GolDy> DfsGraph<GolNode<B, Y>> for GolGraph<B> {
+impl<B: UScalar, Y: GolDy, F: GolForce<Y>> DfsGraph<GolNode<B, Y>> for GolGraph<B, Y, F> {
     fn expand(&self, n1: &GolNode<B, Y>) -> Vec<GolNode<B, Y>> {
         let mut n2s = Vec::new();
         self.expand_srch(n1, &mut n2s);

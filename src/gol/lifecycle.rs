@@ -14,19 +14,20 @@ use dfs::TreeStatus;
 use dfs::lifecycle::DfsLifecycle;
 use dfs::res::DfsRes;
 use gol::graph::GolDy;
+use gol::graph::GolForce;
 use gol::graph::GolGraph;
 use gol::graph::GolKeyNode;
 use gol::graph::GolNode;
 
-pub struct GolLifecycle<'a, B: UScalar> {
-    pub ge: &'a GolGraph<B>,
+pub struct GolLifecycle<'a, B: UScalar, Y: GolDy, F: GolForce<Y>> {
+    pub ge: &'a GolGraph<B, Y, F>,
     pub threads: usize,
     pub recollect_ms: u64,
     pub output_dir: Option<String>,
     pub log: Option<File>,
 }
 
-impl<'a, B: UScalar> GolLifecycle<'a, B> {
+impl<'a, B: UScalar, Y: GolDy, F: GolForce<Y>> GolLifecycle<'a, B, Y, F> {
     fn log(&mut self, s: impl Into<String>) {
         let s = s.into();
         if let Some(log) = &mut self.log {
@@ -38,7 +39,7 @@ impl<'a, B: UScalar> GolLifecycle<'a, B> {
     }
 }
 
-impl<'a, B: UScalar + Serialize, Y: GolDy + Serialize> DfsLifecycle<GolNode<B, Y>> for GolLifecycle<'a, B> {
+impl<'a, B: UScalar + Serialize, Y: GolDy + Serialize, F: GolForce<Y>> DfsLifecycle<GolNode<B, Y>> for GolLifecycle<'a, B, Y, F> {
     fn threads(&self) -> usize {
         return self.threads;
     }
@@ -65,7 +66,7 @@ impl<'a, B: UScalar + Serialize, Y: GolDy + Serialize> DfsLifecycle<GolNode<B, Y
 
         for (path, label) in &r.ends {
             self.log(format!("End {:?}:", label));
-            for line in self.ge.format_rows::<()>(path, None) {
+            for line in self.ge.format_rows(path, None) {
                 self.log(line);
             }
             self.log("");
@@ -116,7 +117,7 @@ impl<'a, B: UScalar + Serialize, Y: GolDy + Serialize> DfsLifecycle<GolNode<B, Y
 
     fn debug_longest(&mut self, path: &Vec<GolKeyNode<B>>) {
         self.log(format!("Longest {}", path.len()));
-        for line in self.ge.format_rows::<()>(path, None) {
+        for line in self.ge.format_rows(path, None) {
             self.log(line);
         }
         self.log("");

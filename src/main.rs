@@ -43,7 +43,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
         recenter: GolRecenter::BiasRight,
     };
     assert!(ge.mt * ge.mx <= B::size());
-    let ge = ge.derived();
+    let ge = ge.derived(());
 
     let n0 = GolNodeSerdeProxy {
         dx: 0,
