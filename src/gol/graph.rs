@@ -53,22 +53,6 @@ pub struct GolNodeSerdeProxy<B: UScalar, Y: GolDy> {
     pub r2l: u8,
 }
 
-impl<B: UScalar, Y: GolDy> GolNodeSerdeProxy<B, Y> {
-    pub fn to_real<F: GolForce<Y>, E: GolEnds<B>>(&self, e: &GolGraph<B, Y, F, E>) -> GolNode<B, Y> {
-        GolNode {
-            dx: self.dx,
-            dy: self.dy,
-            r0: self.r0,
-            r1: self.r1,
-            r2: self.r2,
-            r2_min_x: e.find_min_x(self.r2) as u8,
-            r2_max_x: e.find_max_x(self.r2) as u8,
-            r2l: self.r2l,
-            r2l_x: ((self.r2l as usize) % e.mx) as u8,
-        }
-    }
-}
-
 #[derive(Clone)]
 #[derive(Debug)]
 #[derive(Eq)]
@@ -84,23 +68,6 @@ pub struct GolNode<B: UScalar, Y: GolDy> {
     pub r2_max_x: u8,
     pub r2l: u8,
     pub r2l_x: u8,
-}
-
-impl<B: UScalar, Y: GolDy> GolNode<B, Y> {
-    pub fn to_serde_proxy<F: GolForce<Y>, E: GolEnds<B>>(&self, e: &GolGraph<B, Y, F, E>) -> GolNodeSerdeProxy<B, Y> {
-        debug_assert_eq!(self.r2_min_x as usize, e.find_min_x(self.r2));
-        debug_assert_eq!(self.r2_max_x as usize, e.find_max_x(self.r2));
-        debug_assert_eq!(self.r2l_x as usize, (self.r2l as usize) % e.mx);
-
-        GolNodeSerdeProxy {
-            dx: self.dx,
-            dy: self.dy,
-            r0: self.r0,
-            r1: self.r1,
-            r2: self.r2,
-            r2l: self.r2l,
-        }
-    }
 }
 
 impl<B: UScalar, Y: GolDy> DfsNode for GolNode<B, Y> {
@@ -668,6 +635,35 @@ impl<B: UScalar, Y: GolDy, F: GolForce<Y>, E: GolEnds<B>> GolGraph<B, Y, F, E> {
             }
 
             n2s.push(n2.clone());
+        }
+    }
+
+    pub fn freeze_node(&self, n: &GolNode<B, Y>) -> GolNodeSerdeProxy<B, Y> {
+        debug_assert_eq!(n.r2_min_x as usize, self.find_min_x(n.r2));
+        debug_assert_eq!(n.r2_max_x as usize, self.find_max_x(n.r2));
+        debug_assert_eq!(n.r2l_x as usize, (n.r2l as usize) % self.mx);
+
+        GolNodeSerdeProxy {
+            dx: n.dx,
+            dy: n.dy,
+            r0: n.r0,
+            r1: n.r1,
+            r2: n.r2,
+            r2l: n.r2l,
+        }
+    }
+
+    pub fn thaw_node(&self, n: &GolNodeSerdeProxy<B, Y>) -> GolNode<B, Y> {
+        GolNode {
+            dx: n.dx,
+            dy: n.dy,
+            r0: n.r0,
+            r1: n.r1,
+            r2: n.r2,
+            r2_min_x: self.find_min_x(n.r2) as u8,
+            r2_max_x: self.find_max_x(n.r2) as u8,
+            r2l: n.r2l,
+            r2l_x: ((n.r2l as usize) % self.mx) as u8,
         }
     }
 }
