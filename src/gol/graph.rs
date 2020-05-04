@@ -4,6 +4,8 @@ use ars_ds::scalar::UScalar;
 use core::marker::PhantomData;
 use serde::Deserialize;
 use serde::Serialize;
+use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fmt::Debug;
 use std::hash::Hash;
 
@@ -405,6 +407,23 @@ impl<B: UScalar> GolEnds<B> for () {
         else {
             None
         }
+    }
+}
+
+impl<B: UScalar> GolEnds<B> for HashSet<(B, B)> {
+    fn end(&self, n: &GolKeyNode<B>) -> Option<&'static str> {
+        if self.contains(&(n.r0, n.r1)) {
+            Some("")
+        }
+        else {
+            None
+        }
+    }
+}
+
+impl<B: UScalar> GolEnds<B> for HashMap<(B, B), &'static str> {
+    fn end(&self, n: &GolKeyNode<B>) -> Option<&'static str> {
+        self.get(&(n.r0, n.r1)).map(|s| *s)
     }
 }
 
