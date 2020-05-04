@@ -59,11 +59,11 @@ pub fn bfs1<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(n0: 
                                 for n2 in ge.expand(n) {
                                     let kn2 = n2.key_node();
                                     if let Some(kn2) = &kn2 {
-                                        if ge.end(kn2) {
+                                        if let Some(label) = ge.end(kn2) {
                                             let mut path = kns.materialize_cloned(prev_idx);
                                             path.push(kn2.clone());
-                                            le.debug_end(&path);
-                                            r.add_end(path);
+                                            le.debug_end(&path, label);
+                                            r.add_end(path, label);
                                             continue;
                                         }
 

@@ -16,7 +16,7 @@ pub trait DfsLifecycle<N: DfsNode> {
     fn debug_cycle(&self, _path: &Vec<N::KN>, _cycle: &Vec<N::KN>, _last: &N::KN) {
     }
 
-    fn debug_end(&self, _path: &Vec<N::KN>) {
+    fn debug_end(&self, _path: &Vec<N::KN>, _label: &'static str) {
     }
 
     fn debug_checkpoint(&mut self, _tree: &Tree<N>) {

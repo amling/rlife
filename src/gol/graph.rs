@@ -628,7 +628,12 @@ impl<B: UScalar> DfsGraph<GolNode<B>> for GolGraph<B> {
         n2s
     }
 
-    fn end(&self, n: &GolKeyNode<B>) -> bool {
-        self.ends.contains(&(n.r0, n.r1))
+    fn end(&self, n: &GolKeyNode<B>) -> Option<&'static str> {
+        if self.ends.contains(&(n.r0, n.r1)) {
+            Some("")
+        }
+        else {
+            None
+        }
     }
 }

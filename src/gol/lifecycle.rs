@@ -62,8 +62,8 @@ impl<'a, B: UScalar + Serialize> DfsLifecycle<GolNode<B>> for GolLifecycle<'a, B
             self.log("");
         }
 
-        for path in &r.ends {
-            self.log("End:");
+        for (path, label) in &r.ends {
+            self.log(format!("End {:?}:", label));
             for line in self.ge.format_rows(path, None) {
                 self.log(line);
             }

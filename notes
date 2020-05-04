@@ -83,5 +83,3 @@ hacks to enforce "gappiness" of unchecked edges
 handy syntax for search parameters
 ge.init_zero() -> GolNodeSerdeProxy
 ge.init_str(S, S) -> GolNodeSerdeProxy (parse, verify dims, pad and recenter if recenter, etc.)
-
-label ends so we can do the drop/end thing less poorly

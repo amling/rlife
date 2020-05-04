@@ -449,11 +449,11 @@ fn dfs_single_thread<N: DfsNode, GE: DfsGraph<N>, LE: DfsLifecycle<N>>(ge: &GE, 
         // found a node to enter, let's put it on the stack
         let kn1 = n1.key_node();
         if let Some(kn1) = &kn1 {
-            if ge.end(kn1) {
+            if let Some(label) = ge.end(kn1) {
                 let mut path = path.vec.clone();
                 path.push(kn1.clone());
-                le.debug_end(&path);
-                r.add_end(path);
+                le.debug_end(&path, label);
+                r.add_end(path, label);
                 continue 'top;
             }
 
