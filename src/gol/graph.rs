@@ -4,8 +4,6 @@ use ars_ds::scalar::UScalar;
 use core::marker::PhantomData;
 use serde::Deserialize;
 use serde::Serialize;
-use std::collections::HashMap;
-use std::collections::HashSet;
 use std::fmt::Debug;
 use std::hash::Hash;
 
@@ -15,6 +13,7 @@ use crate::gol;
 use dfs::graph::DfsGraph;
 use dfs::graph::DfsKeyNode;
 use dfs::graph::DfsNode;
+use gol::ends::GolEnds;
 use gol::printbag::PrintBag;
 
 marker_trait! {
@@ -392,38 +391,6 @@ pub trait GolForce<Y: GolDy> {
 impl<Y: GolDy> GolForce<Y> for () {
     fn okay(&self, _x: usize, _y: Y, _t: impl FnOnce() -> usize, _v: bool) -> bool {
         true
-    }
-}
-
-pub trait GolEnds<B: UScalar> {
-    fn end(&self, n: &GolKeyNode<B>) -> Option<&'static str>;
-}
-
-impl<B: UScalar> GolEnds<B> for () {
-    fn end(&self, n: &GolKeyNode<B>) -> Option<&'static str> {
-        if n.r0 == B::zero() && n.r1 == B::zero() {
-            Some("")
-        }
-        else {
-            None
-        }
-    }
-}
-
-impl<B: UScalar> GolEnds<B> for HashSet<(B, B)> {
-    fn end(&self, n: &GolKeyNode<B>) -> Option<&'static str> {
-        if self.contains(&(n.r0, n.r1)) {
-            Some("")
-        }
-        else {
-            None
-        }
-    }
-}
-
-impl<B: UScalar> GolEnds<B> for HashMap<(B, B), &'static str> {
-    fn end(&self, n: &GolKeyNode<B>) -> Option<&'static str> {
-        self.get(&(n.r0, n.r1)).map(|s| *s)
     }
 }
 
