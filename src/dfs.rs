@@ -116,7 +116,6 @@ pub struct TreeSerdeProxy<N>(Vec<TreeSerdeProxyElement<N>>);
 
 impl<N: Clone> Tree<N> {
     pub fn to_serde_proxy(&self) -> TreeSerdeProxy<N> {
-eprintln!("to proxy cts {:?}", self.proxy_cts());
         let mut acc = Vec::new();
         self.to_serde_proxy_aux(&mut acc);
         TreeSerdeProxy(acc)
@@ -167,7 +166,6 @@ impl<N: Clone> TreeSerdeProxy<N> {
         let mut idx = 0;
         let r = self.to_tree_aux(&mut idx);
         assert_eq!(idx, self.0.len());
-eprintln!("to tree cts {:?}", r.proxy_cts());
         r
     }
 

@@ -4,11 +4,17 @@ use dfs::Tree;
 use dfs::graph::DfsNode;
 use dfs::res::DfsRes;
 
+pub enum LogLevel {
+    INFO,
+    DEBUG,
+}
+
 pub trait DfsLifecycle<N: DfsNode> {
     fn threads(&self) -> usize;
     fn recollect_ms(&self) -> u64;
     fn on_recollect_firstest(&mut self, firstest: (Vec<N::KN>, N));
     fn on_recollect_results(&mut self, r: DfsRes<N::KN>) -> bool;
+    fn log(&mut self, level: LogLevel, msg: impl AsRef<str>);
 
     fn debug_enter(&self, _path: (&Vec<N::KN>, &N)) {
     }

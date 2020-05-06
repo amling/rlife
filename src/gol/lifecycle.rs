@@ -12,6 +12,7 @@ use crate::gol;
 use dfs::Tree;
 use dfs::TreeStatus;
 use dfs::lifecycle::DfsLifecycle;
+use dfs::lifecycle::LogLevel;
 use dfs::res::DfsRes;
 use gol::ends::GolEnds;
 use gol::graph::GolDy;
@@ -28,18 +29,6 @@ pub struct GolLifecycle<'a, B: UScalar, Y: GolDy, F: GolForce<Y>, E: GolEnds<B>>
     pub log: Option<File>,
 }
 
-impl<'a, B: UScalar, Y: GolDy, F: GolForce<Y>, E: GolEnds<B>> GolLifecycle<'a, B, Y, F, E> {
-    fn log(&mut self, s: impl Into<String>) {
-        let s = s.into();
-        if let Some(log) = &mut self.log {
-            writeln!(log, "{}", s).unwrap();
-        }
-        else {
-            println!("{}", s);
-        }
-    }
-}
-
 impl<'a, B: UScalar + Serialize, Y: GolDy + Serialize, F: GolForce<Y>, E: GolEnds<B>> DfsLifecycle<GolNode<B, Y>> for GolLifecycle<'a, B, Y, F, E> {
     fn threads(&self) -> usize {
         return self.threads;
@@ -50,36 +39,47 @@ impl<'a, B: UScalar + Serialize, Y: GolDy + Serialize, F: GolForce<Y>, E: GolEnd
     }
 
     fn on_recollect_firstest(&mut self, firstest: (Vec<GolKeyNode<B>>, GolNode<B, Y>)) {
-        eprintln!("Recollect firstest...");
+        self.log(LogLevel::DEBUG, "Recollect firstest...");
         for line in self.ge.params.format_rows(&firstest.0, Some(&firstest.1)) {
-            eprintln!("{}", line);
+            self.log(LogLevel::DEBUG, line);
         }
     }
 
     fn on_recollect_results(&mut self, r: DfsRes<GolKeyNode<B>>) -> bool {
         for (path, cycle, last) in &r.cycles {
-            self.log("Cycle:");
+            self.log(LogLevel::INFO, "Cycle:");
             for line in self.ge.params.format_cycle_rows(path, cycle, last) {
-                self.log(line);
+                self.log(LogLevel::INFO, line);
             }
-            self.log("");
+            self.log(LogLevel::INFO, "");
         }
 
         for (path, label) in &r.ends {
-            self.log(format!("End {:?}:", label));
+            self.log(LogLevel::INFO, format!("End {:?}:", label));
             for line in self.ge.params.format_rows::<B, Y>(path, None) {
-                self.log(line);
+                self.log(LogLevel::INFO, line);
             }
-            self.log("");
+            self.log(LogLevel::INFO, "");
         }
 
         return true;
     }
 
+    fn log(&mut self, level: LogLevel, msg: impl AsRef<str>) {
+        // TODO: level and timestamp
+        let msg = msg.as_ref();
+        if let Some(log) = &mut self.log {
+            writeln!(log, "{}", msg).unwrap();
+        }
+        else {
+            println!("{}", msg);
+        }
+    }
+
     //fn debug_enter(&self, path: &Vec<GolKeyNode<B>>) {
-    //    eprintln!("Enter search {}", path.len());
+    //    self.log(LogLevel::INFO, format!("Enter search {}", path.len()));
     //    for line in self.ge.format_rows(path) {
-    //        eprintln!("{}", line);
+    //        self.log(LogLevel::INFO, line);
     //    }
     //}
 
@@ -117,10 +117,10 @@ impl<'a, B: UScalar + Serialize, Y: GolDy + Serialize, F: GolForce<Y>, E: GolEnd
     }
 
     fn debug_longest(&mut self, path: &Vec<GolKeyNode<B>>) {
-        self.log(format!("Longest {}", path.len()));
+        self.log(LogLevel::INFO, format!("Longest {}", path.len()));
         for line in self.ge.params.format_rows::<B, Y>(path, None) {
-            self.log(line);
+            self.log(LogLevel::INFO, line);
         }
-        self.log("");
+        self.log(LogLevel::INFO, "");
     }
 }

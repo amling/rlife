@@ -61,7 +61,7 @@ impl<N> KnPile<N> {
         }
     }
 
-    pub fn rebuild(&mut self, live: impl Iterator<Item=usize>) -> HashMap<usize, usize> {
+    pub fn rebuild(&mut self, live: impl Iterator<Item=usize>, log: impl FnOnce(String)) -> HashMap<usize, usize> {
         let t0 = std::time::Instant::now();
         let size = self.len();
 
@@ -113,7 +113,7 @@ impl<N> KnPile<N> {
         self.pile[rebuilt_outer].truncate(rebuilt_inner);
         debug_assert_eq!(self.len(), rebuilt_idx);
 
-        eprintln!("Rebuilt kns from {} to {} ({} roots) in {:?}", size, rebuilt_idx, root_ct, t0.elapsed());
+        log(format!("Rebuilt kns from {} to {} ({} roots) in {:?}", size, rebuilt_idx, root_ct, t0.elapsed()));
 
         live_remap
     }

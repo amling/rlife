@@ -13,6 +13,7 @@ use dfs::graph::DfsGraph;
 use dfs::graph::DfsKeyNode;
 use dfs::graph::DfsNode;
 use dfs::lifecycle::DfsLifecycle;
+use dfs::lifecycle::LogLevel;
 use dfs::res::DfsRes;
 
 pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(n0s: Vec<N>, ge: &GE, le: &mut LE) {
@@ -35,20 +36,20 @@ pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(n0s:
         loop {
             let mem = kns.len() * kns_el_mem(&kns) + per_element_space * qa.len();
             if mem <= (1 << 33) {
-                eprintln!("Estimated required memory {}, expanding...", fmt_mem(mem));
+                le.log(LogLevel::INFO, format!("Estimated required memory {}, expanding...", fmt_mem(mem)));
                 break;
             }
-            eprintln!("Estimated required memory {}, deepening...", fmt_mem(mem));
+            le.log(LogLevel::INFO, format!("Estimated required memory {}, deepening...", fmt_mem(mem)));
 
             qa_foresight += 1;
-            deepen(ge, threads, "qa", &mut qa, qa_foresight, |&(idx, ref n)| {
+            deepen(ge, le, threads, "qa", &mut qa, qa_foresight, |&(idx, ref n)| {
                 let path = kns.materialize_cloned(idx);
                 (Path::from_vec(path), n.clone())
             });
 
             let living = vec![].into_iter();
             let living = living.chain(qa.iter().map(|&(idx, _)| idx));
-            let live_remap = kns.rebuild(living);
+            let live_remap = kns.rebuild(living, |msg| le.log(LogLevel::INFO, msg));
 
             let t0 = std::time::Instant::now();
             {
@@ -76,7 +77,7 @@ pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(n0s:
                     }
                 }).unwrap();
             }
-            eprintln!("Reindexed qa in {:?}", t0.elapsed());
+            le.log(LogLevel::INFO, format!("Reindexed qa in {:?}", t0.elapsed()));
         }
 
         let qa_size = qa.len();
@@ -177,7 +178,7 @@ pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(n0s:
         };
         depth += 1;
 
-        eprintln!("Completed BFS step to depth {}, size {} => {}, estimated memory {}", depth, qa_size, qa.len(), fmt_mem(kns_mem(&kns) + q_mem(&qa)));
+        le.log(LogLevel::INFO, format!("Completed BFS step to depth {}, size {} => {}, estimated memory {}", depth, qa_size, qa.len(), fmt_mem(kns_mem(&kns) + q_mem(&qa))));
 
         if let Some(&(idx, ref n)) = qa.front() {
             le.on_recollect_firstest((kns.materialize_cloned(idx), n.clone()));
@@ -220,7 +221,7 @@ fn fmt_mem(mem: usize) -> String {
     return format!("{} B", mem);
 }
 
-fn deepen<T: Send, N: DfsNode, GE: DfsGraph<N> + Sync, F: Fn(&T) -> (Path<N>, N) + Send + Sync>(ge: &GE, threads: usize, name: &'static str, q: &mut ChunkQueue<T>, foresight: usize, f: F) {
+fn deepen<T: Send, N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N>, F: Fn(&T) -> (Path<N>, N) + Send + Sync>(ge: &GE, le: &mut LE, threads: usize, name: &'static str, q: &mut ChunkQueue<T>, foresight: usize, f: F) {
     if foresight == 0 {
         return;
     }
@@ -230,7 +231,7 @@ fn deepen<T: Send, N: DfsNode, GE: DfsGraph<N> + Sync, F: Fn(&T) -> (Path<N>, N)
     }
 
     let t0 = std::time::Instant::now();
-    eprintln!("Deepening {} from size {}...", name, size0);
+    le.log(LogLevel::INFO, format!("Deepening {} from size {}...", name, size0));
 
     let shards = threads * 10;
     let mut q1s = q.drain_partition(shards);
@@ -267,7 +268,7 @@ fn deepen<T: Send, N: DfsNode, GE: DfsGraph<N> + Sync, F: Fn(&T) -> (Path<N>, N)
         q.append(&mut q1);
     }
 
-    eprintln!("Deepened {} from size {} to size {} foresight {} in {:?}", name, size0, q.len(), foresight, t0.elapsed());
+    le.log(LogLevel::INFO, format!("Deepened {} from size {} to size {} foresight {} in {:?}", name, size0, q.len(), foresight, t0.elapsed()));
 }
 
 fn deepen_search<N: DfsNode, GE: DfsGraph<N>>(ge: &GE, path: &mut Path<N>, n: N, foresight: usize) -> bool {

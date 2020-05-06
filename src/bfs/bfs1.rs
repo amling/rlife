@@ -9,6 +9,7 @@ use dfs::graph::DfsGraph;
 use dfs::graph::DfsKeyNode;
 use dfs::graph::DfsNode;
 use dfs::lifecycle::DfsLifecycle;
+use dfs::lifecycle::LogLevel;
 use dfs::res::DfsRes;
 
 pub fn bfs1<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(n0: N, ge: &GE, le: &mut LE) {
@@ -112,16 +113,16 @@ pub fn bfs1<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(n0: 
             (prev_idx, n)
         }).collect();
 
-        eprintln!("Completed BFS step ql {} => q2 {}", ql.len(), q2.len());
+        le.log(LogLevel::INFO, format!("Completed BFS step ql {} => q2 {}", ql.len(), q2.len()));
 
         let ttl = kns.len();
         if added && ttl > 50_000_000 {
-            let live_remap = kns.rebuild(q2.iter().map(|&(idx, _)| idx));
+            let live_remap = kns.rebuild(q2.iter().map(|&(idx, _)| idx), |msg| le.log(LogLevel::INFO, msg));
             q2 = q2.into_iter().map(|(idx, n)| (*live_remap.get(&idx).unwrap(), n)).collect();
-            eprintln!("Rebuilt past size {} -> {}", ttl, kns.len());
+            le.log(LogLevel::INFO, format!("Rebuilt past size {} -> {}", ttl, kns.len()));
         }
         else {
-            eprintln!("Not rebuilding past size {}", ttl);
+            le.log(LogLevel::INFO, format!("Not rebuilding past size {}", ttl));
         }
 
         ql = q2;
