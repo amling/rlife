@@ -59,6 +59,7 @@ DB of known solvable states?
         may need to rephase, etc.
         sketched, not really tested yet
         also, this doesn't necessarily find all splits, e.g.  for a U-shaped ship it won't consider the arms to be solvable individually
+        this is pretty slow to load, we probably need to preprocess...
 
 bfs2
     parallelize?
