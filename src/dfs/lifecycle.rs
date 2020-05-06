@@ -9,6 +9,15 @@ pub enum LogLevel {
     DEBUG,
 }
 
+impl LogLevel {
+    pub fn name(&self) -> &'static str {
+        match self {
+            LogLevel::INFO => "INFO",
+            LogLevel::DEBUG => "DEBUG",
+        }
+    }
+}
+
 pub trait DfsLifecycle<N: DfsNode> {
     fn threads(&self) -> usize;
     fn recollect_ms(&self) -> u64;

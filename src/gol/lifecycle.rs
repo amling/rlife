@@ -1,4 +1,5 @@
 use ars_ds::scalar::UScalar;
+use chrono::Local;
 use serde::Serialize;
 use std::fs::File;
 use std::io::BufWriter;
@@ -66,8 +67,8 @@ impl<'a, B: UScalar + Serialize, Y: GolDy + Serialize, F: GolForce<Y>, E: GolEnd
     }
 
     fn log(&mut self, level: LogLevel, msg: impl AsRef<str>) {
-        // TODO: level and timestamp
         let msg = msg.as_ref();
+        let msg = format!("{} [{}] {}", Local::now().format("%Y%m%d %H:%M:%S"), level.name(), msg);
         if let Some(log) = &mut self.log {
             writeln!(log, "{}", msg).unwrap();
         }
