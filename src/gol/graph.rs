@@ -372,6 +372,9 @@ impl GolPreGraph {
             left_edge: self.left_edge,
             right_edge: self.right_edge,
 
+            ox: self.ox,
+            oy: self.oy,
+
             checks: checks,
 
             recenter: self.recenter,
@@ -402,9 +405,12 @@ pub struct GolGraph<B: UScalar, Y: GolDy, F: GolForce<Y>, E: GolEnds<B>> {
     pub left_edge: GolEdge,
     pub right_edge: GolEdge,
 
-    pub checks: Vec<Vec<(Vec<(usize, B)>, u32, (usize, B), (usize, B))>>,
+    pub ox: isize,
+    pub oy: isize,
 
     pub recenter: GolRecenter,
+
+    pub checks: Vec<Vec<(Vec<(usize, B)>, u32, (usize, B), (usize, B))>>,
 
     pub force: F,
     pub ends: E,
