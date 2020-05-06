@@ -142,9 +142,10 @@ pub enum GolEdge {
     Unknown,
 }
 
+#[derive(Clone)]
 #[derive(Deserialize)]
 #[derive(Serialize)]
-pub struct GolPreGraph {
+pub struct GolGraphParams {
     pub mt: usize,
     pub mx: usize,
     pub wx: usize,
@@ -164,7 +165,7 @@ enum PartialRowRead {
     Read(usize),
 }
 
-impl GolPreGraph {
+impl GolGraphParams {
     fn compute_shift(&self, t: usize, o: isize) -> isize {
         // cumulative shift after t steps can be floor(o * t / mt) so we diff cumulatives
         let t = t as isize;
@@ -365,19 +366,9 @@ impl GolPreGraph {
         let checks = (0..(self.mx * self.mt)).map(|idx| self.compute_checks(idx)).collect();
 
         GolGraph {
-            mt: self.mt,
-            mx: self.mx,
-            wx: self.wx,
-
-            left_edge: self.left_edge,
-            right_edge: self.right_edge,
-
-            ox: self.ox,
-            oy: self.oy,
+            params: self.clone(),
 
             checks: checks,
-
-            recenter: self.recenter,
 
             force: force,
             ends: ends,
@@ -398,17 +389,7 @@ impl<Y: GolDy> GolForce<Y> for () {
 }
 
 pub struct GolGraph<B: UScalar, Y: GolDy, F: GolForce<Y>, E: GolEnds<B>> {
-    pub mt: usize,
-    pub mx: usize,
-    pub wx: usize,
-
-    pub left_edge: GolEdge,
-    pub right_edge: GolEdge,
-
-    pub ox: isize,
-    pub oy: isize,
-
-    pub recenter: GolRecenter,
+    pub params: GolGraphParams,
 
     pub checks: Vec<Vec<(Vec<(usize, B)>, u32, (usize, B), (usize, B))>>,
 
@@ -420,14 +401,14 @@ pub struct GolGraph<B: UScalar, Y: GolDy, F: GolForce<Y>, E: GolEnds<B>> {
 
 impl<B: UScalar, Y: GolDy, F: GolForce<Y>, E: GolEnds<B>> GolGraph<B, Y, F, E> {
     fn to_idx(&self, x: usize, t: usize) -> usize {
-        debug_assert!(x < self.mx);
-        debug_assert!(t < self.mt);
-        t * self.mx + x
+        debug_assert!(x < self.params.mx);
+        debug_assert!(t < self.params.mt);
+        t * self.params.mx + x
     }
 
     fn collect_row(&self, pr: &mut PrintBag, row: B, rl: Option<usize>, x0: isize, y0: usize) {
-        for t in 0..self.mt {
-            for x in 0..self.mx {
+        for t in 0..self.params.mt {
+            for x in 0..self.params.mx {
                 let idx = self.to_idx(x, t);
                 let mut c = match B::get_bit(&row, idx) {
                     true => '*',
@@ -444,15 +425,15 @@ impl<B: UScalar, Y: GolDy, F: GolForce<Y>, E: GolEnds<B>> GolGraph<B, Y, F, E> {
     }
 
     fn collect_dash_row(&self, pr: &mut PrintBag, x0: isize, y0: usize) {
-        for t in 0..self.mt {
-            for x in 0..self.mx {
+        for t in 0..self.params.mt {
+            for x in 0..self.params.mx {
                 pr.insert(x0 + (x as isize), y0, t, '-');
             }
         }
     }
 
     pub fn format_rows(&self, rows: &Vec<GolKeyNode<B>>, last: Option<&GolNode<B, Y>>) -> Vec<String> {
-        let mut pr = PrintBag::new(self.mt);
+        let mut pr = PrintBag::new(self.params.mt);
         let mut y = 0;
         for (n, row) in rows.iter().enumerate() {
             if n == rows.len() - 1 {
@@ -475,7 +456,7 @@ impl<B: UScalar, Y: GolDy, F: GolForce<Y>, E: GolEnds<B>> GolGraph<B, Y, F, E> {
 
     pub fn format_cycle_rows(&self, path: &Vec<GolKeyNode<B>>, cycle: &Vec<GolKeyNode<B>>, last: &GolKeyNode<B>) -> Vec<String> {
         // Just need to output each first row once (since cycle continues forever).
-        let mut pr = PrintBag::new(self.mt);
+        let mut pr = PrintBag::new(self.params.mt);
         let mut y = 0;
         for row in path.iter() {
             self.collect_row(&mut pr, row.r0, None, row.dx as isize, y);
@@ -494,20 +475,20 @@ impl<B: UScalar, Y: GolDy, F: GolForce<Y>, E: GolEnds<B>> GolGraph<B, Y, F, E> {
     }
 
     fn find_min_x(&self, r: B) -> usize {
-        for x in 0..self.mx {
-            for t in 0..self.mt {
+        for x in 0..self.params.mx {
+            for t in 0..self.params.mt {
                 if r.get_bit(self.to_idx(x, t)) {
                     return x;
                 }
             }
         }
 
-        self.mx - 1
+        self.params.mx - 1
     }
 
     fn find_max_x(&self, r: B) -> usize {
-        for x in (0..self.mx).rev() {
-            for t in 0..self.mt {
+        for x in (0..self.params.mx).rev() {
+            for t in 0..self.params.mt {
                 if r.get_bit(self.to_idx(x, t)) {
                     return x;
                 }
@@ -518,7 +499,7 @@ impl<B: UScalar, Y: GolDy, F: GolForce<Y>, E: GolEnds<B>> GolGraph<B, Y, F, E> {
     }
 
     pub fn recenter(&self, r0: B, r1: B) -> (isize, B, B) {
-        let bias = match self.recenter {
+        let bias = match self.params.recenter {
             GolRecenter::None => {
                 return (0, r0, r1);
             }
@@ -534,13 +515,13 @@ impl<B: UScalar, Y: GolDy, F: GolForce<Y>, E: GolEnds<B>> GolGraph<B, Y, F, E> {
         let min_x = self.find_min_x(r) as isize;
         let max_x = self.find_max_x(r) as isize;
 
-        let shift = ((min_x + max_x) - (0 + (self.mx as isize) - 1) + bias).div_euclid(2);
+        let shift = ((min_x + max_x) - (0 + (self.params.mx as isize) - 1) + bias).div_euclid(2);
 
         let mut r0s = B::zero();
         let mut r1s = B::zero();
-        for x in 0..self.mx {
+        for x in 0..self.params.mx {
             let ix = x as isize;
-            for t in 0..self.mt {
+            for t in 0..self.params.mt {
                 if r0.get_bit(self.to_idx(x, t)) {
                     r0s.set_bit(self.to_idx((ix - shift) as usize, t), true);
                 }
@@ -556,7 +537,7 @@ impl<B: UScalar, Y: GolDy, F: GolForce<Y>, E: GolEnds<B>> GolGraph<B, Y, F, E> {
     fn expand_srch(&self, n1: &GolNode<B, Y>, n2s: &mut Vec<GolNode<B, Y>>) {
         let idx = n1.r2l as usize;
 
-        if idx == self.mt * self.mx {
+        if idx == self.params.mt * self.params.mx {
             let (shift, r0, r1) = self.recenter(n1.r1, n1.r2);
 
             if n1.r0 == B::zero() && n1.r1 == B::zero() && shift != 0 {
@@ -570,7 +551,7 @@ impl<B: UScalar, Y: GolDy, F: GolForce<Y>, E: GolEnds<B>> GolGraph<B, Y, F, E> {
                 r0: r0,
                 r1: r1,
                 r2: B::zero(),
-                r2_min_x: (self.mx - 1) as u8,
+                r2_min_x: (self.params.mx - 1) as u8,
                 r2_max_x: 0,
                 r2l: 0,
                 r2l_x: 0,
@@ -589,16 +570,16 @@ impl<B: UScalar, Y: GolDy, F: GolForce<Y>, E: GolEnds<B>> GolGraph<B, Y, F, E> {
             r2_min_x: n1.r2_min_x,
             r2_max_x: n1.r2_max_x,
             r2l: n1.r2l + 1,
-            r2l_x: if (n1.r2l_x as usize) == self.mx - 1 { 0 } else { n1.r2l_x + 1},
+            r2l_x: if (n1.r2l_x as usize) == self.params.mx - 1 { 0 } else { n1.r2l_x + 1},
         };
         'v: for &v in &[false, true] {
-            if !self.force.okay(x as usize, n1.dy.inc().inc(), || (idx / self.mx), v) {
+            if !self.force.okay(x as usize, n1.dy.inc().inc(), || (idx / self.params.mx), v) {
                 continue;
             }
             if v {
                 let r2_min_x = n1.r2_min_x.min(x);
                 let r2_max_x = n1.r2_max_x.max(x);
-                if (r2_max_x as usize) >= (r2_min_x as usize) + self.wx {
+                if (r2_max_x as usize) >= (r2_min_x as usize) + self.params.wx {
                     continue;
                 }
                 n2.r2_min_x = r2_min_x;
@@ -633,7 +614,7 @@ impl<B: UScalar, Y: GolDy, F: GolForce<Y>, E: GolEnds<B>> GolGraph<B, Y, F, E> {
     pub fn freeze_node(&self, n: &GolNode<B, Y>) -> GolNodeSerdeProxy<B, Y> {
         debug_assert_eq!(n.r2_min_x as usize, self.find_min_x(n.r2));
         debug_assert_eq!(n.r2_max_x as usize, self.find_max_x(n.r2));
-        debug_assert_eq!(n.r2l_x as usize, (n.r2l as usize) % self.mx);
+        debug_assert_eq!(n.r2l_x as usize, (n.r2l as usize) % self.params.mx);
 
         GolNodeSerdeProxy {
             dx: n.dx,
@@ -655,7 +636,7 @@ impl<B: UScalar, Y: GolDy, F: GolForce<Y>, E: GolEnds<B>> GolGraph<B, Y, F, E> {
             r2_min_x: self.find_min_x(n.r2) as u8,
             r2_max_x: self.find_max_x(n.r2) as u8,
             r2l: n.r2l,
-            r2l_x: ((n.r2l as usize) % self.mx) as u8,
+            r2l_x: ((n.r2l as usize) % self.params.mx) as u8,
         }
     }
 }

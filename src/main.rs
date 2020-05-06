@@ -20,7 +20,7 @@ use dfs::TreeStatus;
 use gol::graph::GolEdge;
 use gol::graph::GolNode;
 use gol::graph::GolNodeSerdeProxy;
-use gol::graph::GolPreGraph;
+use gol::graph::GolGraphParams;
 use gol::graph::GolRecenter;
 use gol::lifecycle::GolLifecycle;
 
@@ -29,7 +29,7 @@ fn main() {
 }
 
 fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError> {
-    let ge: GolPreGraph = GolPreGraph {
+    let ge = GolGraphParams {
         mt: 3,
         mx: 8,
         wx: 8,
