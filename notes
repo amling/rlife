@@ -57,6 +57,8 @@ DB of known solvable states?
         actual r0/r1 values changes by mx
         may need to duplicate nodes in non-recentering search
         may need to rephase, etc.
+        sketched, not really tested yet
+        also, this doesn't necessarily find all splits, e.g.  for a U-shaped ship it won't consider the arms to be solvable individually
 
 bfs2
     parallelize?
