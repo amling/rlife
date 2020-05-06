@@ -51,7 +51,7 @@ impl<'a, B: UScalar + Serialize, Y: GolDy + Serialize, F: GolForce<Y>, E: GolEnd
 
     fn on_recollect_firstest(&mut self, firstest: (Vec<GolKeyNode<B>>, GolNode<B, Y>)) {
         eprintln!("Recollect firstest...");
-        for line in self.ge.format_rows(&firstest.0, Some(&firstest.1)) {
+        for line in self.ge.params.format_rows(&firstest.0, Some(&firstest.1)) {
             eprintln!("{}", line);
         }
     }
@@ -59,7 +59,7 @@ impl<'a, B: UScalar + Serialize, Y: GolDy + Serialize, F: GolForce<Y>, E: GolEnd
     fn on_recollect_results(&mut self, r: DfsRes<GolKeyNode<B>>) -> bool {
         for (path, cycle, last) in &r.cycles {
             self.log("Cycle:");
-            for line in self.ge.format_cycle_rows(path, cycle, last) {
+            for line in self.ge.params.format_cycle_rows(path, cycle, last) {
                 self.log(line);
             }
             self.log("");
@@ -67,7 +67,7 @@ impl<'a, B: UScalar + Serialize, Y: GolDy + Serialize, F: GolForce<Y>, E: GolEnd
 
         for (path, label) in &r.ends {
             self.log(format!("End {:?}:", label));
-            for line in self.ge.format_rows(path, None) {
+            for line in self.ge.params.format_rows::<B, Y>(path, None) {
                 self.log(line);
             }
             self.log("");
@@ -109,7 +109,7 @@ impl<'a, B: UScalar + Serialize, Y: GolDy + Serialize, F: GolForce<Y>, E: GolEnd
             let path1 = format!("{}/{}", output_dir, ".tree.tmp");
             let f = File::create(&path1).unwrap();
             let f = BufWriter::new(f);
-            let tree = tree.as_ref().map(&mut |n| self.ge.freeze_node(n));
+            let tree = tree.as_ref().map(&mut |n| self.ge.params.freeze_node(n));
             let tree = tree.to_serde_proxy();
             serde_json::to_writer(f, &tree).unwrap();
             std::fs::rename(&path1, &path2).unwrap();
@@ -118,7 +118,7 @@ impl<'a, B: UScalar + Serialize, Y: GolDy + Serialize, F: GolForce<Y>, E: GolEnd
 
     fn debug_longest(&mut self, path: &Vec<GolKeyNode<B>>) {
         self.log(format!("Longest {}", path.len()));
-        for line in self.ge.format_rows(path, None) {
+        for line in self.ge.params.format_rows::<B, Y>(path, None) {
             self.log(line);
         }
         self.log("");

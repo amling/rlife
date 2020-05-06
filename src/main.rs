@@ -53,9 +53,9 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
         r2: B::zero(),
         r2l: 0,
     };
-    let n0 = ge.thaw_node(&n0);
+    let n0 = ge.params.thaw_node(&n0);
 
-    let (shift, _, _) = ge.recenter(n0.r0, n0.r1);
+    let (shift, _, _) = ge.params.recenter(n0.r0, n0.r1);
     assert_eq!(0, shift);
 
     let mut le = GolLifecycle {
