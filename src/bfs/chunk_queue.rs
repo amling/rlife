@@ -70,6 +70,10 @@ impl<N> ChunkQueue<N> {
         None
     }
 
+    pub fn into_iter(self) -> impl Iterator<Item=N> {
+        self.q.into_iter().map(|q| q.into_iter()).flatten()
+    }
+
     pub fn iter(&self) -> impl Iterator<Item=&N> {
         self.q.iter().map(|q| q.iter()).flatten()
     }

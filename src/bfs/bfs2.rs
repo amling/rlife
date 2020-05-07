@@ -2,6 +2,9 @@
 
 use crossbeam::queue::PopError;
 use crossbeam::queue::SegQueue;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
 
 use crate::bfs;
 use crate::dfs;
@@ -16,171 +19,292 @@ use dfs::lifecycle::DfsLifecycle;
 use dfs::lifecycle::LogLevel;
 use dfs::res::DfsRes;
 
+struct WorkUnit<N: DfsNode> {
+    q: ChunkQueue<(usize, N)>,
+    q2: ChunkQueue<(usize, N, Option<N::KN>)>,
+    r: DfsRes<N::KN>,
+}
+
+impl<N: DfsNode> WorkUnit<N> {
+    fn new(q: ChunkQueue<(usize, N)>) -> Self {
+        WorkUnit {
+            q: q,
+            q2: ChunkQueue::new(),
+            r: DfsRes::new(),
+        }
+    }
+
+    fn mem(&self, kns: &KnPile<N::KN>) -> usize {
+        let qm = q_mem(&self.q);
+        let q2em = q_el_mem(&self.q2).max(q_el_mem(&self.q) + kns_el_mem(kns));
+        let q2m = self.q2.len() * q2em;
+        qm + q2m
+    }
+}
+
 pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(n0s: Vec<N>, ge: &GE, le: &mut LE) {
+    let mem_max = (8 << 30);
+
     let threads = le.threads();
     let shards = threads * 10;
 
     let mut kns = KnPile::of(n0s.iter().map(|n0| n0.key_node().unwrap()));
-    let mut qa = ChunkQueue::new();
+    let mut q = ChunkQueue::new();
     for (idx, n0) in n0s.into_iter().enumerate() {
-        qa.push_back((idx, n0));
+        q.push_back((idx, n0));
     }
-    let mut qa_foresight = 0;
+    let mut foresight = 0;
     let mut depth = 0;
 
     loop {
-        // space each element of qa may expand into, either in qb or in kns and qc
-        // TODO: this 2 expansion factor is a total hack
-        let per_element_space = 2 * (std::mem::size_of::<(usize, N, Option<N::KN>)>().max(kns.esize() + std::mem::size_of::<(usize, N)>()));
+        let size = q.len();
 
+        if size == 0 {
+            break;
+        }
+
+        {
+            let ql = q.len();
+            let qm = ql * q_el_mem(&q);
+            let kl = kns.len();
+            let km = kl * kns_el_mem(&kns);
+            let m = qm + km;
+            le.log(LogLevel::INFO, format!("Queue {} ({}), kns {} ({}), total {}", ql, fmt_mem(qm), kl, fmt_mem(km), fmt_mem(m)));
+        }
+
+        // step1: split q into work units
+        let mut ws: Vec<_> = q.drain_partition(shards).into_iter().map(|q| WorkUnit::new(q)).collect();
+
+        // step2: expand until all work units are done, deepening as needed
         loop {
-            let mem = kns.len() * kns_el_mem(&kns) + per_element_space * qa.len();
-            if mem <= (1 << 33) {
-                le.log(LogLevel::INFO, format!("Estimated required memory {}, expanding...", fmt_mem(mem)));
-                break;
-            }
-            le.log(LogLevel::INFO, format!("Estimated required memory {}, deepening...", fmt_mem(mem)));
+            let stop = AtomicBool::new(false);
 
-            qa_foresight += 1;
-            deepen(ge, le, threads, "qa", &mut qa, qa_foresight, |&(idx, ref n)| {
-                let path = kns.materialize_cloned(idx);
-                (Path::from_vec(path), n.clone())
-            });
-
-            let living = vec![].into_iter();
-            let living = living.chain(qa.iter().map(|&(idx, _)| idx));
-            let live_remap = kns.rebuild(living, |msg| le.log(LogLevel::INFO, msg));
-
-            let t0 = std::time::Instant::now();
+            // step 2a: expand as much as we can until/unless we go over memory
             {
+                let mem = ws.iter().map(|w| w.mem(&kns)).sum::<usize>() + kns_mem(&kns);
+
                 let wq = SegQueue::new();
-                for chunk in qa.chunks_mut() {
-                    wq.push(chunk);
+                for w in ws.iter_mut() {
+                    wq.push(w);
                 }
+
+                let mem = AtomicUsize::new(mem);
 
                 crossbeam::scope(|sc| {
                     for _ in 0..threads {
                         sc.spawn(|_| {
                             loop {
-                                let chunk = match wq.pop() {
-                                    Ok(chunk) => chunk,
+                                let w = match wq.pop() {
+                                    Ok(w) => w,
                                     Err(PopError) => {
                                         return;
                                     }
                                 };
 
-                                for (idx, _) in chunk {
-                                    *idx = *live_remap.get(idx).unwrap();
+                                loop {
+                                    if stop.load(Ordering::Relaxed) {
+                                        return;
+                                    }
+
+                                    let wm0 = w.mem(&kns);
+                                    let (prev_idx, n) = match w.q.pop_front() {
+                                        Some(p) => p,
+                                        None => {
+                                            break;
+                                        }
+                                    };
+
+                                    for n2 in ge.expand(&n) {
+                                        let kn2 = n2.key_node();
+                                        if let Some(kn2) = &kn2 {
+                                            if let Some(label) = ge.end(kn2) {
+                                                let mut path = kns.materialize_cloned(prev_idx);
+                                                path.push(kn2.clone());
+                                                le.debug_end(&path, label);
+                                                w.r.add_end(path, label);
+                                                continue;
+                                            }
+
+                                            let hn2 = kn2.hash_node();
+                                            let find_f = |idx, kn: &N::KN| {
+                                                if kn.hash_node() == hn2 {
+                                                    Some(idx)
+                                                }
+                                                else {
+                                                    None
+                                                }
+                                            };
+                                            if let Some(rep_idx) = kns.find(prev_idx, find_f) {
+                                                let mut path = kns.materialize_cloned(rep_idx);
+                                                path.pop().unwrap();
+                                                let mut cycle = kns.materialize_cloned(prev_idx);
+                                                let path2: Vec<_> = cycle.drain(0..path.len()).collect();
+                                                assert_eq!(path, path2);
+                                                le.debug_cycle(&path, &cycle, kn2);
+                                                w.r.add_cycle(path, cycle, kn2.clone());
+                                                continue;
+                                            }
+                                        }
+
+                                        w.q2.push_back((prev_idx, n2, kn2));
+                                    }
+
+                                    let wm1 = w.mem(&kns);
+
+                                    if wm1 >= wm0 {
+                                        let inc = wm1 - wm0;
+                                        let old = mem.fetch_add(inc, Ordering::Relaxed);
+                                        if old + inc > mem_max {
+                                            // we're out of memory, bail
+                                            stop.store(true, Ordering::Relaxed);
+                                            return;
+                                        }
+                                    }
+                                    else {
+                                        mem.fetch_sub(wm0 - wm1, Ordering::Relaxed);
+                                    }
                                 }
                             }
                         });
                     }
                 }).unwrap();
             }
-            le.log(LogLevel::INFO, format!("Reindexed qa in {:?}", t0.elapsed()));
-        }
 
-        let qa_size = qa.len();
-
-        if qa_size == 0 {
-            break;
-        }
-
-        // Step one: expand qa into qb
-        let mut qa1s = qa.drain_partition(shards);
-        let mut qb1s: Vec<_> = qa1s.iter().map(|_| ChunkQueue::new()).collect();
-        let mut r1s: Vec<_> = qa1s.iter().map(|_| DfsRes::new()).collect();
-
-        {
-            let wq = SegQueue::new();
-            for tuple in qa1s.iter_mut().zip(qb1s.iter_mut()).zip(r1s.iter_mut()) {
-                wq.push(tuple);
-            }
-
-            crossbeam::scope(|sc| {
-                for _ in 0..threads {
-                    sc.spawn(|_| {
-                        loop {
-                            let ((qa1, qb1), r1) = match wq.pop() {
-                                Ok(tuple) => tuple,
-                                Err(PopError) => {
-                                    return;
-                                }
-                            };
-
-                            while let Some((prev_idx, n)) = qa1.pop_front() {
-                                for n2 in ge.expand(&n) {
-                                    let kn2 = n2.key_node();
-                                    if let Some(kn2) = &kn2 {
-                                        if let Some(label) = ge.end(kn2) {
-                                            let mut path = kns.materialize_cloned(prev_idx);
-                                            path.push(kn2.clone());
-                                            le.debug_end(&path, label);
-                                            r1.add_end(path, label);
-                                            continue;
-                                        }
-
-                                        let hn2 = kn2.hash_node();
-                                        let find_f = |idx, kn: &N::KN| {
-                                            if kn.hash_node() == hn2 {
-                                                Some(idx)
-                                            }
-                                            else {
-                                                None
-                                            }
-                                        };
-                                        if let Some(rep_idx) = kns.find(prev_idx, find_f) {
-                                            let mut path = kns.materialize_cloned(rep_idx);
-                                            path.pop().unwrap();
-                                            let mut cycle = kns.materialize_cloned(prev_idx);
-                                            let path2: Vec<_> = cycle.drain(0..path.len()).collect();
-                                            assert_eq!(path, path2);
-                                            le.debug_cycle(&path, &cycle, kn2);
-                                            r1.add_cycle(path, cycle, kn2.clone());
-                                            continue;
-                                        }
-                                    }
-
-                                    qb1.push_back((prev_idx, n2, kn2));
-                                }
-                            }
-                        }
-                    });
+            if stop.load(Ordering::Relaxed) {
+                // step2b: deepen (as needed)
+                {
+                    let ql = ws.iter().map(|w| w.q.len()).sum::<usize>();
+                    let q2l = ws.iter().map(|w| w.q2.len()).sum::<usize>();
+                    let wm = ws.iter().map(|w| w.mem(&kns)).sum::<usize>();
+                    let kl = kns.len();
+                    let km = kl * kns_el_mem(&kns);
+                    let m = wm + km;
+                    le.log(LogLevel::INFO, format!("Queue [{}, {}] ({}), kns {} ({}), total {}, deepening...", ql, q2l, fmt_mem(wm), kl, fmt_mem(km), fmt_mem(m)));
                 }
-            }).unwrap();
-        }
 
-        let mut r = DfsRes::new();
-        for mut r1 in r1s {
-            r.append(&mut r1);
-        }
+                foresight += 1;
 
-        let mut qb = ChunkQueue::new();
-        for mut qb1 in qb1s {
-            qb.append(&mut qb1);
-        }
+                let t0 = std::time::Instant::now();
+                {
+                    let wq = SegQueue::new();
+                    for w in ws.iter_mut() {
+                        wq.push(w);
+                    }
 
-        // Step two: fold qb over into kns and qc
-        let mut qc = ChunkQueue::new();
-        while let Some((prev_idx, n, kn)) = qb.pop_front() {
-            let mut prev_idx = prev_idx;
-            if let Some(kn) = kn {
-                prev_idx = kns.push(prev_idx, kn);
+                    crossbeam::scope(|sc| {
+                        for _ in 0..threads {
+                            sc.spawn(|_| {
+                                loop {
+                                    let w = match wq.pop() {
+                                        Ok(w) => w,
+                                        Err(PopError) => {
+                                            return;
+                                        }
+                                    };
+
+                                    w.q.retain(|&(prev_idx, ref n)| {
+                                        let path = kns.materialize_cloned(prev_idx);
+                                        let mut path = Path::from_vec(path);
+                                        let n = n.clone();
+
+                                        deepen_search(ge, &mut path, n, foresight)
+                                    });
+                                    w.q2.retain(|&(prev_idx, ref n, ref kn)| {
+                                        let mut path = kns.materialize_cloned(prev_idx);
+                                        if let Some(kn) = kn {
+                                            path.push(kn.clone());
+                                        }
+                                        let mut path = Path::from_vec(path);
+                                        let n = n.clone();
+
+                                        deepen_search(ge, &mut path, n, foresight - 1)
+                                    });
+                                }
+                            });
+                        }
+                    }).unwrap();
+                }
+
+                {
+                    let ql = ws.iter().map(|w| w.q.len()).sum::<usize>();
+                    let q2l = ws.iter().map(|w| w.q2.len()).sum::<usize>();
+                    let wm = ws.iter().map(|w| w.mem(&kns)).sum::<usize>();
+                    let kl = kns.len();
+                    let km = kl * kns_el_mem(&kns);
+                    let m = wm + km;
+                    le.log(LogLevel::INFO, format!("Deepened to queue [{}, {}] ({}), kns {} ({}), total {}, foresight {} in {:?}", ql, q2l, fmt_mem(wm), kl, fmt_mem(km), fmt_mem(m), foresight, t0.elapsed()));
+                }
+
+                let living = vec![].into_iter();
+                let living = living.chain(ws.iter().map(|w| w.q.iter().map(|&(idx, _)| idx)).flatten());
+                let living = living.chain(ws.iter().map(|w| w.q2.iter().map(|&(idx, _, _)| idx)).flatten());
+                let live_remap = kns.rebuild(living, |msg| le.log(LogLevel::INFO, msg));
+
+                let t0 = std::time::Instant::now();
+                {
+                    let wq = SegQueue::new();
+                    for w in ws.iter_mut() {
+                        wq.push(w);
+                    }
+
+                    crossbeam::scope(|sc| {
+                        for _ in 0..threads {
+                            sc.spawn(|_| {
+                                loop {
+                                    let w = match wq.pop() {
+                                        Ok(w) => w,
+                                        Err(PopError) => {
+                                            return;
+                                        }
+                                    };
+
+                                    for (idx, _) in w.q.iter_mut() {
+                                        *idx = *live_remap.get(idx).unwrap();
+                                    }
+                                    for (idx, _, _) in w.q2.iter_mut() {
+                                        *idx = *live_remap.get(idx).unwrap();
+                                    }
+                                }
+                            });
+                        }
+                    }).unwrap();
+                }
+                le.log(LogLevel::INFO, format!("Reindexed in {:?}", t0.elapsed()));
             }
-            qc.push_back((prev_idx, n));
+            else {
+                // finished, great
+                break;
+            }
+        }
+
+        // step3: fold work unit results together/into kns
+        let mut q2 = ChunkQueue::new();
+        let mut r = DfsRes::new();
+        for mut w in ws {
+            assert_eq!(0, w.q.len());
+
+            for (prev_idx, n, kn) in w.q2.into_iter() {
+                let mut prev_idx = prev_idx;
+                if let Some(kn) = kn {
+                    prev_idx = kns.push(prev_idx, kn);
+                }
+                q2.push_back((prev_idx, n));
+            }
+
+            r.append(&mut w.r);
         }
 
         // start over
-        qa = qc;
-        qa_foresight = match qa_foresight {
+        q = q2;
+        foresight = match foresight {
             0 => 0,
-            _ => qa_foresight - 1,
+            _ => foresight - 1,
         };
         depth += 1;
 
-        le.log(LogLevel::INFO, format!("Completed BFS step to depth {}, size {} => {}, estimated memory {}", depth, qa_size, qa.len(), fmt_mem(kns_mem(&kns) + q_mem(&qa))));
+        le.log(LogLevel::INFO, format!("Completed BFS step to depth {}", depth));
 
-        if let Some(&(idx, ref n)) = qa.front() {
+        if let Some(&(idx, ref n)) = q.front() {
             le.on_recollect_firstest((kns.materialize_cloned(idx), n.clone()));
         }
         if !le.on_recollect_results(r) {
@@ -196,6 +320,10 @@ fn kns_el_mem<N>(kns: &KnPile<N>) -> usize {
 
 fn kns_mem<N>(kns: &KnPile<N>) -> usize {
     kns.len() * kns_el_mem(kns)
+}
+
+fn q_el_mem<T>(_q: &ChunkQueue<T>) -> usize {
+    std::mem::size_of::<T>()
 }
 
 fn q_mem<T>(q: &ChunkQueue<T>) -> usize {
