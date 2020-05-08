@@ -73,7 +73,7 @@ impl<'a, B: UScalar + Serialize, Y: GolDy + Serialize, F: GolForce<Y>, E: GolEnd
             writeln!(log, "{}", msg).unwrap();
         }
         else {
-            println!("{}", msg);
+            eprintln!("{}", msg);
         }
     }
 
