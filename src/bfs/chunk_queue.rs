@@ -25,7 +25,7 @@ impl<N> ChunkQueue<N> {
 
         let chunk_size = self.chunk_size();
         if let Some(last) = self.q.back_mut() {
-            if last.len() < chunk_size {
+            if last.len() < last.capacity() {
                 last.push_back(n);
                 return;
             }
