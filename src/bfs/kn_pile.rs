@@ -170,7 +170,12 @@ impl<N> KnPile<N> {
     }
 
     pub fn len(&self) -> usize {
-        self.pile.iter().map(|v| v.len()).sum()
+        let len = match self.pile.last() {
+            Some(last) => (self.pile.len() - 1) * self.shard_size() + last.len(),
+            None => 0,
+        };
+        debug_assert_eq!(len, self.pile.iter().map(|v| v.len()).sum::<usize>());
+        len
     }
 
     pub fn esize(&self) -> usize {
