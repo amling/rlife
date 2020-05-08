@@ -92,3 +92,7 @@ bfs2 q2 problem
         freaking 8-alignment everywhere...
     we could split it into q2a: (usize, N) and q2b: (usize, N, KN)
         it means we couldn't maintain order in heterogenous key node graphs
+    we could KN cycle/end check in expand but don't actually save KN
+        then memory estimates for everything is easy
+        the hard part being we then have to be able to deepen when we try to fold into kns
+        sucks to have a second kind of deepen, but probably the best we can do
