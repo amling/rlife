@@ -77,6 +77,10 @@ bfs2
         so only want to drop something like once an hour and/or when indicated...
             well, benchmark and see how bad it is...
     arggh, memory limit is still off and debugging it sucks
+        rough VmPeak 1+ deepens into the same search with different configured maxes:
+        4GB mem_max => 10,223,780KB VmPeak
+        6GB mem_max => 11,502,808KB VmPeak
+        8GB mem_max => 19,988,192KB VmPeak
 
 hacks to enforce "gappiness" of unchecked edges
     track if we're in zeros or nonzeros, track length of segment
