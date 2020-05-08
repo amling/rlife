@@ -36,6 +36,7 @@ impl<N: DfsNode> WorkUnit<N> {
 
     fn mem(&self, kns: &KnPile<N::KN>) -> usize {
         let qm = q_mem(&self.q);
+        // TODO: this is freaking awful, e.g.  when q was 40b per q2 was 88b per (!)
         let q2em = q_el_mem(&self.q2).max(q_el_mem(&self.q) + kns_el_mem(kns));
         let q2m = self.q2.len() * q2em;
         qm + q2m
