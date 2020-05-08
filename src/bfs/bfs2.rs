@@ -21,7 +21,7 @@ use dfs::res::DfsRes;
 
 struct WorkUnit<N: DfsNode> {
     q: ChunkQueue<(usize, N)>,
-    q2: ChunkQueue<(usize, N, Option<N::KN>)>,
+    q2: ChunkQueue<(usize, N)>,
     r: DfsRes<N::KN>,
 }
 
@@ -32,14 +32,6 @@ impl<N: DfsNode> WorkUnit<N> {
             q2: ChunkQueue::new(),
             r: DfsRes::new(),
         }
-    }
-
-    fn mem(&self, kns: &KnPile<N::KN>) -> usize {
-        let qm = q_mem(&self.q);
-        // TODO: this is freaking awful, e.g.  when q was 40b per q2 was 88b per (!)
-        let q2em = q_el_mem(&self.q2).max(q_el_mem(&self.q) + kns_el_mem(kns));
-        let q2m = self.q2.len() * q2em;
-        qm + q2m
     }
 }
 
@@ -66,11 +58,11 @@ pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(n0s:
 
         {
             let ql = q.len();
-            let qm = ql * q_el_mem(&q);
+            let qm = q_mem(&q);
             let kl = kns.len();
-            let km = kl * kns_el_mem(&kns);
+            let km = kns_mem(&kns);
             let m = qm + km;
-            le.log(LogLevel::INFO, format!("Queue {} ({}), kns {} ({}), total {}", ql, fmt_mem(qm), kl, fmt_mem(km), fmt_mem(m)));
+            le.log(LogLevel::INFO, format!("q {} ({}), kns {} ({}), total {}", ql, fmt_mem(qm), kl, fmt_mem(km), fmt_mem(m)));
         }
 
         // step1: split q into work units
@@ -81,196 +73,160 @@ pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(n0s:
             let stop = AtomicBool::new(false);
 
             // step 2a: expand as much as we can until/unless we go over memory
-            {
-                let mem = ws.iter().map(|w| w.mem(&kns)).sum::<usize>() + kns_mem(&kns);
+            let mem = ws.iter().map(|w| q_mem(&w.q) + q_mem(&w.q2)).sum::<usize>() + kns_mem(&kns);
+            let mem = AtomicUsize::new(mem);
 
-                let wq = SegQueue::new();
-                for w in ws.iter_mut() {
-                    wq.push(w);
-                }
-
-                let mem = AtomicUsize::new(mem);
-
-                crossbeam::scope(|sc| {
-                    for _ in 0..threads {
-                        sc.spawn(|_| {
-                            loop {
-                                let w = match wq.pop() {
-                                    Ok(w) => w,
-                                    Err(PopError) => {
-                                        return;
-                                    }
-                                };
-
-                                loop {
-                                    if stop.load(Ordering::Relaxed) {
-                                        return;
-                                    }
-
-                                    let wm0 = w.mem(&kns);
-                                    let (prev_idx, n) = match w.q.pop_front() {
-                                        Some(p) => p,
-                                        None => {
-                                            break;
-                                        }
-                                    };
-
-                                    for n2 in ge.expand(&n) {
-                                        let kn2 = n2.key_node();
-                                        if let Some(kn2) = &kn2 {
-                                            if let Some(label) = ge.end(kn2) {
-                                                let mut path = kns.materialize_cloned(prev_idx);
-                                                path.push(kn2.clone());
-                                                le.debug_end(&path, label);
-                                                w.r.add_end(path, label);
-                                                continue;
-                                            }
-
-                                            let hn2 = kn2.hash_node();
-                                            let find_f = |idx, kn: &N::KN| {
-                                                if kn.hash_node() == hn2 {
-                                                    Some(idx)
-                                                }
-                                                else {
-                                                    None
-                                                }
-                                            };
-                                            if let Some(rep_idx) = kns.find(prev_idx, find_f) {
-                                                let mut path = kns.materialize_cloned(rep_idx);
-                                                path.pop().unwrap();
-                                                let mut cycle = kns.materialize_cloned(prev_idx);
-                                                let path2: Vec<_> = cycle.drain(0..path.len()).collect();
-                                                assert_eq!(path, path2);
-                                                le.debug_cycle(&path, &cycle, kn2);
-                                                w.r.add_cycle(path, cycle, kn2.clone());
-                                                continue;
-                                            }
-                                        }
-
-                                        w.q2.push_back((prev_idx, n2, kn2));
-                                    }
-
-                                    let wm1 = w.mem(&kns);
-
-                                    if wm1 >= wm0 {
-                                        let inc = wm1 - wm0;
-                                        let old = mem.fetch_add(inc, Ordering::Relaxed);
-                                        if old + inc > mem_max {
-                                            // we're out of memory, bail
-                                            stop.store(true, Ordering::Relaxed);
-                                            return;
-                                        }
-                                    }
-                                    else {
-                                        mem.fetch_sub(wm0 - wm1, Ordering::Relaxed);
-                                    }
-                                }
-                            }
-                        });
+            singleton_par(threads, &mut ws, |w| {
+                loop {
+                    if stop.load(Ordering::Relaxed) {
+                        return;
                     }
-                }).unwrap();
-            }
+
+                    let wm0 = q_mem(&w.q) + q_mem(&w.q2);
+                    let (prev_idx, n) = match w.q.pop_front() {
+                        Some(p) => p,
+                        None => {
+                            break;
+                        }
+                    };
+
+                    for n2 in ge.expand(&n) {
+                        let kn2 = n2.key_node();
+                        if let Some(kn2) = &kn2 {
+                            if let Some(label) = ge.end(kn2) {
+                                let mut path = kns.materialize_cloned(prev_idx);
+                                path.push(kn2.clone());
+                                le.debug_end(&path, label);
+                                w.r.add_end(path, label);
+                                continue;
+                            }
+
+                            let hn2 = kn2.hash_node();
+                            let find_f = |idx, kn: &N::KN| {
+                                if kn.hash_node() == hn2 {
+                                    Some(idx)
+                                }
+                                else {
+                                    None
+                                }
+                            };
+                            if let Some(rep_idx) = kns.find(prev_idx, find_f) {
+                                let mut path = kns.materialize_cloned(rep_idx);
+                                path.pop().unwrap();
+                                let mut cycle = kns.materialize_cloned(prev_idx);
+                                let path2: Vec<_> = cycle.drain(0..path.len()).collect();
+                                assert_eq!(path, path2);
+                                le.debug_cycle(&path, &cycle, kn2);
+                                w.r.add_cycle(path, cycle, kn2.clone());
+                                continue;
+                            }
+                        }
+
+                        w.q2.push_back((prev_idx, n2));
+                    }
+
+                    let wm1 = q_mem(&w.q) + q_mem(&w.q2);
+
+                    if wm1 >= wm0 {
+                        let inc = wm1 - wm0;
+                        let old = mem.fetch_add(inc, Ordering::Relaxed);
+                        if old + inc > mem_max {
+                            // we're out of memory, bail
+                            stop.store(true, Ordering::Relaxed);
+                            return;
+                        }
+                    }
+                    else {
+                        mem.fetch_sub(wm0 - wm1, Ordering::Relaxed);
+                    }
+                }
+            });
 
             if stop.load(Ordering::Relaxed) {
                 // step2b: deepen (as needed)
-                {
+                let m_before = {
                     let ql = ws.iter().map(|w| w.q.len()).sum::<usize>();
+                    let qm = ws.iter().map(|w| q_mem(&w.q)).sum::<usize>();
                     let q2l = ws.iter().map(|w| w.q2.len()).sum::<usize>();
-                    let wm = ws.iter().map(|w| w.mem(&kns)).sum::<usize>();
+                    let q2m = ws.iter().map(|w| q_mem(&w.q2)).sum::<usize>();
                     let kl = kns.len();
-                    let km = kl * kns_el_mem(&kns);
-                    let m = wm + km;
-                    le.log(LogLevel::INFO, format!("Queue [{}, {}] ({}), kns {} ({}), total {}, deepening...", ql, q2l, fmt_mem(wm), kl, fmt_mem(km), fmt_mem(m)));
-                }
+                    let km = kns_mem(&kns);
+                    let m = qm + q2m + km;
+                    le.log(LogLevel::INFO, format!("ws.q {} ({}), ws.q2 {} ({}), kns {} ({}), total {}, deepening...", ql, fmt_mem(qm), q2l, fmt_mem(q2m), kl, fmt_mem(km), fmt_mem(m)));
+
+                    m
+                };
+                let t0 = std::time::Instant::now();
 
                 foresight += 1;
 
-                let t0 = std::time::Instant::now();
                 {
-                    let wq = SegQueue::new();
-                    for w in ws.iter_mut() {
-                        wq.push(w);
-                    }
+                    let before = ws.iter().map(|w| w.q.len()).sum::<usize>();
+                    let t0 = std::time::Instant::now();
+                    singleton_par(threads, &mut ws, |w| {
+                        w.q.retain(|&(prev_idx, ref n)| {
+                            let path = kns.materialize_cloned(prev_idx);
+                            let mut path = Path::from_vec(path);
+                            let n = n.clone();
 
-                    crossbeam::scope(|sc| {
-                        for _ in 0..threads {
-                            sc.spawn(|_| {
-                                loop {
-                                    let w = match wq.pop() {
-                                        Ok(w) => w,
-                                        Err(PopError) => {
-                                            return;
-                                        }
-                                    };
-
-                                    w.q.retain(|&(prev_idx, ref n)| {
-                                        let path = kns.materialize_cloned(prev_idx);
-                                        let mut path = Path::from_vec(path);
-                                        let n = n.clone();
-
-                                        deepen_search(ge, &mut path, n, foresight)
-                                    });
-                                    w.q2.retain(|&(prev_idx, ref n, ref kn)| {
-                                        let mut path = kns.materialize_cloned(prev_idx);
-                                        if let Some(kn) = kn {
-                                            path.push(kn.clone());
-                                        }
-                                        let mut path = Path::from_vec(path);
-                                        let n = n.clone();
-
-                                        deepen_search(ge, &mut path, n, foresight - 1)
-                                    });
-                                }
-                            });
-                        }
-                    }).unwrap();
+                            deepen_search(ge, &mut path, n, foresight)
+                        });
+                    });
+                    let after = ws.iter().map(|w| w.q.len()).sum::<usize>();
+                    le.log(LogLevel::INFO, format!("Deepened ws.q {} => {}, foresight {} in {:?}", before, after, foresight, t0.elapsed()));
                 }
 
                 {
-                    let ql = ws.iter().map(|w| w.q.len()).sum::<usize>();
-                    let q2l = ws.iter().map(|w| w.q2.len()).sum::<usize>();
-                    let wm = ws.iter().map(|w| w.mem(&kns)).sum::<usize>();
-                    let kl = kns.len();
-                    let km = kl * kns_el_mem(&kns);
-                    let m = wm + km;
-                    le.log(LogLevel::INFO, format!("Deepened to queue [{}, {}] ({}), kns {} ({}), total {}, foresight {} in {:?}", ql, q2l, fmt_mem(wm), kl, fmt_mem(km), fmt_mem(m), foresight, t0.elapsed()));
+                    let before = ws.iter().map(|w| w.q2.len()).sum::<usize>();
+                    let t0 = std::time::Instant::now();
+                    singleton_par(threads, &mut ws, |w| {
+                        w.q2.retain(|&(prev_idx, ref n)| {
+                            let mut path = kns.materialize_cloned(prev_idx);
+                            if let Some(kn) = n.key_node() {
+                                path.push(kn.clone());
+                            }
+                            let mut path = Path::from_vec(path);
+                            let n = n.clone();
+
+                            deepen_search(ge, &mut path, n, foresight - 1)
+                        });
+                    });
+                    let after = ws.iter().map(|w| w.q2.len()).sum::<usize>();
+                    le.log(LogLevel::INFO, format!("Deepened ws.q2 {} => {}, foresight {} in {:?}", before, after, foresight - 1, t0.elapsed()));
                 }
 
                 let living = vec![].into_iter();
                 let living = living.chain(ws.iter().map(|w| w.q.iter().map(|&(idx, _)| idx)).flatten());
-                let living = living.chain(ws.iter().map(|w| w.q2.iter().map(|&(idx, _, _)| idx)).flatten());
+                let living = living.chain(ws.iter().map(|w| w.q2.iter().map(|&(idx, _)| idx)).flatten());
                 let live_remap = kns.rebuild(living, |msg| le.log(LogLevel::INFO, msg));
 
-                let t0 = std::time::Instant::now();
                 {
-                    let wq = SegQueue::new();
-                    for w in ws.iter_mut() {
-                        wq.push(w);
-                    }
-
-                    crossbeam::scope(|sc| {
-                        for _ in 0..threads {
-                            sc.spawn(|_| {
-                                loop {
-                                    let w = match wq.pop() {
-                                        Ok(w) => w,
-                                        Err(PopError) => {
-                                            return;
-                                        }
-                                    };
-
-                                    for (idx, _) in w.q.iter_mut() {
-                                        *idx = *live_remap.get(idx).unwrap();
-                                    }
-                                    for (idx, _, _) in w.q2.iter_mut() {
-                                        *idx = *live_remap.get(idx).unwrap();
-                                    }
-                                }
-                            });
+                    let t0 = std::time::Instant::now();
+                    singleton_par(threads, &mut ws, |w| {
+                        for (idx, _) in w.q.iter_mut() {
+                            *idx = *live_remap.get(idx).unwrap();
                         }
-                    }).unwrap();
+                    });
+                    le.log(LogLevel::INFO, format!("Reindexed ws.q in {:?}", t0.elapsed()));
                 }
-                le.log(LogLevel::INFO, format!("Reindexed in {:?}", t0.elapsed()));
+
+                {
+                    let t0 = std::time::Instant::now();
+                    singleton_par(threads, &mut ws, |w| {
+                        for (idx, _) in w.q2.iter_mut() {
+                            *idx = *live_remap.get(idx).unwrap();
+                        }
+                    });
+                    le.log(LogLevel::INFO, format!("Reindexed ws.q2 in {:?}", t0.elapsed()));
+                }
+
+                {
+                    let qm = ws.iter().map(|w| q_mem(&w.q)).sum::<usize>();
+                    let q2m = ws.iter().map(|w| q_mem(&w.q2)).sum::<usize>();
+                    let km = kns_mem(&kns);
+                    let m = qm + q2m + km;
+                    le.log(LogLevel::INFO, format!("Deepening pass {} => {} completed in {:?}", fmt_mem(m_before), fmt_mem(m), t0.elapsed()));
+                }
             }
             else {
                 // finished, great
@@ -278,25 +234,121 @@ pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(n0s:
             }
         }
 
-        // step3: fold work unit results together/into kns
-        let mut q2 = ChunkQueue::new();
+        // step3a: fold work unit results together
+        let mut q3 = ChunkQueue::new();
         let mut r = DfsRes::new();
         for mut w in ws {
             assert_eq!(0, w.q.len());
 
-            for (prev_idx, n, kn) in w.q2.into_iter() {
-                let mut prev_idx = prev_idx;
-                if let Some(kn) = kn {
-                    prev_idx = kns.push(prev_idx, kn);
-                }
-                q2.push_back((prev_idx, n));
-            }
-
+            q3.append(&mut w.q2);
             r.append(&mut w.r);
         }
 
+        // step3b: fold results into kns
+        let mut q4 = ChunkQueue::new();
+        while let Some((prev_idx, n)) = q3.pop_front() {
+            let mut prev_idx = prev_idx;
+            if let Some(kn) = n.key_node() {
+                prev_idx = kns.push(prev_idx, kn);
+            }
+            q4.push_back((prev_idx, n));
+
+            loop {
+                // step3b.1: deepen (while needed)
+                let m_before = {
+                    let q3l = q3.len();
+                    let q3m = q_mem(&q3);
+                    let q4l = q4.len();
+                    let q4m = q_mem(&q4);
+                    let kl = kns.len();
+                    let km = kns_mem(&kns);
+                    let m = q3m + q4m + km;
+
+                    if m <= mem_max {
+                        break;
+                    }
+
+                    le.log(LogLevel::INFO, format!("q3 {} ({}), q4 {} ({}), kns {} ({}), total {}, deepening...", q3l, fmt_mem(q3m), q4l, fmt_mem(q4m), kl, fmt_mem(km), fmt_mem(m)));
+
+                    m
+                };
+                let t0 = std::time::Instant::now();
+
+                foresight += 1;
+
+                {
+                    let t0 = std::time::Instant::now();
+                    let before = q3.len();
+                    cq_par(threads, shards, &mut q3, |q3| {
+                        q3.retain(|&(prev_idx, ref n)| {
+                            let mut path = kns.materialize_cloned(prev_idx);
+                            if let Some(kn) = n.key_node() {
+                                path.push(kn.clone());
+                            }
+                            let mut path = Path::from_vec(path);
+                            let n = n.clone();
+
+                            deepen_search(ge, &mut path, n, foresight - 1)
+                        });
+                    });
+                    let after = q3.len();
+                    le.log(LogLevel::INFO, format!("Deepened q3 {} => {}, foresight {} in {:?}", before, after, foresight - 1, t0.elapsed()));
+                }
+
+                {
+                    let t0 = std::time::Instant::now();
+                    let before = q4.len();
+                    cq_par(threads, shards, &mut q4, |q4| {
+                        q4.retain(|&(prev_idx, ref n)| {
+                            let path = kns.materialize_cloned(prev_idx);
+                            let mut path = Path::from_vec(path);
+                            let n = n.clone();
+
+                            deepen_search(ge, &mut path, n, foresight - 1)
+                        });
+                    });
+                    let after = q4.len();
+                    le.log(LogLevel::INFO, format!("Deepened q4 {} => {}, foresight {} in {:?}", before, after, foresight - 1, t0.elapsed()));
+                }
+
+                let living = vec![].into_iter();
+                let living = living.chain(q3.iter().map(|&(idx, _)| idx));
+                let living = living.chain(q4.iter().map(|&(idx, _)| idx));
+                let live_remap = kns.rebuild(living, |msg| le.log(LogLevel::INFO, msg));
+
+                {
+                    let t0 = std::time::Instant::now();
+                    cq_par(threads, shards, &mut q3, |q3| {
+                        for (idx, _) in q3.iter_mut() {
+                            *idx = *live_remap.get(idx).unwrap();
+                        }
+                    });
+                    le.log(LogLevel::INFO, format!("Reindexed q3 in {:?}", t0.elapsed()));
+                }
+
+                {
+                    let t0 = std::time::Instant::now();
+                    cq_par(threads, shards, &mut q4, |q4| {
+                        for (idx, _) in q4.iter_mut() {
+                            *idx = *live_remap.get(idx).unwrap();
+                        }
+                    });
+                    le.log(LogLevel::INFO, format!("Reindexed q4 in {:?}", t0.elapsed()));
+                }
+
+                {
+                    let q3m = q_mem(&q3);
+                    let q4m = q_mem(&q4);
+                    let km = kns_mem(&kns);
+                    let m = q3m + q4m + km;
+
+                    le.log(LogLevel::INFO, format!("Deepening pass {} => {} completed in {:?}", fmt_mem(m_before), fmt_mem(m), t0.elapsed()));
+                }
+            }
+        }
+
         // start over
-        q = q2;
+        q = q4;
         foresight = match foresight {
             0 => 0,
             _ => foresight - 1,
@@ -314,17 +366,9 @@ pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(n0s:
     }
 }
 
-fn kns_el_mem<N>(kns: &KnPile<N>) -> usize {
-    // whatever kns thinks plus (usize, usize) for space during recompaction
-    kns.esize() + std::mem::size_of::<(usize, usize)>()
-}
-
 fn kns_mem<N>(kns: &KnPile<N>) -> usize {
-    kns.len() * kns_el_mem(kns)
-}
-
-fn q_el_mem<T>(_q: &ChunkQueue<T>) -> usize {
-    std::mem::size_of::<T>()
+    // whatever kns thinks plus (usize, usize) for space during recompaction
+    kns.len() * (kns.esize() + std::mem::size_of::<(usize, usize)>())
 }
 
 fn q_mem<T>(q: &ChunkQueue<T>) -> usize {
@@ -348,56 +392,6 @@ fn fmt_mem(mem: usize) -> String {
     }
 
     return format!("{} B", mem);
-}
-
-fn deepen<T: Send, N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N>, F: Fn(&T) -> (Path<N>, N) + Send + Sync>(ge: &GE, le: &mut LE, threads: usize, name: &'static str, q: &mut ChunkQueue<T>, foresight: usize, f: F) {
-    if foresight == 0 {
-        return;
-    }
-    let size0 = q.len();
-    if size0 == 0 {
-        return;
-    }
-
-    let t0 = std::time::Instant::now();
-    le.log(LogLevel::INFO, format!("Deepening {} from size {}...", name, size0));
-
-    let shards = threads * 10;
-    let mut q1s = q.drain_partition(shards);
-
-    {
-        let wq = SegQueue::new();
-        for q1 in q1s.iter_mut() {
-            wq.push(q1);
-        }
-
-        crossbeam::scope(|sc| {
-            for _ in 0..threads {
-                sc.spawn(|_| {
-                    loop {
-                        let q1 = match wq.pop() {
-                            Ok(q1) => q1,
-                            Err(PopError) => {
-                                return;
-                            }
-                        };
-
-                        q1.retain(|t| {
-                            let (mut path, n) = f(t);
-
-                            deepen_search(ge, &mut path, n, foresight)
-                        });
-                    }
-                });
-            }
-        }).unwrap();
-    }
-
-    for mut q1 in q1s {
-        q.append(&mut q1);
-    }
-
-    le.log(LogLevel::INFO, format!("Deepened {} from size {} to size {} foresight {} in {:?}", name, size0, q.len(), foresight, t0.elapsed()));
 }
 
 fn deepen_search<N: DfsNode, GE: DfsGraph<N>>(ge: &GE, path: &mut Path<N>, n: N, foresight: usize) -> bool {
@@ -429,4 +423,38 @@ fn deepen_search<N: DfsNode, GE: DfsGraph<N>>(ge: &GE, path: &mut Path<N>, n: N,
     }
 
     false
+}
+
+fn singleton_par<T: Send>(threads: usize, ts: &mut Vec<T>, f: impl Fn(&mut T) + Sync) {
+    let wq = SegQueue::new();
+    for t in ts.iter_mut() {
+        wq.push(t);
+    }
+
+    crossbeam::scope(|sc| {
+        for _ in 0..threads {
+            sc.spawn(|_| {
+                loop {
+                    let t = match wq.pop() {
+                        Ok(t) => t,
+                        Err(PopError) => {
+                            return;
+                        }
+                    };
+
+                    f(t);
+                }
+            });
+        }
+    }).unwrap();
+}
+
+fn cq_par<T: Send>(threads: usize, shards: usize, ts: &mut ChunkQueue<T>, f: impl Fn(&mut ChunkQueue<T>) + Sync) {
+    let mut tss = ts.drain_partition(shards);
+
+    singleton_par(threads, &mut tss, f);
+
+    for mut ts1 in tss {
+        ts.append(&mut ts1);
+    }
 }
