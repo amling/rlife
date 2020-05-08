@@ -2,28 +2,39 @@
 
 use std::fmt::Debug;
 use std::hash::Hash;
+use std::ops::Add;
+use std::ops::AddAssign;
 use std::ops::BitAnd;
 use std::ops::BitAndAssign;
 use std::ops::BitOr;
 use std::ops::BitOrAssign;
+use std::ops::Div;
+use std::ops::Mul;
 use std::ops::Not;
 use std::ops::Shl;
 use std::ops::ShlAssign;
 use std::ops::Shr;
 use std::ops::ShrAssign;
 use std::ops::Sub;
+use std::ops::SubAssign;
 
 marker_trait! {
     ScalarMarker:
+    [Add<Output=Self>]
+    [AddAssign]
     [BitAnd<Output=Self>]
     [BitAndAssign]
     [BitOr<Output=Self>]
     [BitOrAssign]
     [Copy]
     [Debug]
+    [Div<Output=Self>]
     [Eq]
     [Hash]
+    [Mul<Output=Self>]
     [Not<Output=Self>]
+    [Ord]
+    [PartialOrd]
     [Send]
     [Shl<usize, Output=Self>]
     [ShlAssign<usize>]
@@ -31,6 +42,7 @@ marker_trait! {
     [ShrAssign<usize>]
     [Sized]
     [Sub<Output=Self>]
+    [SubAssign]
     [Sync]
 }
 
@@ -96,3 +108,6 @@ uxx_scalar_impl!(u16, 16);
 uxx_scalar_impl!(u32, 32);
 uxx_scalar_impl!(u64, 64);
 uxx_scalar_impl!(u128, 128);
+
+// wtf, I can't find a better way to get bit count...
+uxx_scalar_impl!(usize, (std::usize::MAX.count_ones() as usize));
