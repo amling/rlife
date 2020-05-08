@@ -81,6 +81,11 @@ bfs2
         4GB mem_max => 10,223,780KB VmPeak
         6GB mem_max => 11,502,808KB VmPeak
         8GB mem_max => 19,988,192KB VmPeak
+        oh, did VecDeque fuck us?
+        it seems like with_capacity() is with at least that much and from the source it goes to next power of two
+        but this can't explain our 2.5x, it's at most 2x...
+        and if element size is 40 we expect 1MB / 40B = 26214.4 attempted size which is only 1.25x up to 32768
+        using VecDeque to capacity instead gets 8GB mem_max to 15,964,872KB VmPeak which is still horrible
 
 hacks to enforce "gappiness" of unchecked edges
     track if we're in zeros or nonzeros, track length of segment
