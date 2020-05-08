@@ -86,6 +86,7 @@ bfs2
         but this can't explain our 2.5x, it's at most 2x...
         and if element size is 40 we expect 1MB / 40B = 26214.4 attempted size which is only 1.25x up to 32768
         using VecDeque to capacity instead gets 8GB mem_max to 15,964,872KB VmPeak which is still horrible
+        holy shit, crossbeam (epoch?) is a disaster
 
 hacks to enforce "gappiness" of unchecked edges
     track if we're in zeros or nonzeros, track length of segment
