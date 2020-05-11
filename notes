@@ -63,12 +63,7 @@ DB of known solvable states?
 
 bfs2
     parallelize?
-        normal stepping, probably
-            jackassed up with fully pre-reserving memory
-        kns recollect?
-            we did parallelize the reindex, but the actual sliding recollect seems impossible to parallelize
-        maybe actually figure out what percentage of time is where
-            ugh, seems like normal stepping is dominating some of these...
+        only kns foldover and kns recollect left and both pretty fast I think?
     checkpoint?
         sort of a mess, need to go back to having directory
         dropping state is very, very expensive
