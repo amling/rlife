@@ -424,7 +424,7 @@ impl GolGraphParams {
                         c = '?';
                     }
                 }
-                pr.insert(x0 + (x as isize), y0, t, c);
+                pr.insert(x0 + (x as isize), y0 as isize, t as isize, c);
             }
         }
     }
@@ -432,13 +432,13 @@ impl GolGraphParams {
     fn collect_dash_row(&self, pr: &mut PrintBag, x0: isize, y0: usize) {
         for t in 0..self.mt {
             for x in 0..self.mx {
-                pr.insert(x0 + (x as isize), y0, t, '-');
+                pr.insert(x0 + (x as isize), y0 as isize, t as isize, '-');
             }
         }
     }
 
     pub fn format_rows<B: UScalar, Y: GolDy>(&self, rows: &Vec<GolKeyNode<B>>, last: Option<&GolNode<B, Y>>) -> Vec<String> {
-        let mut pr = PrintBag::new(self.mt);
+        let mut pr = PrintBag::new();
         let mut y = 0;
         for (n, row) in rows.iter().enumerate() {
             if n == rows.len() - 1 {
@@ -461,7 +461,7 @@ impl GolGraphParams {
 
     pub fn format_cycle_rows<B: UScalar>(&self, path: &Vec<GolKeyNode<B>>, cycle: &Vec<GolKeyNode<B>>, last: &GolKeyNode<B>) -> Vec<String> {
         // Just need to output each first row once (since cycle continues forever).
-        let mut pr = PrintBag::new(self.mt);
+        let mut pr = PrintBag::new();
         let mut y = 0;
         for row in path.iter() {
             self.collect_row(&mut pr, row.r0, None, row.dx as isize, y);
