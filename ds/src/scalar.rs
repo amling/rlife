@@ -28,6 +28,7 @@ marker_trait! {
     [BitOrAssign]
     [Copy]
     [Debug]
+    [Default]
     [Div<Output=Self>]
     [Eq]
     [Hash]
