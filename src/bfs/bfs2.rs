@@ -366,7 +366,7 @@ pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(n0s:
     }
 }
 
-fn kns_mem<N>(kns: &KnPile<N>) -> usize {
+fn kns_mem<N: Default>(kns: &KnPile<N>) -> usize {
     // whatever kns thinks plus (usize, usize) for space during recompaction
     kns.len() * (kns.esize() + std::mem::size_of::<(usize, usize)>())
 }

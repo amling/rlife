@@ -5,6 +5,7 @@ marker_trait! {
     DfsNodeCommon:
     [Clone]
     [Debug]
+    [Default]
     [Eq]
     [Hash]
     [Send]

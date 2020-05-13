@@ -21,6 +21,7 @@ marker_trait! {
     [Clone]
     [Copy]
     [Debug]
+    [Default]
     [Eq]
     [Hash]
     [Send]
@@ -56,6 +57,7 @@ pub struct GolNodeSerdeProxy<B: UScalar, Y: GolDy> {
 
 #[derive(Clone)]
 #[derive(Debug)]
+#[derive(Default)]
 #[derive(Eq)]
 #[derive(Hash)]
 #[derive(PartialEq)]
@@ -89,6 +91,7 @@ impl<B: UScalar, Y: GolDy> DfsNode for GolNode<B, Y> {
 
 #[derive(Clone)]
 #[derive(Debug)]
+#[derive(Default)]
 #[derive(Eq)]
 #[derive(Hash)]
 #[derive(PartialEq)]
@@ -111,6 +114,7 @@ impl<B: UScalar> DfsKeyNode for GolKeyNode<B> {
 
 #[derive(Clone)]
 #[derive(Debug)]
+#[derive(Default)]
 #[derive(Eq)]
 #[derive(Hash)]
 #[derive(PartialEq)]

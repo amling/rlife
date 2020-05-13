@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-pub struct KnPile<N> {
+pub struct KnPile<N: Default> {
     pile: Vec<Vec<(usize, N)>>,
 }
 
-impl<N> KnPile<N> {
+impl<N: Default> KnPile<N> {
     fn shard_size(&self) -> usize {
         let d = self.esize();
         ((1 << 20) + d) / d
@@ -183,7 +183,7 @@ impl<N> KnPile<N> {
     }
 }
 
-impl<N: Clone> KnPile<N> {
+impl<N: Default + Clone> KnPile<N> {
     pub fn materialize_cloned(&self, idx: usize) -> Vec<N> {
         self.materialize(idx, |n| n.clone())
     }
