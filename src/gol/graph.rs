@@ -140,6 +140,7 @@ pub enum GolEdge {
     Gutter,
     Wrap,
     Unknown,
+    GlideSymEven,
 }
 
 #[derive(Clone)]
@@ -178,47 +179,70 @@ impl GolGraphParams {
     fn compute_prow_read(&self, len: usize, t: usize, x: isize) -> PartialRowRead {
         let mx = self.mx as isize;
         let mut x = x;
+        let mut t = t;
         loop {
             if x < 0 {
-                x = match self.left_edge {
+                match self.left_edge {
                     GolEdge::Empty => {
                         return PartialRowRead::Off;
                     },
-                    GolEdge::Odd => -x,
-                    GolEdge::Even => -x - 1,
+                    GolEdge::Odd => {
+                        x = -x;
+                    }
+                    GolEdge::Even => {
+                        x = -x - 1;
+                    }
                     GolEdge::Gutter => {
                         if x == -1 {
                             return PartialRowRead::Off;
                         }
-                        -x - 2
+                        x = -x - 2;
                     }
-                    GolEdge::Wrap => x + mx,
+                    GolEdge::Wrap => {
+                        x = x + mx;
+                    }
                     GolEdge::Unknown => {
                         return PartialRowRead::Unknown;
-                    },
-                };
+                    }
+                    GolEdge::GlideSymEven => {
+                        x = -x - 1;
+                        assert_eq!(self.mt % 2, 0);
+                        t = (t + self.mt / 2) % self.mt;
+                    }
+                }
                 // reinterpret for something weird like e.g.  -2 wrapped to 2 in mx 1
                 continue;
             }
 
             if x >= mx {
-                x = match self.right_edge {
+                match self.right_edge {
                     GolEdge::Empty => {
                         return PartialRowRead::Off;
-                    },
-                    GolEdge::Odd => 2 * mx - 2 - x,
-                    GolEdge::Even => 2 * mx - 1 - x,
+                    }
+                    GolEdge::Odd => {
+                        x = 2 * mx - 2 - x;
+                    }
+                    GolEdge::Even => {
+                        x = 2 * mx - 1 - x;
+                    }
                     GolEdge::Gutter => {
                         if x == mx {
                             return PartialRowRead::Off;
                         }
-                        2 * mx - x
-                    },
-                    GolEdge::Wrap => x - mx,
+                        x = 2 * mx - x;
+                    }
+                    GolEdge::Wrap => {
+                        x = x - mx;
+                    }
                     GolEdge::Unknown => {
                         return PartialRowRead::Unknown;
-                    },
-                };
+                    }
+                    GolEdge::GlideSymEven => {
+                        x = 2 * mx - 1 - x;
+                        assert_eq!(self.mt % 2, 0);
+                        t = (t + self.mt / 2) % self.mt;
+                    }
+                }
                 // reinterpret
                 continue;
             }
