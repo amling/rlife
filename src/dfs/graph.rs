@@ -25,7 +25,7 @@ pub trait DfsNode: DfsNodeCommon {
 pub trait DfsKeyNode: DfsNodeCommon {
     type HN: DfsNodeCommon;
 
-    fn hash_node<'a>(&'a self, path: impl Iterator<Item=&'a Self>) -> Self::HN;
+    fn hash_node<'a>(&'a self, path: impl Iterator<Item=&'a Self>) -> Option<Self::HN>;
 }
 
 pub trait DfsGraph<N: DfsNode> {

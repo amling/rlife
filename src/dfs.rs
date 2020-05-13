@@ -44,8 +44,10 @@ impl<N: DfsNode> Path<N> {
             let idx = vec.len();
 
             vec.push(kn);
-            let already = map.insert(hn, idx);
-            debug_assert!(!already.is_some());
+            if let Some(hn) = hn {
+                let already = map.insert(hn, idx);
+                debug_assert!(!already.is_some());
+            }
         }
 
         Path {
@@ -56,10 +58,12 @@ impl<N: DfsNode> Path<N> {
 
     pub fn find_or_push(&mut self, kn: &N::KN) -> Option<usize> {
         let hn = kn.hash_node(self.kn_iter());
-        if let Some(idx) = self.map.get(&hn) {
-            return Some(*idx);
+        if let Some(hn) = hn {
+            if let Some(idx) = self.map.get(&hn) {
+                return Some(*idx);
+            }
+            self.map.insert(hn.clone(), self.vec.len());
         }
-        self.map.insert(hn.clone(), self.vec.len());
         self.vec.push(kn.clone());
         return None;
     }
@@ -71,8 +75,10 @@ impl<N: DfsNode> Path<N> {
     pub fn pop(&mut self, kn_verify: &N::KN) {
         let kn = self.vec.pop().unwrap();
         debug_assert!(&kn == kn_verify);
-        let r = self.map.remove(&kn.hash_node(self.kn_iter()));
-        debug_assert_eq!(Some(self.vec.len()), r);
+        if let Some(hn) = kn.hash_node(self.kn_iter()) {
+            let r = self.map.remove(&hn);
+            debug_assert_eq!(Some(self.vec.len()), r);
+        }
     }
 
     pub fn kn_iter<'a>(&'a self) -> impl Iterator<Item=&'a N::KN> {

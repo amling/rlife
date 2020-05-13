@@ -104,11 +104,11 @@ pub struct GolKeyNode<B: UScalar> {
 impl<B: UScalar> DfsKeyNode for GolKeyNode<B> {
     type HN = GolHashNode<B>;
 
-    fn hash_node<'a>(&'a self, _path: impl Iterator<Item=&'a GolKeyNode<B>>) -> GolHashNode<B> {
-        GolHashNode {
+    fn hash_node<'a>(&'a self, _path: impl Iterator<Item=&'a GolKeyNode<B>>) -> Option<GolHashNode<B>> {
+        Some(GolHashNode {
             r0: self.r0,
             r1: self.r1,
-        }
+        })
     }
 }
 
