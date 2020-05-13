@@ -63,6 +63,10 @@ impl<N: DfsNode> Path<N> {
         let r = self.map.remove(&kn.hash_node());
         debug_assert_eq!(Some(self.vec.len()), r);
     }
+
+    pub fn kn_iter<'a>(&'a self) -> impl Iterator<Item=&'a N::KN> {
+        (&self.vec).iter().rev()
+    }
 }
 
 pub struct Tree<N>(pub N, pub TreeStatus<N>);
@@ -410,7 +414,7 @@ fn dfs_single_thread<N: DfsNode, GE: DfsGraph<N>, LE: DfsLifecycle<N>>(ge: &GE, 
         },
         _ => panic!(),
     }
-    let n2s = ge.expand(&n1).into_iter();
+    let n2s = ge.expand(&n1, path.kn_iter()).into_iter();
 
     // hard-code none for KN because we actually don't want to pop the caller-provided KN
     // corresponding to n1 off the path (if there is one)
@@ -482,7 +486,7 @@ fn dfs_single_thread<N: DfsNode, GE: DfsGraph<N>, LE: DfsLifecycle<N>>(ge: &GE, 
             return false;
         }
 
-        let n2s = ge.expand(&n1).into_iter();
+        let n2s = ge.expand(&n1, path.kn_iter()).into_iter();
         stack.push((n1, kn1, n2s));
     }
 }

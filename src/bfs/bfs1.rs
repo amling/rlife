@@ -55,7 +55,7 @@ pub fn bfs1<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(n0: 
                             for idx in start..end {
                                 let (prev_idx, ref n) = ql[idx];
 
-                                for n2 in ge.expand(n) {
+                                for n2 in ge.expand(n, kns.path_iter(prev_idx)) {
                                     let kn2 = n2.key_node();
                                     if let Some(kn2) = &kn2 {
                                         if let Some(label) = ge.end(kn2) {

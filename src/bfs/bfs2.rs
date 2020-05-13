@@ -96,7 +96,7 @@ pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(n0s:
                         }
                     };
 
-                    for n2 in ge.expand(&n) {
+                    for n2 in ge.expand(&n, kns.path_iter(prev_idx)) {
                         let kn2 = n2.key_node();
                         if let Some(kn2) = &kn2 {
                             if let Some(label) = ge.end(kn2) {
@@ -405,7 +405,7 @@ fn deepen_search<N: DfsNode, GE: DfsGraph<N>>(ge: &GE, path: &mut Path<N>, n: N,
         return true;
     }
 
-    for n2 in ge.expand(&n) {
+    for n2 in ge.expand(&n, path.kn_iter()) {
         let kn2 = n2.key_node();
         if let Some(kn2) = &kn2 {
             if let Some(_) = ge.end(kn2) {

@@ -29,6 +29,6 @@ pub trait DfsKeyNode: DfsNodeCommon {
 }
 
 pub trait DfsGraph<N: DfsNode> {
-    fn expand(&self, n: &N) -> Vec<N>;
+    fn expand<'a>(&'a self, n: &'a N, path: impl Iterator<Item=&'a N::KN>) -> Vec<N>;
     fn end(&self, kn: &N::KN) -> Option<&'static str>;
 }
