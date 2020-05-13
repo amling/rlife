@@ -21,16 +21,8 @@ impl<N: Default> KnPile<N> {
 
     pub fn new() -> Self {
         KnPile {
-            pile: Vec::new(),
+            pile: vec![vec![(0, N::default())]],
         }
-    }
-
-    pub fn of(n0s: impl IntoIterator<Item=N>) -> Self {
-        let mut r = Self::new();
-        for (idx, n0) in n0s.into_iter().enumerate() {
-            assert_eq!(idx, r.push(idx, n0));
-        }
-        r
     }
 
     fn get(&self, idx: usize) -> &(usize, N) {
@@ -39,11 +31,16 @@ impl<N: Default> KnPile<N> {
     }
 
     fn get_mut(&mut self, idx: usize) -> &mut (usize, N) {
+        debug_assert!(idx != 0);
+
         let (outer, inner) = self.split_index(idx);
         &mut self.pile[outer][inner]
     }
 
     fn swap(&mut self, idxa: usize, idxb: usize) {
+        debug_assert!(idxa != 0);
+        debug_assert!(idxb != 0);
+
         let idx1 = idxa.min(idxb);
         let idx2 = idxa.max(idxb);
 
@@ -75,7 +72,7 @@ impl<N: Default> KnPile<N> {
             if idx != 0 {
                 let prev_idx = self.get(idx).0;
                 let last = *live.last().unwrap();
-                if prev_idx == idx {
+                if prev_idx == 0 {
                     // root, fine
                 }
                 else if prev_idx < last {
@@ -91,20 +88,23 @@ impl<N: Default> KnPile<N> {
         }
 
         let mut live_remap = HashMap::new();
-        let mut rebuilt_idx = 0;
+        live_remap.insert(0, 0);
+        let mut rebuilt_idx = 1;
         let mut root_ct = 0;
         while let Some(idx) = live.pop() {
             assert!(rebuilt_idx <= idx, "{} <= {}?", rebuilt_idx, idx);
             self.swap(rebuilt_idx, idx);
-            // insert ourselves first so self-parent of roots can be looked up
-            assert!(!live_remap.contains_key(&idx));
-            live_remap.insert(idx, rebuilt_idx);
+
             let parent_idx = self.get(rebuilt_idx).0;
             let parent_idx = *live_remap.get(&parent_idx).unwrap();
-            if parent_idx == rebuilt_idx {
+            if parent_idx == 0 {
                 root_ct += 1;
             }
             self.get_mut(rebuilt_idx).0 = parent_idx;
+
+            assert!(!live_remap.contains_key(&idx));
+            live_remap.insert(idx, rebuilt_idx);
+
             rebuilt_idx += 1;
         }
 
@@ -119,38 +119,27 @@ impl<N: Default> KnPile<N> {
     }
 
     pub fn materialize<T>(&self, idx: usize, mut f: impl FnMut(&N) -> T) -> Vec<T> {
-        let mut r = Vec::new();
+        let mut acc = Vec::new();
         let mut idx = idx;
-        loop {
-            r.push(f(&self.get(idx).1));
-
-            let next_idx = self.get(idx).0;
-
-            if idx == next_idx {
-                break;
-            }
-
-            idx = next_idx;
+        while idx != 0 {
+            let r = self.get(idx);
+            acc.push(f(&r.1));
+            idx = r.0;
         }
-        r.reverse();
-        r
+        acc.reverse();
+        acc
     }
 
     pub fn find<T>(&self, idx: usize, mut f: impl FnMut(usize, &N) -> Option<T>) -> Option<T> {
         let mut idx = idx;
-        loop {
-            if let Some(t) = f(idx, &self.get(idx).1) {
+        while idx != 0 {
+            let r = self.get(idx);
+            if let Some(t) = f(idx, &r.1) {
                 return Some(t);
             }
-
-            let next_idx = self.get(idx).0;
-
-            if idx == next_idx {
-                return None;
-            }
-
-            idx = next_idx;
+            idx = r.0;
         }
+        None
     }
 
     pub fn push(&mut self, idx: usize, n: N) -> usize {

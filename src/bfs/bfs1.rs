@@ -13,16 +13,14 @@ use dfs::lifecycle::LogLevel;
 use dfs::res::DfsRes;
 
 pub fn bfs1<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(n0: N, ge: &GE, le: &mut LE) {
-    let mut kns;
-    let mut ql;
+    let mut kns = KnPile::new();
 
+    let mut idx = 0;
     if let Some(kn0) = n0.key_node() {
-        kns = KnPile::of(vec![kn0]);
-        ql = vec![(0, n0)];
+        idx = kns.push(idx, kn0);
     }
-    else {
-        panic!();
-    }
+
+    let mut ql = vec![(idx, n0)];
 
     loop {
         if ql.len() == 0 {

@@ -41,11 +41,17 @@ pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(n0s:
     let threads = le.threads();
     let shards = threads * 10;
 
-    let mut kns = KnPile::of(n0s.iter().map(|n0| n0.key_node().unwrap()));
+    let mut kns = KnPile::new();
     let mut q = ChunkQueue::new();
-    for (idx, n0) in n0s.into_iter().enumerate() {
+
+    for n0 in n0s {
+        let mut idx = 0;
+        if let Some(kn0) = n0.key_node() {
+            idx = kns.push(idx, kn0);
+        }
         q.push_back((idx, n0));
     }
+
     let mut foresight = 0;
     let mut depth = 0;
 
