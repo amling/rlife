@@ -36,15 +36,26 @@ impl<N: DfsNode> Path<N> {
     }
 
     pub fn from_vec(v: Vec<N::KN>) -> Self {
-        let map = v.iter().enumerate().map(|(idx, kn)| (kn.hash_node(), idx)).collect();
+        let mut vec = Vec::new();
+        let mut map = HashMap::new();
+        for kn in v {
+            let hn = kn.hash_node(vec.iter().rev());
+
+            let idx = vec.len();
+
+            vec.push(kn);
+            let already = map.insert(hn, idx);
+            debug_assert!(!already.is_some());
+        }
+
         Path {
-            vec: v,
+            vec: vec,
             map: map,
         }
     }
 
     pub fn find_or_push(&mut self, kn: &N::KN) -> Option<usize> {
-        let hn = kn.hash_node();
+        let hn = kn.hash_node(self.kn_iter());
         if let Some(idx) = self.map.get(&hn) {
             return Some(*idx);
         }
@@ -60,12 +71,12 @@ impl<N: DfsNode> Path<N> {
     pub fn pop(&mut self, kn_verify: &N::KN) {
         let kn = self.vec.pop().unwrap();
         debug_assert!(&kn == kn_verify);
-        let r = self.map.remove(&kn.hash_node());
+        let r = self.map.remove(&kn.hash_node(self.kn_iter()));
         debug_assert_eq!(Some(self.vec.len()), r);
     }
 
     pub fn kn_iter<'a>(&'a self) -> impl Iterator<Item=&'a N::KN> {
-        (&self.vec).iter().rev()
+        self.vec.iter().rev()
     }
 }
 
@@ -451,7 +462,7 @@ fn dfs_single_thread<N: DfsNode, GE: DfsGraph<N>, LE: DfsLifecycle<N>>(ge: &GE, 
         // found a node to enter, let's put it on the stack
         let kn1 = n1.key_node();
         if let Some(kn1) = &kn1 {
-            if let Some(label) = ge.end(kn1) {
+            if let Some(label) = ge.end(kn1, path.kn_iter()) {
                 let mut path = path.vec.clone();
                 path.push(kn1.clone());
                 le.debug_end(&path, label);

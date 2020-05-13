@@ -130,11 +130,11 @@ impl<N: Default> KnPile<N> {
         acc
     }
 
-    pub fn find<T>(&self, idx: usize, mut f: impl FnMut(usize, &N) -> Option<T>) -> Option<T> {
+    pub fn find<T>(&self, idx: usize, mut f: impl FnMut(usize, usize, &N) -> Option<T>) -> Option<T> {
         let mut idx = idx;
         while idx != 0 {
             let r = self.get(idx);
-            if let Some(t) = f(idx, &r.1) {
+            if let Some(t) = f(idx, r.0, &r.1) {
                 return Some(t);
             }
             idx = r.0;

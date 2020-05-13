@@ -104,7 +104,7 @@ pub struct GolKeyNode<B: UScalar> {
 impl<B: UScalar> DfsKeyNode for GolKeyNode<B> {
     type HN = GolHashNode<B>;
 
-    fn hash_node(&self) -> GolHashNode<B> {
+    fn hash_node<'a>(&'a self, _path: impl Iterator<Item=&'a GolKeyNode<B>>) -> GolHashNode<B> {
         GolHashNode {
             r0: self.r0,
             r1: self.r1,
@@ -693,7 +693,7 @@ impl<B: UScalar, Y: GolDy, F: GolForce<Y>, E: GolEnds<B>> DfsGraph<GolNode<B, Y>
         n2s
     }
 
-    fn end(&self, n: &GolKeyNode<B>) -> Option<&'static str> {
+    fn end<'a>(&'a self, n: &'a GolKeyNode<B>, _path: impl Iterator<Item=&'a GolKeyNode<B>>) -> Option<&'static str> {
         self.ends.end(n)
     }
 }
