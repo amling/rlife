@@ -17,10 +17,11 @@ mod gol;
 
 use dfs::Tree;
 use dfs::TreeStatus;
+use dfs::graph::DfsNode;
 use gol::graph::GolEdge;
+use gol::graph::GolGraphParams;
 use gol::graph::GolNode;
 use gol::graph::GolNodeSerdeProxy;
-use gol::graph::GolGraphParams;
 use gol::graph::GolRecenter;
 use gol::lifecycle::GolLifecycle;
 
@@ -66,7 +67,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
         log: None,
     };
 
-    bfs::bfs2::<GolNode<B, _>, _, _>(vec![n0], &ge, &mut le);
+    bfs::bfs2::<GolNode<B, _>, _, _>(vec![(vec![n0.key_node().unwrap()], n0)], &ge, &mut le);
 
     Ok(())
 }

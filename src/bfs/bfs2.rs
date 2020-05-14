@@ -35,7 +35,7 @@ impl<N: DfsNode> WorkUnit<N> {
     }
 }
 
-pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(n0s: Vec<N>, ge: &GE, le: &mut LE) {
+pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(init: Vec<(Vec<N::KN>, N)>, ge: &GE, le: &mut LE) {
     let mem_max = (8 << 30);
 
     let threads = le.threads();
@@ -44,9 +44,9 @@ pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(n0s:
     let mut kns = KnPile::new();
     let mut q = ChunkQueue::new();
 
-    for n0 in n0s {
+    for (kn0s, n0) in init {
         let mut idx = 0;
-        if let Some(kn0) = n0.key_node() {
+        for kn0 in kn0s {
             idx = kns.push(idx, kn0);
         }
         q.push_back((idx, n0));
