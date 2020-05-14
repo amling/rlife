@@ -392,7 +392,7 @@ fn fmt_mem(mem: usize) -> String {
         return format!("{:.2} MB", (mem as f64) / (m as f64));
     }
 
-    let k = (1 << 20);
+    let k = (1 << 10);
     if mem >= k {
         return format!("{:.2} KB", (mem as f64) / (k as f64));
     }
