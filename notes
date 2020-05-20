@@ -84,3 +84,12 @@ hacks to enforce "gappiness" of unchecked edges
 handy syntax for search parameters
 ge.init_zero() -> GolNodeSerdeProxy
 ge.init_str(S, S) -> GolNodeSerdeProxy (parse, verify dims, pad and recenter if recenter, etc.)
+
+
+
+want to "merge up" bfs2 state checkpointing (so conflicted it's likely reimpl)
+but first...
+    we should toss the load/create thing, we have to recompile all the fucking time anyway
+        might still save and check GE on load
+        might want to fork main() into initial main and continue main?
+    we should invent rctl (part of ars) so we can drop on command (I think it's too slow to default...)
