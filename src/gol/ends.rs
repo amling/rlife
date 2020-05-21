@@ -4,6 +4,7 @@ use std::collections::HashSet;
 
 use crate::gol;
 
+use gol::graph::GolHashNode;
 use gol::graph::GolKeyNode;
 
 pub trait GolEnds<B: UScalar> {
@@ -21,9 +22,9 @@ impl<B: UScalar> GolEnds<B> for () {
     }
 }
 
-impl<B: UScalar> GolEnds<B> for HashSet<(B, B)> {
+impl<B: UScalar> GolEnds<B> for HashSet<GolHashNode<B>> {
     fn end(&self, n: &GolKeyNode<B>) -> Option<&'static str> {
-        if self.contains(&(n.r0, n.r1)) {
+        if self.contains(&n.gol_hash_node()) {
             Some("")
         }
         else {
@@ -32,8 +33,8 @@ impl<B: UScalar> GolEnds<B> for HashSet<(B, B)> {
     }
 }
 
-impl<B: UScalar> GolEnds<B> for HashMap<(B, B), &'static str> {
+impl<B: UScalar> GolEnds<B> for HashMap<GolHashNode<B>, &'static str> {
     fn end(&self, n: &GolKeyNode<B>) -> Option<&'static str> {
-        self.get(&(n.r0, n.r1)).map(|s| *s)
+        self.get(&n.gol_hash_node()).map(|s| *s)
     }
 }
