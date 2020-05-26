@@ -16,6 +16,12 @@ impl<E: Error> From<E> for StringError {
 }
 
 impl StringError {
+    pub fn new(msg: impl Display) -> StringError {
+        StringError {
+            msg: format!("{}", msg),
+        }
+    }
+
     pub fn label(&self, s: impl Display) -> StringError {
         StringError {
             msg: format!("{}: {}", s, self.msg),
