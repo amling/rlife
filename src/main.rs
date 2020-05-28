@@ -3,13 +3,9 @@ extern crate ars_macro;
 
 use ars_ds::err::StringError;
 use ars_ds::scalar::UScalar;
-use chrono::Local;
+use ars_rctl_main::rq::RctlRunQueue;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
-use std::fs::File;
-use std::io::BufReader;
-use std::io::BufWriter;
-use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 
@@ -18,8 +14,6 @@ mod dfs;
 mod gol;
 mod sal;
 
-use dfs::Tree;
-use dfs::TreeStatus;
 use dfs::graph::DfsNode;
 use gol::graph::GolEdge;
 use gol::graph::GolGraphParams;
@@ -28,7 +22,6 @@ use gol::graph::GolNodeSerdeProxy;
 use gol::graph::GolRecenter;
 use gol::lifecycle::GolLifecycle;
 use gol::lifecycle::GolRctlEp;
-use sal::SerdeFormat;
 
 fn main() {
     main1::<u64>().unwrap();
@@ -68,6 +61,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
         threads: 8,
         recollect_ms: 5000,
         max_mem: AtomicUsize::new(8 << 30),
+        checkpt_rq: RctlRunQueue::new(),
     });
 
     ars_rctl_main::spawn(ep.clone());
@@ -75,37 +69,11 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
     let mut le = GolLifecycle {
         ge: &ge,
         ep: ep,
-        output_dir: None,
-        log: None,
     };
 
     bfs::bfs2::<GolNode<B, _>, _, _>(vec![(vec![n0.key_node().unwrap()], n0)], &ge, &mut le);
 
     Ok(())
-}
-
-fn load_or_with<T: DeserializeOwned + Serialize>(fmt: SerdeFormat, dir: impl AsRef<str>, file: impl AsRef<str>, init: impl FnOnce() -> T) -> Result<T, StringError> {
-    let dir = dir.as_ref();
-    let file = file.as_ref();
-
-    let path = format!("{}/{}", dir, file);
-    let path = Path::new(&path);
-    if path.is_file() {
-        let t0 = std::time::Instant::now();
-        let t = fmt.read(path)?;
-        eprintln!("Loaded {:?} in {:?}", path, t0.elapsed());
-
-        Ok(t)
-    }
-    else {
-        let t = init();
-
-        let t0 = std::time::Instant::now();
-        fmt.write(path, &t)?;
-        eprintln!("Created {:?} in {:?}", path, t0.elapsed());
-
-        Ok(t)
-    }
 }
 
 fn cnst<B: UScalar>(c: u128) -> B {

@@ -1,22 +1,19 @@
 use ars_ds::scalar::UScalar;
+use ars_rctl_core::RctlLog;
 use ars_rctl_derive::rctl_ep;
+use ars_rctl_main::rq::RctlRunQueue;
 use chrono::Local;
 use serde::Serialize;
-use std::fs::File;
-use std::io::BufWriter;
 use std::io::Write;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
-use std::time::Duration;
-use std::time::SystemTime;
 
 use crate::dfs;
 use crate::gol;
 use crate::sal;
 
 use dfs::Tree;
-use dfs::TreeStatus;
 use dfs::lifecycle::DfsLifecycle;
 use dfs::lifecycle::LogLevel;
 use dfs::res::DfsRes;
@@ -32,6 +29,7 @@ pub struct GolRctlEp {
     pub threads: usize,
     pub recollect_ms: u64,
     pub max_mem: AtomicUsize,
+    pub checkpt_rq: RctlRunQueue<Option<String>, ()>,
 }
 
 #[rctl_ep]
@@ -43,13 +41,19 @@ impl GolRctlEp {
     fn get_max_mem(&self) -> usize {
         self.max_mem.load(Ordering::Relaxed)
     }
+
+    fn checkpt(&self, log: RctlLog) {
+        self.checkpt_rq.run(None, log);
+    }
+
+    fn checkpt_to(&self, path: String, log: RctlLog) {
+        self.checkpt_rq.run(Some(path), log);
+    }
 }
 
 pub struct GolLifecycle<'a, B: UScalar, Y: GolDy, F: GolForce<Y>, E: GolEnds<B>> {
     pub ge: &'a GolGraph<B, Y, F, E>,
     pub ep: Arc<GolRctlEp>,
-    pub output_dir: Option<String>,
-    pub log: Option<File>,
 }
 
 impl<'a, B: UScalar + Serialize, Y: GolDy + Serialize, F: GolForce<Y>, E: GolEnds<B>> DfsLifecycle<GolNode<B, Y>> for GolLifecycle<'a, B, Y, F, E> {
@@ -95,13 +99,8 @@ impl<'a, B: UScalar + Serialize, Y: GolDy + Serialize, F: GolForce<Y>, E: GolEnd
     fn log(&mut self, level: LogLevel, msg: impl AsRef<str>) {
         let msg = msg.as_ref();
         let msg = format!("{} [{}] {}", Local::now().format("%Y%m%d %H:%M:%S"), level.name(), msg);
-        if let Some(log) = &mut self.log {
-            writeln!(log, "{}", msg).unwrap();
-        }
-        else {
-            println!("{}", msg);
-            std::io::stdout().flush().unwrap();
-        }
+        println!("{}", msg);
+        std::io::stdout().flush().unwrap();
     }
 
     //fn debug_enter(&self, path: &Vec<GolKeyNode<B>>) {
@@ -112,34 +111,19 @@ impl<'a, B: UScalar + Serialize, Y: GolDy + Serialize, F: GolForce<Y>, E: GolEnd
     //}
 
     fn debug_dfs_checkpoint(&mut self, tree: &Tree<GolNode<B, Y>>) {
-        if let Some(ref output_dir) = self.output_dir {
-            let path2 = format!("{}/{}", output_dir, "tree");
+        self.ep.checkpt_rq.service(&mut |path, mut log| {
+            let path = match path {
+                Some(path) => path,
+                None => Local::now().format("tree.%Y%m%d-%H%M%S").to_string(),
+            };
 
-            let b = (|| {
-                if let Tree(_, TreeStatus::Closed) = tree {
-                    return true;
-                }
-
-                // Decide if we should be doing this (it's expensive and no need to checkpoint every
-                // time it's offered.
-                match std::fs::metadata(&path2) {
-                    Err(_) => true,
-                    Ok(m) => match m.modified() {
-                        Err(_) => true,
-                        Ok(t) => SystemTime::now() >= t + Duration::from_secs(60),
-                    },
-                }
-            })();
-            if !b {
-                return;
-            }
-
-            let path1 = format!("{}/{}", output_dir, ".tree.tmp");
+            let t0 = std::time::Instant::now();
             let tree = tree.as_ref().map(&mut |n| self.ge.params.freeze_node(n));
             let tree = tree.to_serde_proxy();
-            SerdeFormat::JSON.write(&path1, &tree).unwrap();
-            std::fs::rename(&path1, &path2).unwrap();
-        }
+            SerdeFormat::JSON.write(&path, &tree).unwrap();
+
+            log.log(format!("Checkpointed DFS state to {} in {:?}", path, t0.elapsed()));
+        });
     }
 
     fn debug_longest(&mut self, path: &Vec<GolKeyNode<B>>) {
