@@ -1,0 +1,12 @@
+[package]
+name = "ars_rctl_cli"
+version = "1.0.0"
+authors = ["Keith Amling <me@amling2.org>"]
+edition = "2018"
+
+[dependencies]
+serde_json = "=1.0"
+sysinfo = "=0.3.19"
+ars_ds = { path = "../../ds" }
+ars_rctl_core = { path = "../core" }
+ars_rctl_main = { path = "../main" }

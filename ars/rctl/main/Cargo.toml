@@ -1,0 +1,12 @@
+[package]
+name = "ars_rctl_main"
+version = "1.0.0"
+authors = ["Keith Amling <me@amling2.org>"]
+edition = "2018"
+
+[dependencies]
+serde = { version = "=1.0.105", features = ["derive"] }
+serde_json = "=1.0"
+ars_ds = { path = "../../ds" }
+ars_rctl_core = { path = "../core" }
+ars_sync = { path = "../../sync" }

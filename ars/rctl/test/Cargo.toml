@@ -1,0 +1,12 @@
+[package]
+name = "ars_rctl_test"
+version = "1.0.0"
+authors = ["Keith Amling <me@amling2.org>"]
+edition = "2018"
+
+[dependencies]
+serde_json = "=1.0"
+ars_ds = { path = "../../ds" }
+ars_rctl_core = { path = "../core" }
+ars_rctl_derive = { path = "../derive" }
+ars_rctl_main = { path = "../main" }
