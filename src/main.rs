@@ -16,6 +16,7 @@ use std::sync::atomic::AtomicUsize;
 mod bfs;
 mod dfs;
 mod gol;
+mod sal;
 
 use dfs::Tree;
 use dfs::TreeStatus;
@@ -27,6 +28,7 @@ use gol::graph::GolNodeSerdeProxy;
 use gol::graph::GolRecenter;
 use gol::lifecycle::GolLifecycle;
 use gol::lifecycle::GolRctlEp;
+use sal::SerdeFormat;
 
 fn main() {
     main1::<u64>().unwrap();
@@ -82,23 +84,27 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
     Ok(())
 }
 
-fn load_or_with<T: DeserializeOwned + Serialize>(dir: impl AsRef<str>, file: impl AsRef<str>, init: impl FnOnce() -> T) -> Result<T, StringError> {
+fn load_or_with<T: DeserializeOwned + Serialize>(fmt: SerdeFormat, dir: impl AsRef<str>, file: impl AsRef<str>, init: impl FnOnce() -> T) -> Result<T, StringError> {
     let dir = dir.as_ref();
     let file = file.as_ref();
 
     let path = format!("{}/{}", dir, file);
     let path = Path::new(&path);
     if path.is_file() {
-        let f = File::open(path)?;
-        let f = BufReader::new(f);
-        Ok(serde_json::from_reader(f)?)
+        let t0 = std::time::Instant::now();
+        let t = fmt.read(path)?;
+        eprintln!("Loaded {:?} in {:?}", path, t0.elapsed());
+
+        Ok(t)
     }
     else {
-        let r = init();
-        let f = File::create(path)?;
-        let f = BufWriter::new(f);
-        serde_json::to_writer(f, &r)?;
-        Ok(r)
+        let t = init();
+
+        let t0 = std::time::Instant::now();
+        fmt.write(path, &t)?;
+        eprintln!("Created {:?} in {:?}", path, t0.elapsed());
+
+        Ok(t)
     }
 }
 

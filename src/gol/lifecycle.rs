@@ -13,6 +13,7 @@ use std::time::SystemTime;
 
 use crate::dfs;
 use crate::gol;
+use crate::sal;
 
 use dfs::Tree;
 use dfs::TreeStatus;
@@ -25,6 +26,7 @@ use gol::graph::GolForce;
 use gol::graph::GolGraph;
 use gol::graph::GolKeyNode;
 use gol::graph::GolNode;
+use sal::SerdeFormat;
 
 pub struct GolRctlEp {
     pub threads: usize,
@@ -133,11 +135,9 @@ impl<'a, B: UScalar + Serialize, Y: GolDy + Serialize, F: GolForce<Y>, E: GolEnd
             }
 
             let path1 = format!("{}/{}", output_dir, ".tree.tmp");
-            let f = File::create(&path1).unwrap();
-            let f = BufWriter::new(f);
             let tree = tree.as_ref().map(&mut |n| self.ge.params.freeze_node(n));
             let tree = tree.to_serde_proxy();
-            serde_json::to_writer(f, &tree).unwrap();
+            SerdeFormat::JSON.write(&path1, &tree).unwrap();
             std::fs::rename(&path1, &path2).unwrap();
         }
     }
