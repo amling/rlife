@@ -23,12 +23,15 @@ use gol::graph::GolNodeSerdeProxy;
 use gol::graph::GolRecenter;
 use gol::lifecycle::GolLifecycle;
 use gol::lifecycle::GolRctlEp;
+use sal::SerdeFormat;
 
 fn main() {
     main1::<u64>().unwrap();
 }
 
 fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError> {
+    let mut args = std::env::args().skip(1);
+
     let ge = GolGraphParams {
         mt: 3,
         mx: 8,
@@ -45,19 +48,6 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
     assert!(ge.mt * ge.mx <= B::size());
     let ge = ge.derived((), ());
 
-    let n0 = GolNodeSerdeProxy {
-        dx: 0,
-        dy: (),
-        r0: B::zero(),
-        r1: B::zero(),
-        r2: B::zero(),
-        r2l: 0,
-    };
-    let n0 = ge.params.thaw_node(&n0);
-
-    let (shift, _, _) = ge.params.recenter(n0.r0, n0.r1);
-    assert_eq!(0, shift);
-
     let ep = Arc::new(GolRctlEp {
         threads: 8,
         recollect_ms: 5000,
@@ -72,7 +62,27 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
         ep: ep,
     };
 
-    let st = Bfs2State::new(vec![(vec![n0.key_node().unwrap()], n0)]);
+    let st = match args.next() {
+        Some(path) => {
+            SerdeFormat::Bincode.read(path).unwrap()
+        },
+        None => {
+            let n0 = GolNodeSerdeProxy {
+                dx: 0,
+                dy: (),
+                r0: B::zero(),
+                r1: B::zero(),
+                r2: B::zero(),
+                r2l: 0,
+            };
+            let n0 = ge.params.thaw_node(&n0);
+
+            let (shift, _, _) = ge.params.recenter(n0.r0, n0.r1);
+            assert_eq!(0, shift);
+
+            Bfs2State::new(vec![(vec![n0.key_node().unwrap()], n0)])
+        },
+    };
 
     bfs::bfs2::<GolNode<B, _>, _, _>(st, &ge, &mut le);
 
