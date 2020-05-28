@@ -1,9 +1,13 @@
 use ars_ds::scalar::UScalar;
+use ars_rctl_derive::rctl_ep;
 use chrono::Local;
 use serde::Serialize;
 use std::fs::File;
 use std::io::BufWriter;
 use std::io::Write;
+use std::sync::Arc;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 use std::time::SystemTime;
 
@@ -22,21 +26,41 @@ use gol::graph::GolGraph;
 use gol::graph::GolKeyNode;
 use gol::graph::GolNode;
 
-pub struct GolLifecycle<'a, B: UScalar, Y: GolDy, F: GolForce<Y>, E: GolEnds<B>> {
-    pub ge: &'a GolGraph<B, Y, F, E>,
+pub struct GolRctlEp {
     pub threads: usize,
     pub recollect_ms: u64,
+    pub max_mem: AtomicUsize,
+}
+
+#[rctl_ep]
+impl GolRctlEp {
+    fn set_max_mem(&self, max_mem: usize) {
+        self.max_mem.store(max_mem, Ordering::Relaxed);
+    }
+
+    fn get_max_mem(&self) -> usize {
+        self.max_mem.load(Ordering::Relaxed)
+    }
+}
+
+pub struct GolLifecycle<'a, B: UScalar, Y: GolDy, F: GolForce<Y>, E: GolEnds<B>> {
+    pub ge: &'a GolGraph<B, Y, F, E>,
+    pub ep: Arc<GolRctlEp>,
     pub output_dir: Option<String>,
     pub log: Option<File>,
 }
 
 impl<'a, B: UScalar + Serialize, Y: GolDy + Serialize, F: GolForce<Y>, E: GolEnds<B>> DfsLifecycle<GolNode<B, Y>> for GolLifecycle<'a, B, Y, F, E> {
     fn threads(&self) -> usize {
-        return self.threads;
+        self.ep.threads
     }
 
     fn recollect_ms(&self) -> u64 {
-        return self.recollect_ms;
+        self.ep.recollect_ms
+    }
+
+    fn max_mem(&self) -> usize {
+        self.ep.max_mem.load(Ordering::Relaxed)
     }
 
     fn on_recollect_firstest(&mut self, firstest: (Vec<GolKeyNode<B>>, GolNode<B, Y>)) {

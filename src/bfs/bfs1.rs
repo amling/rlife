@@ -40,7 +40,7 @@ pub fn bfs1<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(n0: 
             }
 
             crossbeam::scope(|sc| {
-                for _ in 0..le.threads() {
+                for _ in 0..threads {
                     sc.spawn(|_| {
                         loop {
                             let ((i, r), q2) = match q.pop() {

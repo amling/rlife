@@ -21,6 +21,7 @@ impl LogLevel {
 pub trait DfsLifecycle<N: DfsNode> {
     fn threads(&self) -> usize;
     fn recollect_ms(&self) -> u64;
+    fn max_mem(&self) -> usize;
     fn on_recollect_firstest(&mut self, firstest: (Vec<N::KN>, N));
     fn on_recollect_results(&mut self, r: DfsRes<N::KN>) -> bool;
     fn log(&mut self, level: LogLevel, msg: impl AsRef<str>);

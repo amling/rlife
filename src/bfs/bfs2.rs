@@ -36,11 +36,6 @@ impl<N: DfsNode> WorkUnit<N> {
 }
 
 pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(init: Vec<(Vec<N::KN>, N)>, ge: &GE, le: &mut LE) {
-    let mem_max = (8 << 30);
-
-    let threads = le.threads();
-    let shards = threads * 10;
-
     let mut kns = KnPile::new();
     let mut q = ChunkQueue::new();
 
@@ -62,6 +57,9 @@ pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(init
             break;
         }
 
+        let threads = le.threads();
+        let shards = threads * 10;
+
         {
             let ql = q.len();
             let qm = q_mem(&q);
@@ -81,6 +79,7 @@ pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(init
             // step 2a: expand as much as we can until/unless we go over memory
             let mem = ws.iter().map(|w| q_mem(&w.q) + q_mem(&w.q2)).sum::<usize>() + kns_mem(&kns);
             let mem = AtomicUsize::new(mem);
+            let mem_max = le.max_mem();
 
             singleton_par(threads, &mut ws, |w| {
                 loop {
@@ -251,6 +250,7 @@ pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(init
         }
 
         // step3b: fold results into kns
+        let mut mem_max = le.max_mem();
         let mut q4 = ChunkQueue::new();
         while let Some((prev_idx, n)) = q3.pop_front() {
             let mut prev_idx = prev_idx;
@@ -270,6 +270,12 @@ pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(init
                     let km = kns_mem(&kns);
                     let m = q3m + q4m + km;
 
+                    if m <= mem_max {
+                        break;
+                    }
+
+                    // let's reread up to once per deepen to see if it's changed
+                    mem_max = le.max_mem();
                     if m <= mem_max {
                         break;
                     }

@@ -11,6 +11,9 @@ serde_json = "=1.0.48"
 serde = { version = "=1.0.105", features = ["derive"] }
 ars_ds = { path = "ars/ds" }
 ars_macro = { path = "ars/macro" }
+ars_rctl_core = { path = "ars/rctl/core" }
+ars_rctl_derive = { path = "ars/rctl/derive" }
+ars_rctl_main = { path = "ars/rctl/main" }
 
 [profile.release]
 lto = true

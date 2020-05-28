@@ -10,6 +10,8 @@ use std::fs::File;
 use std::io::BufReader;
 use std::io::BufWriter;
 use std::path::Path;
+use std::sync::Arc;
+use std::sync::atomic::AtomicUsize;
 
 mod bfs;
 mod dfs;
@@ -24,6 +26,7 @@ use gol::graph::GolNode;
 use gol::graph::GolNodeSerdeProxy;
 use gol::graph::GolRecenter;
 use gol::lifecycle::GolLifecycle;
+use gol::lifecycle::GolRctlEp;
 
 fn main() {
     main1::<u64>().unwrap();
@@ -59,10 +62,17 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
     let (shift, _, _) = ge.params.recenter(n0.r0, n0.r1);
     assert_eq!(0, shift);
 
-    let mut le = GolLifecycle {
-        ge: &ge,
+    let ep = Arc::new(GolRctlEp {
         threads: 8,
         recollect_ms: 5000,
+        max_mem: AtomicUsize::new(8 << 30),
+    });
+
+    ars_rctl_main::spawn(ep.clone());
+
+    let mut le = GolLifecycle {
+        ge: &ge,
+        ep: ep,
         output_dir: None,
         log: None,
     };
