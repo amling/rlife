@@ -58,9 +58,11 @@ pub struct GolNodeSerdeProxy<B: UScalar, Y: GolDy> {
 #[derive(Clone)]
 #[derive(Debug)]
 #[derive(Default)]
+#[derive(Deserialize)]
 #[derive(Eq)]
 #[derive(Hash)]
 #[derive(PartialEq)]
+#[derive(Serialize)]
 pub struct GolNode<B: UScalar, Y: GolDy> {
     pub dx: i16,
     pub dy: Y,
@@ -92,9 +94,11 @@ impl<B: UScalar, Y: GolDy> DfsNode for GolNode<B, Y> {
 #[derive(Clone)]
 #[derive(Debug)]
 #[derive(Default)]
+#[derive(Deserialize)]
 #[derive(Eq)]
 #[derive(Hash)]
 #[derive(PartialEq)]
+#[derive(Serialize)]
 pub struct GolKeyNode<B: UScalar> {
     pub dx: i16,
     pub r0: B,

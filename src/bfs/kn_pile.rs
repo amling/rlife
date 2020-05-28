@@ -1,5 +1,9 @@
+use serde::Deserialize;
+use serde::Serialize;
 use std::collections::HashMap;
 
+#[derive(Deserialize)]
+#[derive(Serialize)]
 pub struct KnPile<N: Default> {
     pile: Vec<Vec<(usize, N)>>,
 }

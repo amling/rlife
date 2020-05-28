@@ -1,7 +1,11 @@
 #![allow(unused_parens)]
 
+use serde::Deserialize;
+use serde::Serialize;
 use std::collections::VecDeque;
 
+#[derive(Deserialize)]
+#[derive(Serialize)]
 pub struct ChunkQueue<N> {
     len: usize,
     q: VecDeque<VecDeque<N>>,

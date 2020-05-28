@@ -2,6 +2,8 @@
 
 use crossbeam::queue::PopError;
 use crossbeam::queue::SegQueue;
+use serde::Deserialize;
+use serde::Serialize;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
@@ -35,30 +37,73 @@ impl<N: DfsNode> WorkUnit<N> {
     }
 }
 
-pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(init: Vec<(Vec<N::KN>, N)>, ge: &GE, le: &mut LE) {
-    let mut kns = KnPile::new();
-    let mut q = ChunkQueue::new();
+#[derive(Deserialize)]
+#[derive(Serialize)]
+pub struct Bfs2State<N, KN: Default> {
+    kns: KnPile<KN>,
+    q: ChunkQueue<(usize, N)>,
+    foresight: usize,
+    depth: usize,
+}
 
-    for (kn0s, n0) in init {
-        let mut idx = 0;
-        for kn0 in kn0s {
-            idx = kns.push(idx, kn0);
+impl<N: DfsNode> Bfs2State<N, N::KN> {
+    pub fn new(init: impl IntoIterator<Item=(Vec<N::KN>, N)>) -> Bfs2State<N, N::KN> {
+        let mut kns = KnPile::new();
+        let mut q = ChunkQueue::new();
+
+        for (kn0s, n0) in init.into_iter() {
+            let mut idx = 0;
+            for kn0 in kn0s {
+                idx = kns.push(idx, kn0);
+            }
+            q.push_back((idx, n0));
         }
-        q.push_back((idx, n0));
+
+        Bfs2State {
+            kns: kns,
+            q: q,
+            foresight: 0,
+            depth: 0,
+        }
     }
+}
 
-    let mut foresight = 0;
-    let mut depth = 0;
-
+pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(mut state: Bfs2State<N, N::KN>, ge: &GE, le: &mut LE) {
     loop {
+        let threads = le.threads();
+        let shards = threads * 10;
+
+        le.debug_bfs2_checkpoint(|le| {
+            let kns = &mut state.kns;
+            let q = &mut state.q;
+
+            let living = vec![].into_iter();
+            let living = living.chain(q.iter().map(|&(idx, _)| idx));
+            let live_remap = kns.rebuild(living, |msg| le.log(LogLevel::INFO, msg));
+
+            {
+                let t0 = std::time::Instant::now();
+                cq_par(threads, shards, q, |q| {
+                    for (idx, _) in q.iter_mut() {
+                        *idx = *live_remap.get(idx).unwrap();
+                    }
+                });
+                le.log(LogLevel::INFO, format!("Reindexed q in {:?}", t0.elapsed()));
+            }
+
+            &state
+        });
+
+        let kns = &mut state.kns;
+        let q = &mut state.q;
+        let foresight = &mut state.foresight;
+        let depth = &mut state.depth;
+
         let size = q.len();
 
         if size == 0 {
             break;
         }
-
-        let threads = le.threads();
-        let shards = threads * 10;
 
         {
             let ql = q.len();
@@ -163,7 +208,7 @@ pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(init
                 };
                 let t0 = std::time::Instant::now();
 
-                foresight += 1;
+                *foresight += 1;
 
                 {
                     let before = ws.iter().map(|w| w.q.len()).sum::<usize>();
@@ -174,11 +219,11 @@ pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(init
                             let mut path = Path::from_vec(path);
                             let n = n.clone();
 
-                            deepen_search(ge, &mut path, n, foresight)
+                            deepen_search(ge, &mut path, n, *foresight)
                         });
                     });
                     let after = ws.iter().map(|w| w.q.len()).sum::<usize>();
-                    le.log(LogLevel::INFO, format!("Deepened ws.q {} => {}, foresight {} in {:?}", before, after, foresight, t0.elapsed()));
+                    le.log(LogLevel::INFO, format!("Deepened ws.q {} => {}, foresight {} in {:?}", before, after, *foresight, t0.elapsed()));
                 }
 
                 {
@@ -193,11 +238,11 @@ pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(init
                             let mut path = Path::from_vec(path);
                             let n = n.clone();
 
-                            deepen_search(ge, &mut path, n, foresight - 1)
+                            deepen_search(ge, &mut path, n, *foresight - 1)
                         });
                     });
                     let after = ws.iter().map(|w| w.q2.len()).sum::<usize>();
-                    le.log(LogLevel::INFO, format!("Deepened ws.q2 {} => {}, foresight {} in {:?}", before, after, foresight - 1, t0.elapsed()));
+                    le.log(LogLevel::INFO, format!("Deepened ws.q2 {} => {}, foresight {} in {:?}", before, after, *foresight - 1, t0.elapsed()));
                 }
 
                 let living = vec![].into_iter();
@@ -286,7 +331,7 @@ pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(init
                 };
                 let t0 = std::time::Instant::now();
 
-                foresight += 1;
+                *foresight += 1;
 
                 {
                     let t0 = std::time::Instant::now();
@@ -300,11 +345,11 @@ pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(init
                             let mut path = Path::from_vec(path);
                             let n = n.clone();
 
-                            deepen_search(ge, &mut path, n, foresight - 1)
+                            deepen_search(ge, &mut path, n, *foresight - 1)
                         });
                     });
                     let after = q3.len();
-                    le.log(LogLevel::INFO, format!("Deepened q3 {} => {}, foresight {} in {:?}", before, after, foresight - 1, t0.elapsed()));
+                    le.log(LogLevel::INFO, format!("Deepened q3 {} => {}, foresight {} in {:?}", before, after, *foresight - 1, t0.elapsed()));
                 }
 
                 {
@@ -316,11 +361,11 @@ pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(init
                             let mut path = Path::from_vec(path);
                             let n = n.clone();
 
-                            deepen_search(ge, &mut path, n, foresight - 1)
+                            deepen_search(ge, &mut path, n, *foresight - 1)
                         });
                     });
                     let after = q4.len();
-                    le.log(LogLevel::INFO, format!("Deepened q4 {} => {}, foresight {} in {:?}", before, after, foresight - 1, t0.elapsed()));
+                    le.log(LogLevel::INFO, format!("Deepened q4 {} => {}, foresight {} in {:?}", before, after, *foresight - 1, t0.elapsed()));
                 }
 
                 let living = vec![].into_iter();
@@ -360,14 +405,14 @@ pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(init
         }
 
         // start over
-        q = q4;
-        foresight = match foresight {
+        *q = q4;
+        *foresight = match *foresight {
             0 => 0,
-            _ => foresight - 1,
+            _ => *foresight - 1,
         };
-        depth += 1;
+        *depth += 1;
 
-        le.log(LogLevel::INFO, format!("Completed BFS step to depth {}", depth));
+        le.log(LogLevel::INFO, format!("Completed BFS step to depth {}", *depth));
 
         if let Some(&(idx, ref n)) = q.front() {
             le.on_recollect_firstest((kns.materialize_cloned(idx), n.clone()));

@@ -9,10 +9,12 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
+use crate::bfs;
 use crate::dfs;
 use crate::gol;
 use crate::sal;
 
+use bfs::bfs2::Bfs2State;
 use dfs::Tree;
 use dfs::lifecycle::DfsLifecycle;
 use dfs::lifecycle::LogLevel;
@@ -114,7 +116,7 @@ impl<'a, B: UScalar + Serialize, Y: GolDy + Serialize, F: GolForce<Y>, E: GolEnd
         self.ep.checkpt_rq.service(&mut |path, mut log| {
             let path = match path {
                 Some(path) => path,
-                None => Local::now().format("tree.%Y%m%d-%H%M%S").to_string(),
+                None => Local::now().format("tree.%Y%m%d-%H%M%S.json").to_string(),
             };
 
             let t0 = std::time::Instant::now();
@@ -123,6 +125,34 @@ impl<'a, B: UScalar + Serialize, Y: GolDy + Serialize, F: GolForce<Y>, E: GolEnd
             SerdeFormat::JSON.write(&path, &tree).unwrap();
 
             log.log(format!("Checkpointed DFS state to {} in {:?}", path, t0.elapsed()));
+        });
+    }
+
+    fn debug_bfs2_checkpoint<'b>(&mut self, get_state: impl FnOnce(&mut Self) -> &'b Bfs2State<GolNode<B, Y>, GolKeyNode<B>>) where GolNode<B, Y>: 'b {
+        // clone ep so self is still available for closure to take
+        let ep = self.ep.clone();
+
+        let mut maybe_state = None;
+        let mut maybe_get_state = Some(|| get_state(self));
+
+        ep.checkpt_rq.service(&mut |path, mut log| {
+            let path = match path {
+                Some(path) => path,
+                None => Local::now().format("bfs2.%Y%m%d-%H%M%S.bin").to_string(),
+            };
+
+            let t0 = std::time::Instant::now();
+
+            // Arggh, this is very stupid, but Either<state, get_state> doesn't really work out
+            // (still have to "take" it to call it, etc.).
+            let state = maybe_state.get_or_insert_with(|| {
+                // no state yet, better still have the getter
+                maybe_get_state.take().unwrap()()
+            });
+
+            SerdeFormat::Bincode.write(&path, state).unwrap();
+
+            log.log(format!("Checkpointed BFS state to {} in {:?}", path, t0.elapsed()));
         });
     }
 

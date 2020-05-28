@@ -1,5 +1,7 @@
+use crate::bfs;
 use crate::dfs;
 
+use bfs::bfs2::Bfs2State;
 use dfs::Tree;
 use dfs::graph::DfsNode;
 use dfs::res::DfsRes;
@@ -36,6 +38,9 @@ pub trait DfsLifecycle<N: DfsNode> {
     }
 
     fn debug_dfs_checkpoint(&mut self, _tree: &Tree<N>) {
+    }
+
+    fn debug_bfs2_checkpoint<'a>(&mut self, _get_state: impl FnOnce(&mut Self) -> &'a Bfs2State<N, N::KN>) where N: 'a {
     }
 
     fn debug_longest(&mut self, _path: &Vec<N::KN>) {

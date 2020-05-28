@@ -14,6 +14,7 @@ mod dfs;
 mod gol;
 mod sal;
 
+use bfs::bfs2::Bfs2State;
 use dfs::graph::DfsNode;
 use gol::graph::GolEdge;
 use gol::graph::GolGraphParams;
@@ -71,7 +72,9 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
         ep: ep,
     };
 
-    bfs::bfs2::<GolNode<B, _>, _, _>(vec![(vec![n0.key_node().unwrap()], n0)], &ge, &mut le);
+    let st = Bfs2State::new(vec![(vec![n0.key_node().unwrap()], n0)]);
+
+    bfs::bfs2::<GolNode<B, _>, _, _>(st, &ge, &mut le);
 
     Ok(())
 }
