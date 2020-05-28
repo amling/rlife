@@ -109,7 +109,7 @@ impl<'a, B: UScalar + Serialize, Y: GolDy + Serialize, F: GolForce<Y>, E: GolEnd
     //    }
     //}
 
-    fn debug_checkpoint(&mut self, tree: &Tree<GolNode<B, Y>>) {
+    fn debug_dfs_checkpoint(&mut self, tree: &Tree<GolNode<B, Y>>) {
         if let Some(ref output_dir) = self.output_dir {
             let path2 = format!("{}/{}", output_dir, "tree");
 

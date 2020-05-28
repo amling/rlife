@@ -35,7 +35,7 @@ pub trait DfsLifecycle<N: DfsNode> {
     fn debug_end(&self, _path: &Vec<N::KN>, _label: &'static str) {
     }
 
-    fn debug_checkpoint(&mut self, _tree: &Tree<N>) {
+    fn debug_dfs_checkpoint(&mut self, _tree: &Tree<N>) {
     }
 
     fn debug_longest(&mut self, _path: &Vec<N::KN>) {

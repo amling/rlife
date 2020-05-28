@@ -239,7 +239,7 @@ pub fn dfs<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(root:
 
     loop {
         if collapse(root) {
-            le.debug_checkpoint(root);
+            le.debug_dfs_checkpoint(root);
             return;
         }
 
@@ -341,7 +341,7 @@ pub fn dfs<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(root:
 
         let cont = le.on_recollect_results(res);
 
-        le.debug_checkpoint(root);
+        le.debug_dfs_checkpoint(root);
 
         if !cont {
             return;
