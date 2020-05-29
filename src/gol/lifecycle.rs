@@ -6,6 +6,7 @@ use chrono::Local;
 use serde::Serialize;
 use std::io::Write;
 use std::sync::Arc;
+use std::sync::atomic::AtomicU64;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
@@ -28,16 +29,40 @@ use gol::graph::GolNode;
 use sal::SerdeFormat;
 
 pub struct GolRctlEp {
-    pub threads: usize,
-    pub recollect_ms: u64,
+    pub threads: AtomicUsize,
+    pub recollect_ms: AtomicU64,
     pub max_mem: AtomicUsize,
     pub checkpt_rq: RctlRunQueue<Option<String>, ()>,
 }
 
 #[rctl_ep]
 impl GolRctlEp {
+    fn set_threads(&self, threads: usize) {
+        self.threads.store(threads, Ordering::Relaxed);
+    }
+
+    fn get_threads(&self) -> usize {
+        self.threads.load(Ordering::Relaxed)
+    }
+
+    fn set_recollect_ms(&self, recollect_ms: u64) {
+        self.recollect_ms.store(recollect_ms, Ordering::Relaxed);
+    }
+
+    fn get_recollect_ms(&self) -> u64 {
+        self.recollect_ms.load(Ordering::Relaxed)
+    }
+
     fn set_max_mem(&self, max_mem: usize) {
         self.max_mem.store(max_mem, Ordering::Relaxed);
+    }
+
+    fn set_max_mem_mb(&self, max_mem_mb: usize) {
+        self.max_mem.store(max_mem_mb << 20, Ordering::Relaxed);
+    }
+
+    fn set_max_mem_gb(&self, max_mem_gb: usize) {
+        self.max_mem.store(max_mem_gb << 30, Ordering::Relaxed);
     }
 
     fn get_max_mem(&self) -> usize {
@@ -60,11 +85,11 @@ pub struct GolLifecycle<'a, B: UScalar, Y: GolDy, F: GolForce<Y>, E: GolEnds<B>>
 
 impl<'a, B: UScalar + Serialize, Y: GolDy + Serialize, F: GolForce<Y>, E: GolEnds<B>> DfsLifecycle<GolNode<B, Y>> for GolLifecycle<'a, B, Y, F, E> {
     fn threads(&self) -> usize {
-        self.ep.threads
+        self.ep.threads.load(Ordering::Relaxed)
     }
 
     fn recollect_ms(&self) -> u64 {
-        self.ep.recollect_ms
+        self.ep.recollect_ms.load(Ordering::Relaxed)
     }
 
     fn max_mem(&self) -> usize {

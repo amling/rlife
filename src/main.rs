@@ -7,6 +7,7 @@ use ars_rctl_main::rq::RctlRunQueue;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use std::sync::Arc;
+use std::sync::atomic::AtomicU64;
 use std::sync::atomic::AtomicUsize;
 
 mod bfs;
@@ -49,8 +50,8 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
     let ge = ge.derived((), ());
 
     let ep = Arc::new(GolRctlEp {
-        threads: 8,
-        recollect_ms: 5000,
+        threads: AtomicUsize::new(8),
+        recollect_ms: AtomicU64::new(5000),
         max_mem: AtomicUsize::new(2 << 30),
         checkpt_rq: RctlRunQueue::new(),
     });
