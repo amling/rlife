@@ -13,6 +13,7 @@ use std::sync::atomic::AtomicUsize;
 mod bfs;
 mod dfs;
 mod gol;
+mod lgol;
 mod sal;
 
 use bfs::bfs2::Bfs2State;
