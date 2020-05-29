@@ -17,6 +17,8 @@ mod sal;
 
 use bfs::bfs2::Bfs2State;
 use dfs::graph::DfsNode;
+use dfs::lifecycle::DfsLifecycle;
+use dfs::lifecycle::LogLevel;
 use gol::graph::GolEdge;
 use gol::graph::GolGraphParams;
 use gol::graph::GolNode;
@@ -86,6 +88,8 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
     };
 
     bfs::bfs2::<GolNode<B, _>, _, _>(st, &ge, &mut le);
+
+    le.log(LogLevel::INFO, "Done");
 
     Ok(())
 }
