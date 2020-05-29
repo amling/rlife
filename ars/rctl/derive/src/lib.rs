@@ -96,9 +96,10 @@ pub fn rctl_ep(_attr: TokenStream, item: TokenStream) -> TokenStream {
             }
 
             fn invoke(&self, log: ars_rctl_core::RctlLog, method: impl AsRef<str>, args: &[serde_json::value::Value]) -> Result<serde_json::value::Value, ars_ds::err::StringError> {
-                match method.as_ref() {
+                let method = method.as_ref();
+                match method {
                     #( #matches )*
-                    _ => panic!(),
+                    _ => Err(ars_ds::err::StringError::new(format!("No such method {}", method))),
                 }
             }
         }
