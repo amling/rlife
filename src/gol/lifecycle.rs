@@ -1,6 +1,7 @@
 use ars_ds::scalar::UScalar;
 use ars_rctl_core::RctlLog;
 use ars_rctl_derive::rctl_ep;
+use ars_rctl_main::rq::RctlDeferredWrite;
 use ars_rctl_main::rq::RctlRunQueue;
 use chrono::Local;
 use serde::Serialize;
@@ -34,7 +35,7 @@ pub struct GolRctlEp {
     pub threads: AtomicUsize,
     pub recollect_ms: AtomicU64,
     pub max_mem: AtomicUsize,
-    pub checkpt_rq: RctlRunQueue<Option<String>, ()>,
+    pub checkpt_rq: RctlRunQueue<(Option<String>, RctlDeferredWrite<()>)>,
 }
 
 #[rctl_ep]
@@ -72,11 +73,15 @@ impl GolRctlEp {
     }
 
     fn checkpt(&self, log: RctlLog) {
-        self.checkpt_rq.run(None, log);
+        let (r, w) = ars_rctl_main::rq::deferred();
+        self.checkpt_rq.push((None, w));
+        r.wait(log)
     }
 
     fn checkpt_to(&self, path: String, log: RctlLog) {
-        self.checkpt_rq.run(Some(path), log);
+        let (r, w) = ars_rctl_main::rq::deferred();
+        self.checkpt_rq.push((Some(path), w));
+        r.wait(log)
     }
 }
 
@@ -166,7 +171,7 @@ impl<'a, GE: GolGraphTrait> DfsLifecycle<GE::N> for GolLifecycle<'a, GE> where <
     //}
 
     fn debug_dfs_checkpoint(&mut self, tree: &Tree<GE::N>) {
-        self.ep.checkpt_rq.service(&mut |path, mut log| {
+        self.ep.checkpt_rq.service(&mut |(path, mut w)| {
             let path = match path {
                 Some(path) => path,
                 None => Local::now().format("tree.%Y%m%d-%H%M%S.json").to_string(),
@@ -177,7 +182,9 @@ impl<'a, GE: GolGraphTrait> DfsLifecycle<GE::N> for GolLifecycle<'a, GE> where <
             let tree = tree.to_serde_proxy();
             SerdeFormat::JSON.write(&path, &tree).unwrap();
 
-            log.log(format!("Checkpointed DFS state to {} in {:?}", path, t0.elapsed()));
+            w.output(format!("Checkpointed DFS state to {} in {:?}", path, t0.elapsed()));
+
+            w.ret(())
         });
     }
 
@@ -188,7 +195,7 @@ impl<'a, GE: GolGraphTrait> DfsLifecycle<GE::N> for GolLifecycle<'a, GE> where <
         let mut maybe_state = None;
         let mut maybe_get_state = Some(|| get_state(self));
 
-        ep.checkpt_rq.service(&mut |path, mut log| {
+        ep.checkpt_rq.service(&mut |(path, mut w)| {
             let path = match path {
                 Some(path) => path,
                 None => Local::now().format("bfs2.%Y%m%d-%H%M%S.bin").to_string(),
@@ -205,7 +212,9 @@ impl<'a, GE: GolGraphTrait> DfsLifecycle<GE::N> for GolLifecycle<'a, GE> where <
 
             SerdeFormat::Bincode.write(&path, state).unwrap();
 
-            log.log(format!("Checkpointed BFS state to {} in {:?}", path, t0.elapsed()));
+            w.output(format!("Checkpointed BFS state to {} in {:?}", path, t0.elapsed()));
+
+            w.ret(())
         });
     }
 
