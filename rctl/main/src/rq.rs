@@ -2,94 +2,68 @@ use ars_rctl_core::RctlLog;
 use ars_sync::wns::WaitNotifyState;
 use std::collections::VecDeque;
 
-struct Hub<R> {
+struct RctlDeferredBackend<R> {
     outputs: VecDeque<String>,
     ret: Option<R>,
 }
 
-enum HubRead<R> {
-    Output(String),
-    Ret(R)
-}
+pub struct RctlDeferredRead<R>(WaitNotifyState<RctlDeferredBackend<R>>);
 
-impl<R> Hub<R> {
-    fn new() -> Hub<R> {
-        Hub {
-            outputs: VecDeque::new(),
-            ret: None,
-        }
-    }
-
-    fn output(&mut self, line: String) {
-        self.outputs.push_back(line);
-    }
-
-    fn ret(&mut self, ret: R) {
-        self.ret.replace(ret);
-    }
-
-    fn read(&mut self) -> Option<HubRead<R>> {
-        if let Some(line) = self.outputs.pop_front() {
-            return Some(HubRead::Output(line));
-        }
-        if let Some(r) = self.ret.take() {
-            return Some(HubRead::Ret(r));
-        }
-        None
-    }
-}
-
-pub struct RctlRunQueue<I, R> {
-    q: WaitNotifyState<VecDeque<(I, WaitNotifyState<Hub<R>>)>>,
-}
-
-impl<I, R> RctlRunQueue<I, R> {
-    pub fn new() -> RctlRunQueue<I, R> {
-        RctlRunQueue {
-            q: WaitNotifyState::new(VecDeque::new()),
-        }
-    }
-
-    pub fn run(&self, req: I, mut log: RctlLog) -> R {
-        let hub = WaitNotifyState::new(Hub::new());
-
-        self.q.write(|q| q.push_back((req, hub.clone())));
-
-        loop {
-            match hub.wait(&mut |hub| (hub.read(), false)) {
-                HubRead::Output(line) => log.log(line),
-                HubRead::Ret(ret) => {
-                    return ret;
-                }
+impl<R> RctlDeferredRead<R> {
+    pub fn wait(self, mut log: RctlLog) -> R {
+        self.0.wait(&mut |be| {
+            while let Some(line) = be.outputs.pop_front() {
+                log.log(line);
             }
+            if let Some(r) = be.ret.take() {
+                return (Some(r), false);
+            }
+            return (None, false);
+        })
+    }
+}
+
+pub struct RctlDeferredWrite<R>(WaitNotifyState<RctlDeferredBackend<R>>);
+
+impl<R> RctlDeferredWrite<R> {
+    pub fn output(&mut self, line: String) {
+        self.0.write(|be| be.outputs.push_back(line));
+    }
+
+    pub fn ret(self, ret: R) {
+        self.0.write(|be| be.ret.replace(ret));
+    }
+}
+
+pub fn deferred<R>() -> (RctlDeferredRead<R>, RctlDeferredWrite<R>) {
+    let be = RctlDeferredBackend {
+        outputs: VecDeque::new(),
+        ret: None,
+    };
+    let be = WaitNotifyState::new(be);
+
+    (RctlDeferredRead(be.clone()), RctlDeferredWrite(be))
+}
+
+pub struct RctlRunQueue<T>(WaitNotifyState<VecDeque<T>>);
+
+impl<T> RctlRunQueue<T> {
+    pub fn new() -> RctlRunQueue<T> {
+        RctlRunQueue(WaitNotifyState::new(VecDeque::new()))
+    }
+
+    pub fn push(&self, t: T) {
+        self.0.write(|q| q.push_back(t));
+    }
+
+    pub fn service(&self, f: &mut impl FnMut(T)) {
+        if let Some(t) = self.0.write(|q| q.pop_front()) {
+            f(t);
         }
     }
 
-    pub fn service(&self, f: &mut impl FnMut(I, RctlLog) -> R) {
-        if let Some(pair) = self.q.write(|q| q.pop_front()) {
-            self.service_one(f, pair);
-        }
-    }
-
-    pub fn service_blocking(&self, f: &mut impl FnMut(I, RctlLog) -> R) {
-        let pair = self.q.wait(&mut |q| (q.pop_front(), false));
-        self.service_one(f, pair);
-    }
-
-    fn service_one(&self, f: &mut impl FnMut(I, RctlLog) -> R, (req, hub): (I, WaitNotifyState<Hub<R>>)) {
-        let log = {
-            let hub = hub.clone();
-            RctlLog(Box::new(move |line| {
-                hub.write(|hub| {
-                    hub.output(line);
-                });
-            }))
-        };
-
-        let res = f(req, log);
-
-        hub.write(|hub| {
-            hub.ret(res);
-        });
+    pub fn service_blocking(&self, f: &mut impl FnMut(T)) {
+        let t = self.0.wait(&mut |q| (q.pop_front(), false));
+        f(t);
     }
 }

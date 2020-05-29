@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 struct Structo<T> {
     t: T,
-    inc_rq: RctlRunQueue<(), ()>,
+    n_rq: RctlRunQueue<Box<dyn FnOnce(&mut usize) + Send>>,
 }
 
 #[rctl_ep]
@@ -26,7 +26,13 @@ impl<T: Debug + Send + Sync> Structo<Box<T>> {
     }
 
     fn inc(&self, log: RctlLog) {
-        self.inc_rq.run((), log);
+        let (r, mut w) = ars_rctl_main::rq::deferred();
+        self.n_rq.push(Box::new(|n| {
+            *n += 1;
+            w.output(format!("n incremented to {}", *n));
+            w.ret(());
+        }));
+        r.wait(log)
     }
 }
 
@@ -48,7 +54,7 @@ fn invoke_runs() {
 fn main() {
     let s = Structo {
         t: Box::new("abc"),
-        inc_rq: RctlRunQueue::new(),
+        n_rq: RctlRunQueue::new(),
     };
     let s = Arc::new(s);
 
@@ -56,9 +62,8 @@ fn main() {
 
     let mut n = 0;
     loop {
-        s.inc_rq.service_blocking(&mut |(), mut log| {
-            n += 1;
-            log.log(format!("n incremented to {}", n));
+        s.n_rq.service_blocking(&mut |f| {
+            f(&mut n)
         });
     }
 }
