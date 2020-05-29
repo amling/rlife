@@ -51,7 +51,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
     let ep = Arc::new(GolRctlEp {
         threads: 8,
         recollect_ms: 5000,
-        max_mem: AtomicUsize::new(8 << 30),
+        max_mem: AtomicUsize::new(2 << 30),
         checkpt_rq: RctlRunQueue::new(),
     });
 
