@@ -17,6 +17,7 @@ use crate::sal;
 
 use bfs::bfs2::Bfs2State;
 use dfs::Tree;
+use dfs::graph::DfsNode;
 use dfs::lifecycle::DfsLifecycle;
 use dfs::lifecycle::LogLevel;
 use dfs::res::DfsRes;
@@ -26,6 +27,7 @@ use gol::graph::GolForce;
 use gol::graph::GolGraph;
 use gol::graph::GolKeyNode;
 use gol::graph::GolNode;
+use gol::graph::GolNodeSerdeProxy;
 use sal::SerdeFormat;
 
 pub struct GolRctlEp {
@@ -78,12 +80,38 @@ impl GolRctlEp {
     }
 }
 
-pub struct GolLifecycle<'a, B: UScalar, Y: GolDy, F: GolForce<Y>, E: GolEnds<B>> {
-    pub ge: &'a GolGraph<B, Y, F, E>,
+pub trait GolGraphTrait {
+    type N: DfsNode + Serialize;
+    type FN: Clone + Serialize;
+
+    fn format_rows(&self, rows: &Vec<<Self::N as DfsNode>::KN>, last: Option<&Self::N>) -> Vec<String>;
+    fn format_cycle_rows(&self, path: &Vec<<Self::N as DfsNode>::KN>, cycle: &Vec<<Self::N as DfsNode>::KN>, last: &<Self::N as DfsNode>::KN) -> Vec<String>;
+    fn freeze_dfs_node(&self, n: &Self::N) -> Self::FN;
+}
+
+impl<B: UScalar + Serialize, Y: GolDy + Serialize, F: GolForce<Y>, E: GolEnds<B>> GolGraphTrait for GolGraph<B, Y, F, E> {
+    type N = GolNode<B, Y>;
+    type FN = GolNodeSerdeProxy<B, Y>;
+
+    fn format_rows(&self, rows: &Vec<GolKeyNode<B>>, last: Option<&GolNode<B, Y>>) -> Vec<String> {
+        self.params.format_rows(rows, last)
+    }
+
+    fn format_cycle_rows(&self, path: &Vec<GolKeyNode<B>>, cycle: &Vec<GolKeyNode<B>>, last: &GolKeyNode<B>) -> Vec<String> {
+        self.params.format_cycle_rows(path, cycle, last)
+    }
+
+    fn freeze_dfs_node(&self, n: &GolNode<B, Y>) -> GolNodeSerdeProxy<B, Y> {
+        self.params.freeze_node(n)
+    }
+}
+
+pub struct GolLifecycle<'a, GE> {
+    pub ge: &'a GE,
     pub ep: Arc<GolRctlEp>,
 }
 
-impl<'a, B: UScalar + Serialize, Y: GolDy + Serialize, F: GolForce<Y>, E: GolEnds<B>> DfsLifecycle<GolNode<B, Y>> for GolLifecycle<'a, B, Y, F, E> {
+impl<'a, GE: GolGraphTrait> DfsLifecycle<GE::N> for GolLifecycle<'a, GE> where <GE::N as DfsNode>::KN: Serialize {
     fn threads(&self) -> usize {
         self.ep.threads.load(Ordering::Relaxed)
     }
@@ -96,17 +124,17 @@ impl<'a, B: UScalar + Serialize, Y: GolDy + Serialize, F: GolForce<Y>, E: GolEnd
         self.ep.max_mem.load(Ordering::Relaxed)
     }
 
-    fn on_recollect_firstest(&mut self, firstest: (Vec<GolKeyNode<B>>, GolNode<B, Y>)) {
+    fn on_recollect_firstest(&mut self, firstest: (Vec<<GE::N as DfsNode>::KN>, GE::N)) {
         self.log(LogLevel::DEBUG, "Recollect firstest...");
-        for line in self.ge.params.format_rows(&firstest.0, Some(&firstest.1)) {
+        for line in self.ge.format_rows(&firstest.0, Some(&firstest.1)) {
             self.log(LogLevel::DEBUG, line);
         }
     }
 
-    fn on_recollect_results(&mut self, r: DfsRes<GolKeyNode<B>>) -> bool {
+    fn on_recollect_results(&mut self, r: DfsRes<<GE::N as DfsNode>::KN>) -> bool {
         for (path, cycle, last) in &r.cycles {
             self.log(LogLevel::INFO, "Cycle:");
-            for line in self.ge.params.format_cycle_rows(path, cycle, last) {
+            for line in self.ge.format_cycle_rows(path, cycle, last) {
                 self.log(LogLevel::INFO, line);
             }
             self.log(LogLevel::INFO, "");
@@ -114,7 +142,7 @@ impl<'a, B: UScalar + Serialize, Y: GolDy + Serialize, F: GolForce<Y>, E: GolEnd
 
         for (path, label) in &r.ends {
             self.log(LogLevel::INFO, format!("End {:?}:", label));
-            for line in self.ge.params.format_rows::<B, Y>(path, None) {
+            for line in self.ge.format_rows(path, None) {
                 self.log(LogLevel::INFO, line);
             }
             self.log(LogLevel::INFO, "");
@@ -130,14 +158,14 @@ impl<'a, B: UScalar + Serialize, Y: GolDy + Serialize, F: GolForce<Y>, E: GolEnd
         std::io::stdout().flush().unwrap();
     }
 
-    //fn debug_enter(&self, path: &Vec<GolKeyNode<B>>) {
+    //fn debug_enter(&self, path: &Vec<<GE::N as DfsNode>::KN>) {
     //    self.log(LogLevel::INFO, format!("Enter search {}", path.len()));
     //    for line in self.ge.format_rows(path) {
     //        self.log(LogLevel::INFO, line);
     //    }
     //}
 
-    fn debug_dfs_checkpoint(&mut self, tree: &Tree<GolNode<B, Y>>) {
+    fn debug_dfs_checkpoint(&mut self, tree: &Tree<GE::N>) {
         self.ep.checkpt_rq.service(&mut |path, mut log| {
             let path = match path {
                 Some(path) => path,
@@ -145,7 +173,7 @@ impl<'a, B: UScalar + Serialize, Y: GolDy + Serialize, F: GolForce<Y>, E: GolEnd
             };
 
             let t0 = std::time::Instant::now();
-            let tree = tree.as_ref().map(&mut |n| self.ge.params.freeze_node(n));
+            let tree = tree.as_ref().map(&mut |n| self.ge.freeze_dfs_node(n));
             let tree = tree.to_serde_proxy();
             SerdeFormat::JSON.write(&path, &tree).unwrap();
 
@@ -153,7 +181,7 @@ impl<'a, B: UScalar + Serialize, Y: GolDy + Serialize, F: GolForce<Y>, E: GolEnd
         });
     }
 
-    fn debug_bfs2_checkpoint<'b>(&mut self, get_state: impl FnOnce(&mut Self) -> &'b Bfs2State<GolNode<B, Y>, GolKeyNode<B>>) where GolNode<B, Y>: 'b {
+    fn debug_bfs2_checkpoint<'b>(&mut self, get_state: impl FnOnce(&mut Self) -> &'b Bfs2State<GE::N, <GE::N as DfsNode>::KN>) where GE::N: 'b {
         // clone ep so self is still available for closure to take
         let ep = self.ep.clone();
 
@@ -181,9 +209,9 @@ impl<'a, B: UScalar + Serialize, Y: GolDy + Serialize, F: GolForce<Y>, E: GolEnd
         });
     }
 
-    fn debug_longest(&mut self, path: &Vec<GolKeyNode<B>>) {
+    fn debug_longest(&mut self, path: &Vec<<GE::N as DfsNode>::KN>) {
         self.log(LogLevel::INFO, format!("Longest {}", path.len()));
-        for line in self.ge.params.format_rows::<B, Y>(path, None) {
+        for line in self.ge.format_rows(path, None) {
             self.log(LogLevel::INFO, line);
         }
         self.log(LogLevel::INFO, "");
