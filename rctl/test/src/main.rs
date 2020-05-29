@@ -45,7 +45,7 @@ fn metadata_runs() {
 fn invoke_runs() {
     let s = Structo {
         t: Box::new("abc"),
-        inc_rq: RctlRunQueue::new(),
+        n_rq: RctlRunQueue::new(),
     };
 
     assert_eq!("[\"abc\"] def!", serde_json::from_value::<String>(s.invoke(RctlLog::ignore(), "cooler", &vec![serde_json::to_value("def").unwrap()]).unwrap()).unwrap());
