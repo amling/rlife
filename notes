@@ -61,29 +61,17 @@ DB of known solvable states?
         also, this doesn't necessarily find all splits, e.g.  for a U-shaped ship it won't consider the arms to be solvable individually
         this is pretty slow to load, we probably need to preprocess...
 
-bfs2
-    parallelize?
-        only kns foldover and kns recollect left and both pretty fast I think?
-    checkpoint?
-        sort of a mess, need to go back to having directory
-        dropping state is very, very expensive
-            maybe not so bad?
-            "bincode" I hope can be somewhat fast?
-        so only want to drop something like once an hour and/or when indicated...
-            well, benchmark and see how bad it is...
-    arggh, memory limit is still off and debugging it sucks
-        VmRSS tracks slightly better, but still has issues
-        at a moment when things are bad dropping `ws` recovers, but only as it drops the last one or two of them
-        suggests fragmentation, and based on VmHWM for long-running process it's still in the 2x range...
+arggh, bfs2 memory limit is still off and debugging it sucks
+    VmRSS tracks slightly better, but still has issues
+    at a moment when things are bad dropping `ws` recovers, but only as it drops the last one or two of them
+    suggests fragmentation, and based on VmHWM for long-running process it's still in the 2x range...
+    right, at least some of this is ChunkQueue::retain leaving gaps it can't fill
+        added defragment(), we'll see how much this improves things
 
 hacks to enforce "gappiness" of unchecked edges
     track if we're in zeros or nonzeros, track length of segment
         don't allow nonzeros longer than thresh
         don't allow zeros shorter than [second] thresh
-
-handy syntax for search parameters
-ge.init_zero() -> GolNodeSerdeProxy
-ge.init_str(S, S) -> GolNodeSerdeProxy (parse, verify dims, pad and recenter if recenter, etc.)
 
 
 
