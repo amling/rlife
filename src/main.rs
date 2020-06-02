@@ -50,21 +50,6 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
         recenter: GolRecenter::BiasRight,
     };
     assert!(ge.mt * ge.mx <= B::size());
-    let ge = ge.derived((), ());
-
-    let ep = Arc::new(GolRctlEp {
-        threads: AtomicUsize::new(8),
-        recollect_ms: AtomicU64::new(5000),
-        max_mem: AtomicUsize::new(2 << 30),
-        checkpt_rq: RctlRunQueue::new(),
-    });
-
-    ars_rctl_main::spawn(ep.clone());
-
-    let mut le = GolLifecycle {
-        ge: &ge,
-        ep: ep,
-    };
 
     let st = match args.next() {
         Some(path) => {
@@ -79,13 +64,29 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
                 r2: B::zero(),
                 r2l: 0,
             };
-            let n0 = ge.params.thaw_node(&n0);
+            let n0 = ge.thaw_node(&n0);
 
-            let (shift, _, _) = ge.params.recenter(n0.r0, n0.r1);
+            let (shift, _, _) = ge.recenter(n0.r0, n0.r1);
             assert_eq!(0, shift);
 
             Bfs2State::new(vec![(vec![n0.key_node().unwrap()], n0)])
         },
+    };
+
+    let ge = ge.derived((), ());
+
+    let ep = Arc::new(GolRctlEp {
+        threads: AtomicUsize::new(8),
+        recollect_ms: AtomicU64::new(5000),
+        max_mem: AtomicUsize::new(2 << 30),
+        checkpt_rq: RctlRunQueue::new(),
+    });
+
+    ars_rctl_main::spawn(ep.clone());
+
+    let mut le = GolLifecycle {
+        ge: &ge,
+        ep: ep,
     };
 
     bfs::bfs2::<GolNode<B, _>, _, _>(st, &ge, &mut le);
