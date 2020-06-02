@@ -29,15 +29,23 @@ marker_trait! {
 }
 
 pub trait GolDy: GolDyMarker {
+    fn zero() -> Self;
     fn inc(self) -> Self;
 }
 
 impl GolDy for () {
+    fn zero() -> Self {
+    }
+
     fn inc(self) -> Self {
     }
 }
 
 impl GolDy for u16 {
+    fn zero() -> Self {
+        0
+    }
+
     fn inc(self) -> Self {
         self + 1
     }
@@ -576,6 +584,17 @@ impl GolGraphParams {
             r2l: n.r2l,
             r2l_x: ((n.r2l as usize) % self.mx) as u8,
         }
+    }
+
+    pub fn zero_node<B: UScalar, Y: GolDy>(&self) -> GolNode<B, Y> {
+        self.thaw_node(&GolNodeSerdeProxy {
+            dx: 0,
+            dy: Y::zero(),
+            r0: B::zero(),
+            r1: B::zero(),
+            r2: B::zero(),
+            r2l: 0,
+        })
     }
 }
 

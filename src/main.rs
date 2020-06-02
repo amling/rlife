@@ -23,7 +23,6 @@ use dfs::lifecycle::LogLevel;
 use gol::graph::GolEdge;
 use gol::graph::GolGraphParams;
 use gol::graph::GolNode;
-use gol::graph::GolNodeSerdeProxy;
 use gol::graph::GolRecenter;
 use gol::lifecycle::GolLifecycle;
 use gol::lifecycle::GolRctlEp;
@@ -56,18 +55,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
             SerdeFormat::Bincode.read(path).unwrap()
         },
         None => {
-            let n0 = GolNodeSerdeProxy {
-                dx: 0,
-                dy: (),
-                r0: B::zero(),
-                r1: B::zero(),
-                r2: B::zero(),
-                r2l: 0,
-            };
-            let n0 = ge.thaw_node(&n0);
-
-            let (shift, _, _) = ge.recenter(n0.r0, n0.r1);
-            assert_eq!(0, shift);
+            let n0 = ge.zero_node::<B, ()>();
 
             Bfs2State::new(vec![(vec![n0.key_node().unwrap()], n0)])
         },
