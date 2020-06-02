@@ -6,8 +6,10 @@ use std::hash::Hash;
 use std::io::BufRead;
 use std::io::BufReader;
 use std::path::Path;
+use std::path::PathBuf;
 
 pub struct GolSlice {
+    pub label: String,
     r0: HashSet<(isize, usize)>,
     r1: HashSet<(isize, usize)>,
     mt: usize,
@@ -41,6 +43,7 @@ impl GolSlice {
 }
 
 struct GolPattern {
+    path: PathBuf,
     cells: HashSet<(isize, isize, usize)>,
     ox: isize,
     oy: isize,
@@ -54,6 +57,12 @@ impl GolPattern {
         }
 
         let mul = mt / self.mt;
+
+        let label = {
+            let min_x = self.cells.iter().filter(|&&(_, _, t)| t == 0).map(|&(x, _, _)| x).min().unwrap();
+            let min_y = self.cells.iter().filter(|&&(_, _, t)| t == 0).map(|&(_, y, _)| y).min().unwrap();
+            format!("from {:?} near {:?}", self.path, (min_x, min_y))
+        };
 
         // for each orientation
         for &fx in &[-1, 1] {
@@ -124,6 +133,7 @@ impl GolPattern {
                             let y1 = y0 + 1;
                             let r1 = cells2.iter().filter_map(|&p| filter_shift(y1, p)).collect();
                             acc.push(GolSlice {
+                                label: label.clone(),
                                 r0: r0,
                                 r1: r1,
                                 mt: self.mt * mul,
@@ -250,6 +260,7 @@ impl GolPatterns {
                 }
                 for cells in components(all_cells, all_links) {
                     self.vec.push(GolPattern {
+                        path: path.to_path_buf(),
                         cells: cells,
                         ox: ox,
                         oy: oy,
