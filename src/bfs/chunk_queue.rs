@@ -117,6 +117,75 @@ impl<N> ChunkQueue<N> {
         self.len = len;
     }
 
+    fn get_two_mut(&mut self, i: usize, j: usize) -> (&mut VecDeque<N>, &mut VecDeque<N>) {
+        let (s1, s2) = self.q.as_mut_slices();
+
+        let s1l = s1.len();
+        if i < s1l {
+            if j < s1l {
+                let (s1, s2) = s1.split_at_mut(j);
+                (&mut s1[i], &mut s2[0])
+            }
+            else {
+                (&mut s1[i], &mut s2[j - s1l])
+            }
+        }
+        else {
+            if j < s1l {
+                panic!();
+            }
+            else {
+                let i = i - s1l;
+                let j = j - s1l;
+                let (s1, s2) = s2.split_at_mut(j);
+                let s1l = s1.len();
+
+                (&mut s1[i], &mut s2[j - s1l])
+            }
+        }
+    }
+
+
+    pub fn defragment(&mut self) {
+        let mut i = 0;
+        let mut j = 0;
+
+        loop {
+            if i == j {
+                j += 1;
+            }
+            if j >= self.q.len() {
+                break;
+            }
+
+            let (p1, p2) = self.get_two_mut(i, j);
+
+            let space = p1.capacity() - p1.len();
+            if space >= p2.len() {
+                p1.append(p2);
+                j += 1;
+            }
+            else {
+                let mut q1 = std::mem::replace(p2, VecDeque::with_capacity(0));
+                let q2 = q1.split_off(space);
+                *p2 = q2;
+                p1.append(&mut q1);
+                i += 1;
+            }
+        }
+
+        loop {
+            if let Some(last) = self.q.back_mut() {
+                if last.len() == 0 {
+                    self.q.pop_back();
+                    continue;
+                }
+            }
+
+            break;
+        }
+    }
+
     pub fn append(&mut self, other: &mut ChunkQueue<N>) {
         self.q.append(&mut other.q);
         self.len += other.len;

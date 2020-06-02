@@ -224,6 +224,12 @@ pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(mut 
                     });
                     let after = ws.iter().map(|w| w.q.len()).sum::<usize>();
                     le.log(LogLevel::INFO, format!("Deepened ws.q {} => {}, foresight {} in {:?}", before, after, *foresight, t0.elapsed()));
+
+                    let t0 = std::time::Instant::now();
+                    singleton_par(threads, &mut ws, |w| {
+                        w.q.defragment();
+                    });
+                    le.log(LogLevel::INFO, format!("Defragmented ws.q in {:?}", t0.elapsed()));
                 }
 
                 {
@@ -243,6 +249,12 @@ pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(mut 
                     });
                     let after = ws.iter().map(|w| w.q2.len()).sum::<usize>();
                     le.log(LogLevel::INFO, format!("Deepened ws.q2 {} => {}, foresight {} in {:?}", before, after, *foresight - 1, t0.elapsed()));
+
+                    let t0 = std::time::Instant::now();
+                    singleton_par(threads, &mut ws, |w| {
+                        w.q2.defragment();
+                    });
+                    le.log(LogLevel::INFO, format!("Defragmented ws.q2 in {:?}", t0.elapsed()));
                 }
 
                 let living = vec![].into_iter();
@@ -350,6 +362,10 @@ pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(mut 
                     });
                     let after = q3.len();
                     le.log(LogLevel::INFO, format!("Deepened q3 {} => {}, foresight {} in {:?}", before, after, *foresight - 1, t0.elapsed()));
+
+                    let t0 = std::time::Instant::now();
+                    q3.defragment();
+                    le.log(LogLevel::INFO, format!("Defragmented q3 in {:?}", t0.elapsed()));
                 }
 
                 {
@@ -366,6 +382,10 @@ pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(mut 
                     });
                     let after = q4.len();
                     le.log(LogLevel::INFO, format!("Deepened q4 {} => {}, foresight {} in {:?}", before, after, *foresight - 1, t0.elapsed()));
+
+                    let t0 = std::time::Instant::now();
+                    q4.defragment();
+                    le.log(LogLevel::INFO, format!("Defragmented q4 in {:?}", t0.elapsed()));
                 }
 
                 let living = vec![].into_iter();
