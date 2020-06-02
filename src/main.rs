@@ -83,18 +83,3 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
 
     Ok(())
 }
-
-fn cnst<B: UScalar>(c: u128) -> B {
-    let mut b = B::zero();
-    let mut c = c;
-    let mut idx = 0;
-    while c > 0 {
-        if c % 2 == 1 {
-            assert!(idx < B::size());
-            b.set_bit(idx, true);
-        }
-        c >>= 1;
-        idx += 1;
-    }
-    b
-}

@@ -596,6 +596,43 @@ impl GolGraphParams {
             r2l: 0,
         })
     }
+
+    pub fn parse_and_recenter_pair<B: UScalar>(&self, r0: impl AsRef<str>, r1: impl AsRef<str>) -> (B, B) {
+        let parse = |s: &str| {
+            let mut r = B::zero();
+            for (t, s) in s.split(' ').enumerate() {
+                assert!(t < self.mt);
+                for (x, c) in s.chars().enumerate() {
+                    assert!(x < self.mx);
+                    let b = match c {
+                        '.' => false,
+                        '*' => true,
+                        _ => panic!(),
+                    };
+                    r.set_bit(self.to_idx(x, t), b);
+                }
+            }
+            r
+        };
+
+        let r0 = parse(r0.as_ref());
+        let r1 = parse(r1.as_ref());
+
+        let (_, r0, r1) = self.recenter(r0, r1);
+
+        (r0, r1)
+    }
+
+    pub fn regular_node<B: UScalar, Y: GolDy>(&self, r0: B, r1: B) -> GolNode<B, Y> {
+        self.thaw_node(&GolNodeSerdeProxy {
+            dx: 0,
+            dy: Y::zero(),
+            r0: r0,
+            r1: r1,
+            r2: B::zero(),
+            r2l: 0,
+        })
+    }
 }
 
 pub trait GolForce<Y: GolDy> {
