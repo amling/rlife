@@ -759,7 +759,7 @@ impl<B: UScalar, Y: GolDy, F: GolForce<Y>, E: GolEnds<B>> DfsGraph<GolNode<B, Y>
         n2s
     }
 
-    fn end<'a>(&'a self, n: &'a GolKeyNode<B>, _path: impl Iterator<Item=&'a GolKeyNode<B>>) -> Option<&'static str> {
+    fn end<'a>(&'a self, n: &'a GolKeyNode<B>, _path: impl Iterator<Item=&'a GolKeyNode<B>>) -> Option<&'a str> {
         self.ends.end(n)
     }
 }
