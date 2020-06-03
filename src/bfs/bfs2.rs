@@ -71,7 +71,7 @@ impl<N: DfsNode> Bfs2State<N, N::KN> {
 pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(mut state: Bfs2State<N, N::KN>, ge: &GE, le: &mut LE) {
     loop {
         let threads = le.threads();
-        let shards = threads * 10;
+        let shards = threads * 100;
 
         le.debug_bfs2_checkpoint(|le| {
             let kns = &mut state.kns;
