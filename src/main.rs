@@ -35,16 +35,19 @@ fn main() {
 fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError> {
     let mut args = std::env::args().skip(1);
 
+    let wx = args.next().unwrap().parse().unwrap();
+    let mx = args.next().unwrap().parse().unwrap();
+
     let ge = GolGraphParams {
-        mt: 3,
-        mx: 8,
-        wx: 8,
+        mt: 8,
+        mx: mx,
+        wx: wx,
 
         left_edge: GolEdge::Empty,
         right_edge: GolEdge::Empty,
 
         ox: 0,
-        oy: 1,
+        oy: 3,
 
         recenter: GolRecenter::BiasRight,
     };
@@ -55,7 +58,11 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
             SerdeFormat::Bincode.read(path).unwrap()
         },
         None => {
-            let n0 = ge.zero_node::<B, ()>();
+            let (r0, r1) = ge.parse_and_recenter_pair(
+                "*..*. ..**. ..*.* .**.. *.*.. *.*.. ..**. .***.",
+                "*...* ...** ..... .**.. .*... .*.*. *.... .*.*.",
+            );
+            let n0 = ge.regular_node::<B, ()>(r0, r1);
 
             Bfs2State::new(vec![(vec![n0.key_node().unwrap()], n0)])
         },
