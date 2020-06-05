@@ -587,14 +587,19 @@ impl GolGraphParams {
     }
 
     pub fn zero_node<B: UScalar, Y: GolDy>(&self) -> GolNode<B, Y> {
-        self.thaw_node(&GolNodeSerdeProxy {
-            dx: 0,
-            dy: Y::zero(),
-            r0: B::zero(),
-            r1: B::zero(),
-            r2: B::zero(),
-            r2l: 0,
-        })
+        self.cb_node(|_, _, _| false)
+    }
+
+    pub fn cb_node<B: UScalar, Y: GolDy>(&self, mut f: impl FnMut(usize, usize, usize) -> bool) -> GolNode<B, Y> {
+        let mut r0 = B::zero();
+        let mut r1 = B::zero();
+        for t in 0..self.mt {
+            for x in 0..self.mx {
+                r0.set_bit(self.to_idx(x, t), f(x, 0, t));
+                r1.set_bit(self.to_idx(x, t), f(x, 1, t));
+            }
+        }
+        self.regular_node(r0, r1)
     }
 
     pub fn parse_and_recenter_pair<B: UScalar>(&self, r0: impl AsRef<str>, r1: impl AsRef<str>) -> (B, B) {
