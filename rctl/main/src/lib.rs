@@ -9,6 +9,7 @@ use std::io::Read;
 use std::io::Write;
 use std::os::unix::net::UnixListener;
 use std::os::unix::net::UnixStream;
+use std::path::Path;
 use std::sync::Arc;
 
 pub mod rq;
@@ -30,6 +31,10 @@ fn event_loop(ep: Arc<impl RctlEp + 'static>) -> Result<Impossible, StringError>
     std::fs::create_dir_all(&dir)?;
 
     let sock = format!("{}/{}.sock", dir, std::process::id());
+    let sock = Path::new(&sock);
+    if sock.exists() {
+        std::fs::remove_file(sock)?;
+    }
     let sock = UnixListener::bind(sock)?;
 
     for sock in sock.incoming() {
