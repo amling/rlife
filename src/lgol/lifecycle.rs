@@ -21,6 +21,11 @@ impl<BS: RowTuple + Serialize> GolGraphTrait for LGolGraph<BS> where BS::Item: S
         self.format_cycle_rows(path, cycle, last)
     }
 
+    fn format_cycle_shape(&self, path: &Vec<LGolKeyNode<BS>>, cycle: &Vec<LGolKeyNode<BS>>, _last: &LGolKeyNode<BS>) -> String {
+        // we could do better...
+        format!("init {} cycle {}", path.len(), cycle.len())
+    }
+
     fn freeze_dfs_node(&self, n: &LGolNode<BS>) -> LGolNode<BS> {
         n.clone()
     }

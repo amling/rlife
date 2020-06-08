@@ -91,6 +91,7 @@ pub trait GolGraphTrait {
 
     fn format_rows(&self, rows: &Vec<<Self::N as DfsNode>::KN>, last: Option<&Self::N>) -> Vec<String>;
     fn format_cycle_rows(&self, path: &Vec<<Self::N as DfsNode>::KN>, cycle: &Vec<<Self::N as DfsNode>::KN>, last: &<Self::N as DfsNode>::KN) -> Vec<String>;
+    fn format_cycle_shape(&self, path: &Vec<<Self::N as DfsNode>::KN>, cycle: &Vec<<Self::N as DfsNode>::KN>, last: &<Self::N as DfsNode>::KN) -> String;
     fn freeze_dfs_node(&self, n: &Self::N) -> Self::FN;
 }
 
@@ -104,6 +105,10 @@ impl<B: UScalar + Serialize, Y: GolDy + Serialize, F: GolForce<Y>, E: GolEnds<B>
 
     fn format_cycle_rows(&self, path: &Vec<GolKeyNode<B>>, cycle: &Vec<GolKeyNode<B>>, last: &GolKeyNode<B>) -> Vec<String> {
         self.params.format_cycle_rows(path, cycle, last)
+    }
+
+    fn format_cycle_shape(&self, path: &Vec<GolKeyNode<B>>, cycle: &Vec<GolKeyNode<B>>, last: &GolKeyNode<B>) -> String {
+        format!("init {} dx {} dy {}):", path.len(), last.dx - cycle[0].dx, cycle.len())
     }
 
     fn freeze_dfs_node(&self, n: &GolNode<B, Y>) -> GolNodeSerdeProxy<B, Y> {
@@ -138,7 +143,7 @@ impl<'a, GE: GolGraphTrait> DfsLifecycle<GE::N> for GolLifecycle<'a, GE> where <
 
     fn on_recollect_results(&mut self, r: DfsRes<<GE::N as DfsNode>::KN>) -> bool {
         for (path, cycle, last) in &r.cycles {
-            self.log(LogLevel::INFO, "Cycle:");
+            self.log(LogLevel::INFO, format!("Cycle ({}):", self.ge.format_cycle_shape(path, cycle, last)));
             for line in self.ge.format_cycle_rows(path, cycle, last) {
                 self.log(LogLevel::INFO, line);
             }
