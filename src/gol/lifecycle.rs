@@ -108,7 +108,7 @@ impl<B: UScalar + Serialize, Y: GolDy + Serialize, F: GolForce<Y>, E: GolEnds<B>
     }
 
     fn format_cycle_shape(&self, path: &Vec<GolKeyNode<B>>, cycle: &Vec<GolKeyNode<B>>, last: &GolKeyNode<B>) -> String {
-        format!("init {} dx {} dy {}):", path.len(), last.dx - cycle[0].dx, cycle.len())
+        format!("init {} dx {} dy {}", path.len(), last.dx - cycle[0].dx, cycle.len())
     }
 
     fn freeze_dfs_node(&self, n: &GolNode<B, Y>) -> GolNodeSerdeProxy<B, Y> {
