@@ -20,16 +20,15 @@ use bfs::bfs2::Bfs2State;
 use dfs::graph::DfsNode;
 use dfs::lifecycle::DfsLifecycle;
 use dfs::lifecycle::LogLevel;
-use gol::graph::GolEdge;
-use gol::graph::GolGraphParams;
-use gol::graph::GolNode;
-use gol::graph::GolRecenter;
 use gol::lifecycle::GolLifecycle;
 use gol::lifecycle::GolRctlEp;
+use lgol::graph::LGolEdge;
+use lgol::graph::LGolFancyAxis;
+use lgol::graph::LGolGraphParams;
 use sal::SerdeFormat;
 
 fn main() {
-    main1::<u64>().unwrap();
+    main1::<u16>().unwrap();
 }
 
 fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError> {
@@ -38,37 +37,30 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
     let wx = args.next().unwrap().parse().unwrap();
     let mx = args.next().unwrap().parse().unwrap();
 
-    let ge = GolGraphParams {
-        mt: 8,
-        mx: mx,
-        wx: wx,
+    let ge = LGolGraphParams {
+        vu: (mx, 0, 0),
+        vv: (0, -1, 3),
+        vw: (0, 0, 1),
 
-        left_edge: GolEdge::Empty,
-        right_edge: GolEdge::Empty,
-
-        ox: 0,
-        oy: 3,
-
-        recenter: GolRecenter::BiasRight,
+        u_axis: LGolFancyAxis {
+            w: (wx, mx),
+        },
+        v_axis: (LGolEdge::Wrap, LGolEdge::Wrap),
     };
-    assert!(ge.mt * ge.mx <= B::size());
+    let ge = ge.derived::<[B; 6]>();
 
     let st = match args.next() {
         Some(path) => {
             SerdeFormat::Bincode.read(path).unwrap()
         },
         None => {
-            let (r0, r1) = ge.parse_and_recenter_pair(
-                "*..*. ..**. ..*.* .**.. *.*.. *.*.. ..**. .***.",
-                "*...* ...** ..... .**.. .*... .*.*. *.... .*.*.",
-            );
-            let n0 = ge.regular_node::<B, ()>(r0, r1);
+            let n0 = ge.zero_node();
 
             Bfs2State::new(vec![(vec![n0.key_node().unwrap()], n0)])
         },
     };
 
-    let ge = ge.derived((), ());
+    assert!(ge.max_r1l <= B::size());
 
     let ep = Arc::new(GolRctlEp {
         threads: AtomicUsize::new(8),
@@ -84,7 +76,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
         ep: ep,
     };
 
-    bfs::bfs2::<GolNode<B, _>, _, _>(st, &ge, &mut le);
+    bfs::bfs2(st, &ge, &mut le);
 
     le.log(LogLevel::INFO, "Done");
 
