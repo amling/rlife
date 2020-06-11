@@ -163,7 +163,7 @@ pub trait LGolAxis: Copy {
     fn right_edge(&self) -> LGolEdge;
 
     fn zero_stat(&self, shift_data: &LGolShiftData) -> Self::S;
-    fn add_stat(&self, s0: Self::S, c: isize, v: bool) -> Option<Self::S>;
+    fn add_stat(&self, shift_data: &LGolShiftData, s0: Self::S, c: isize, v: bool) -> Option<Self::S>;
 
     fn recenter<BS: RowTuple>(&self, shift_data: &LGolShiftData, rs: BS) -> (isize, BS);
 
@@ -184,7 +184,7 @@ impl LGolAxis for (LGolEdge, LGolEdge) {
     fn zero_stat(&self, _shift_data: &LGolShiftData) {
     }
 
-    fn add_stat(&self, _s0: (), _c: isize, _v: bool) -> Option<()> {
+    fn add_stat(&self, _shift_data: &LGolShiftData, _s0: (), _c: isize, _v: bool) -> Option<()> {
         Some(())
     }
 
@@ -200,8 +200,8 @@ impl LGolAxis for (LGolEdge, LGolEdge) {
 #[derive(Clone)]
 #[derive(Copy)]
 pub struct LGolFancyAxis {
-    // TODO: determinant denominator issues (check below assumes this is in units of 1/|det| but user doesn't want to have to care about det)
-    w: isize,
+    // (numerator, denominator), a value of 1 is the entire width
+    w: (isize, isize),
 }
 
 impl LGolAxis for LGolFancyAxis {
@@ -219,7 +219,7 @@ impl LGolAxis for LGolFancyAxis {
         (shift_data.max_coord, shift_data.min_coord)
     }
 
-    fn add_stat(&self, s0: (isize, isize), c: isize, v: bool) -> Option<(isize, isize)> {
+    fn add_stat(&self, shift_data: &LGolShiftData, s0: (isize, isize), c: isize, v: bool) -> Option<(isize, isize)> {
         if !v {
             return Some(s0);
         }
@@ -227,7 +227,8 @@ impl LGolAxis for LGolFancyAxis {
         let min = s0.0.min(c);
         let max = s0.1.max(c);
 
-        if max >= min + self.w {
+        // max >= min + (self.w.0 * shift_data.adet / self.w.1)
+        if self.w.1 * max >= self.w.1 * min + self.w.0 * shift_data.adet {
             return None;
         }
 
@@ -346,6 +347,7 @@ impl<UA: LGolAxis, VA: LGolAxis> LGolGraphParams<UA, VA> {
             let max_coord = spots.iter().map(|&(_xyt, uvw)| mangle(uvw).0).max().unwrap();
 
             LGolShiftData {
+                adet: lc.adet,
                 period: period,
                 shift_rows: shift_rows,
                 coord_idx_sorted: coord_idx_sorted,
@@ -527,6 +529,7 @@ impl<UA: LGolAxis, VA: LGolAxis> LGolGraphParams<UA, VA> {
 }
 
 pub struct LGolShiftData {
+    adet: isize,
     period: isize,
     shift_rows: Vec<Vec<usize>>,
     coord_idx_sorted: Vec<(isize, usize)>,
@@ -614,13 +617,13 @@ impl<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> LGolGraph<BS, UA, VA> {
                 r0s: n1.r0s,
                 r1: n1.r1,
                 r1l: n1.r1l + 1,
-                r1_us: match self.params.u_axis.add_stat(n1.r1_us, idx_u, v) {
+                r1_us: match self.params.u_axis.add_stat(&self.u_shift_data, n1.r1_us, idx_u, v) {
                     Some(us) => us,
                     None => {
                         continue 'v;
                     }
                 },
-                r1_vs: match self.params.v_axis.add_stat(n1.r1_vs, idx_v, v) {
+                r1_vs: match self.params.v_axis.add_stat(&self.v_shift_data, n1.r1_vs, idx_v, v) {
                     Some(us) => us,
                     None => {
                         continue 'v;
