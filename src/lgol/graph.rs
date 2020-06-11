@@ -159,7 +159,7 @@ pub trait LGolAxis: Copy {
     fn zero_stat(&self) -> Self::S;
     fn add_stat(&self, s0: Self::S, v: isize, c: bool) -> Option<Self::S>;
 
-    fn recenter<BS: RowTuple>(&self, rs: BS) -> Option<BS>;
+    fn recenter<BS: RowTuple>(&self, shift_rows: &LGolShiftRows, rs: BS) -> Option<BS>;
 
     fn wrap_in_print(&self) -> bool;
 }
@@ -182,7 +182,7 @@ impl LGolAxis for (LGolEdge, LGolEdge) {
         Some(())
     }
 
-    fn recenter<BS: RowTuple>(&self, rs: BS) -> Option<BS> {
+    fn recenter<BS: RowTuple>(&self, _shift_rows: &LGolShiftRows, rs: BS) -> Option<BS> {
         Some(rs)
     }
 
@@ -467,13 +467,13 @@ impl<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> LGolGraph<BS, UA, VA> {
             }
             r0s.set(0, n1.r1);
 
-            let r0s = match self.params.u_axis.recenter(r0s) {
+            let r0s = match self.params.u_axis.recenter(&self.u_shift_rows, r0s) {
                 Some(r0s) => r0s,
                 None => {
                     return;
                 }
             };
-            let r0s = match self.params.v_axis.recenter(r0s) {
+            let r0s = match self.params.v_axis.recenter(&self.v_shift_rows, r0s) {
                 Some(r0s) => r0s,
                 None => {
                     return;
