@@ -132,16 +132,29 @@ pub enum LGolEdge {
     Unknown,
 }
 
+pub trait LGolAxis: Copy {
+    fn left_edge(&self) -> LGolEdge;
+    fn right_edge(&self) -> LGolEdge;
+}
+
+impl LGolAxis for (LGolEdge, LGolEdge) {
+    fn left_edge(&self) -> LGolEdge {
+        self.0
+    }
+
+    fn right_edge(&self) -> LGolEdge {
+        self.1
+    }
+}
+
 #[derive(Clone)]
-pub struct LGolGraphParams {
+pub struct LGolGraphParams<UA: LGolAxis, VA: LGolAxis> {
     pub vu: Vec3,
     pub vv: Vec3,
     pub vw: Vec3,
 
-    pub u_min_edge: LGolEdge,
-    pub u_max_edge: LGolEdge,
-    pub v_min_edge: LGolEdge,
-    pub v_max_edge: LGolEdge,
+    pub u_axis: UA,
+    pub v_axis: VA,
 }
 
 enum PartialRowRead {
@@ -150,8 +163,8 @@ enum PartialRowRead {
     Read(usize, usize),
 }
 
-impl LGolGraphParams {
-    pub fn derived<BS: RowTuple>(&self) -> LGolGraph<BS> {
+impl<UA: LGolAxis, VA: LGolAxis> LGolGraphParams<UA, VA> {
+    pub fn derived<BS: RowTuple>(&self) -> LGolGraph<BS, UA, VA> {
         let lc = LatticeCoords::new(self.vu, self.vv, self.vw);
 
         // step two: figure out (x, y, t) coordinates for fundamental volume
@@ -185,10 +198,10 @@ impl LGolGraphParams {
 
             let u_edge;
             if lu < 0 {
-                u_edge = self.u_min_edge;
+                u_edge = self.u_axis.left_edge();
             }
             else if lu > 0 {
-                u_edge = self.u_max_edge;
+                u_edge = self.u_axis.right_edge();
             }
             else {
                 u_edge = LGolEdge::Wrap;
@@ -196,10 +209,10 @@ impl LGolGraphParams {
 
             let v_edge;
             if lv < 0 {
-                v_edge = self.v_min_edge;
+                v_edge = self.v_axis.left_edge();
             }
             else if lv > 0 {
-                v_edge = self.v_max_edge;
+                v_edge = self.v_axis.right_edge();
             }
             else {
                 v_edge = LGolEdge::Wrap;
@@ -342,8 +355,8 @@ impl LGolGraphParams {
     }
 }
 
-pub struct LGolGraph<BS: RowTuple> {
-    pub params: LGolGraphParams,
+pub struct LGolGraph<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> {
+    pub params: LGolGraphParams<UA, VA>,
 
     pub spots: Vec<Vec3>,
     pub max_r1l: usize,
@@ -352,7 +365,7 @@ pub struct LGolGraph<BS: RowTuple> {
     _bs: PhantomData<BS>,
 }
 
-impl<BS: RowTuple> LGolGraph<BS> {
+impl<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> LGolGraph<BS, UA, VA> {
     fn expand_srch(&self, n1: &LGolNode<BS>, n2s: &mut Vec<LGolNode<BS>>) {
         let idx = n1.r1l as usize;
 
@@ -471,7 +484,7 @@ fn check_compat2(living: u32, known: u32, c: bool, f: bool) -> bool {
     }
 }
 
-impl<BS: RowTuple> DfsGraph<LGolNode<BS>> for LGolGraph<BS> {
+impl<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> DfsGraph<LGolNode<BS>> for LGolGraph<BS, UA, VA> {
     fn expand<'a>(&'a self, n1: &'a LGolNode<BS>, _path: impl Iterator<Item=&'a LGolKeyNode<BS>>) -> Vec<LGolNode<BS>> {
         let mut n2s = Vec::new();
         self.expand_srch(n1, &mut n2s);

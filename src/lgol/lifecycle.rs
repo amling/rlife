@@ -4,12 +4,13 @@ use crate::gol;
 use crate::lgol;
 
 use gol::lifecycle::GolGraphTrait;
+use lgol::graph::LGolAxis;
 use lgol::graph::LGolGraph;
 use lgol::graph::LGolKeyNode;
 use lgol::graph::LGolNode;
 use lgol::graph::RowTuple;
 
-impl<BS: RowTuple + Serialize> GolGraphTrait for LGolGraph<BS> where BS::Item: Serialize {
+impl<BS: RowTuple + Serialize, UA: LGolAxis, VA: LGolAxis> GolGraphTrait for LGolGraph<BS, UA, VA> where BS::Item: Serialize {
     type N = LGolNode<BS>;
     type FN = LGolNode<BS>;
 
