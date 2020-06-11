@@ -20,6 +20,17 @@ use gol::printbag::PrintBag;
 use lgol::lattice::LatticeCoords;
 use lgol::lattice::Vec3;
 
+marker_trait! {
+    LGolAxisStats:
+    [Copy]
+    [Debug]
+    [Default]
+    [Eq]
+    [Hash]
+    [Send]
+    [Sync]
+}
+
 pub trait RowTuple: Copy + Debug + Default + Eq + Hash + Send + Sync {
     type Item: UScalar;
 
@@ -63,13 +74,15 @@ impl_row_tuple!(6);
 #[derive(Hash)]
 #[derive(PartialEq)]
 #[derive(Serialize)]
-pub struct LGolNode<BS: RowTuple> {
+pub struct LGolNode<BS: RowTuple, US, VS> {
     pub r0s: BS,
     pub r1: BS::Item,
     pub r1l: u8,
+    pub r1_us: US,
+    pub r1_vs: VS,
 }
 
-impl<BS: RowTuple> DfsNode for LGolNode<BS> {
+impl<BS: RowTuple, US: LGolAxisStats, VS: LGolAxisStats> DfsNode for LGolNode<BS, US, VS> {
     type KN = LGolKeyNode<BS>;
 
     fn key_node(&self) -> Option<LGolKeyNode<BS>> {
@@ -83,7 +96,7 @@ impl<BS: RowTuple> DfsNode for LGolNode<BS> {
     }
 }
 
-impl<BS: RowTuple> LGolNode<BS> {
+impl<BS: RowTuple, US: LGolAxisStats, VS: LGolAxisStats> LGolNode<BS, US, VS> {
     fn read_mask(&self, (idx, mask): (usize, BS::Item)) -> u32 {
         let r = match idx {
             0 => self.r1,
@@ -133,17 +146,30 @@ pub enum LGolEdge {
 }
 
 pub trait LGolAxis: Copy {
+    type S: LGolAxisStats;
+
     fn left_edge(&self) -> LGolEdge;
     fn right_edge(&self) -> LGolEdge;
+    fn zero_stat(&self) -> Self::S;
+    fn add_stat(&self, s0: Self::S, v: isize) -> Option<Self::S>;
 }
 
 impl LGolAxis for (LGolEdge, LGolEdge) {
+    type S = ();
+
     fn left_edge(&self) -> LGolEdge {
         self.0
     }
 
     fn right_edge(&self) -> LGolEdge {
         self.1
+    }
+
+    fn zero_stat(&self) {
+    }
+
+    fn add_stat(&self, _s0: (), _v: isize) -> Option<()> {
+        Some(())
     }
 }
 
@@ -189,9 +215,8 @@ impl<UA: LGolAxis, VA: LGolAxis> LGolGraphParams<UA, VA> {
             // revisitting when/if we do any "multiple w layer" searches...
             (u, v)
         });
-        let spots: Vec<_> = spots.into_iter().map(|(xyt, _)| xyt).collect();
 
-        let xyt_idx = spots.iter().enumerate().map(|(idx, &xyt)| (xyt, idx)).collect::<HashMap<_, _>>();
+        let xyt_idx = spots.iter().enumerate().map(|(idx, &(xyt, _uvw))| (xyt, idx)).collect::<HashMap<_, _>>();
 
         let compute_prow_read = |rl, (x, y, t)| {
             let (xyt, (lu, lv, lw)) = lc.canonicalize_xyt((x, y, t));
@@ -334,7 +359,7 @@ impl<UA: LGolAxis, VA: LGolAxis> LGolGraphParams<UA, VA> {
             checks
         };
 
-        let checks: Vec<_> = spots.iter().enumerate().map(|(idx, &xyt)| compute_checks(idx, xyt)).collect();
+        let checks: Vec<_> = spots.iter().enumerate().map(|(idx, &(xyt, _))| compute_checks(idx, xyt)).collect();
 
         let max_row_idx = checks.iter().map(|checks| {
             checks.iter().map(|&(ref nh_masks, _, _, _)| {
@@ -358,7 +383,7 @@ impl<UA: LGolAxis, VA: LGolAxis> LGolGraphParams<UA, VA> {
 pub struct LGolGraph<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> {
     pub params: LGolGraphParams<UA, VA>,
 
-    pub spots: Vec<Vec3>,
+    pub spots: Vec<(Vec3, Vec3)>,
     pub max_r1l: usize,
     pub checks: Vec<Vec<(Vec<(usize, BS::Item)>, u32, (usize, BS::Item), (usize, BS::Item))>>,
 
@@ -366,7 +391,7 @@ pub struct LGolGraph<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> {
 }
 
 impl<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> LGolGraph<BS, UA, VA> {
-    fn expand_srch(&self, n1: &LGolNode<BS>, n2s: &mut Vec<LGolNode<BS>>) {
+    fn expand_srch(&self, n1: &LGolNode<BS, UA::S, VA::S>, n2s: &mut Vec<LGolNode<BS, UA::S, VA::S>>) {
         let idx = n1.r1l as usize;
 
         if idx == self.max_r1l {
@@ -380,17 +405,39 @@ impl<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> LGolGraph<BS, UA, VA> {
             n2s.push(LGolNode {
                 r0s: r0s,
                 r1: BS::Item::zero(),
+                r1_us: self.params.u_axis.zero_stat(),
+                r1_vs: self.params.v_axis.zero_stat(),
                 r1l: 0,
             });
             return;
         }
 
-        let mut n2 = LGolNode {
-            r0s: n1.r0s,
-            r1: n1.r1,
-            r1l: n1.r1l + 1,
-        };
         'v: for &v in &[false, true] {
+            let (idx_u, idx_v, _) = self.spots[idx].1;
+            let mut n2 = LGolNode {
+                r0s: n1.r0s,
+                r1: n1.r1,
+                r1l: n1.r1l + 1,
+                r1_us: match v {
+                    false => n1.r1_us,
+                    true => match self.params.u_axis.add_stat(n1.r1_us, idx_u) {
+                        Some(us) => us,
+                        None => {
+                            continue 'v;
+                        }
+                    },
+                },
+                r1_vs: match v {
+                    false => n1.r1_vs,
+                    true => match self.params.v_axis.add_stat(n1.r1_vs, idx_v) {
+                        Some(us) => us,
+                        None => {
+                            continue 'v;
+                        }
+                    },
+                },
+            };
+
             n2.r1.set_bit(idx, v);
 
             for &(ref nh_masks, nh_ct, cur_mask, fut_mask) in self.checks[idx].iter() {
@@ -412,7 +459,7 @@ impl<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> LGolGraph<BS, UA, VA> {
     }
 
     fn collect_row(&self, pr: &mut PrintBag, c0: char, c1: char, row: BS::Item, rl: Option<usize>, w: isize) {
-        for (idx, &(x, y, t)) in self.spots.iter().enumerate() {
+        for (idx, &((x, y, t), _uvw)) in self.spots.iter().enumerate() {
             let (wx, wy, wt) = self.params.vw;
 
             let x = x + w * wx;
@@ -432,7 +479,7 @@ impl<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> LGolGraph<BS, UA, VA> {
         }
     }
 
-    pub fn format_rows(&self, rows: &Vec<LGolKeyNode<BS>>, last: Option<&LGolNode<BS>>) -> Vec<String> {
+    pub fn format_rows(&self, rows: &Vec<LGolKeyNode<BS>>, last: Option<&LGolNode<BS, UA::S, VA::S>>) -> Vec<String> {
         let mut pr = PrintBag::new();
         let mut w = 0;
         for (n, row) in rows.iter().enumerate() {
@@ -484,8 +531,8 @@ fn check_compat2(living: u32, known: u32, c: bool, f: bool) -> bool {
     }
 }
 
-impl<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> DfsGraph<LGolNode<BS>> for LGolGraph<BS, UA, VA> {
-    fn expand<'a>(&'a self, n1: &'a LGolNode<BS>, _path: impl Iterator<Item=&'a LGolKeyNode<BS>>) -> Vec<LGolNode<BS>> {
+impl<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> DfsGraph<LGolNode<BS, UA::S, VA::S>> for LGolGraph<BS, UA, VA> {
+    fn expand<'a>(&'a self, n1: &'a LGolNode<BS, UA::S, VA::S>, _path: impl Iterator<Item=&'a LGolKeyNode<BS>>) -> Vec<LGolNode<BS, UA::S, VA::S>> {
         let mut n2s = Vec::new();
         self.expand_srch(n1, &mut n2s);
         n2s

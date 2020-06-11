@@ -10,11 +10,11 @@ use lgol::graph::LGolKeyNode;
 use lgol::graph::LGolNode;
 use lgol::graph::RowTuple;
 
-impl<BS: RowTuple + Serialize, UA: LGolAxis, VA: LGolAxis> GolGraphTrait for LGolGraph<BS, UA, VA> where BS::Item: Serialize {
-    type N = LGolNode<BS>;
-    type FN = LGolNode<BS>;
+impl<BS: RowTuple + Serialize, UA: LGolAxis, VA: LGolAxis> GolGraphTrait for LGolGraph<BS, UA, VA> where BS::Item: Serialize, UA::S: Serialize, VA::S: Serialize {
+    type N = LGolNode<BS, UA::S, VA::S>;
+    type FN = LGolNode<BS, UA::S, VA::S>;
 
-    fn format_rows(&self, rows: &Vec<LGolKeyNode<BS>>, last: Option<&LGolNode<BS>>) -> Vec<String> {
+    fn format_rows(&self, rows: &Vec<LGolKeyNode<BS>>, last: Option<&LGolNode<BS, UA::S, VA::S>>) -> Vec<String> {
         self.format_rows(rows, last)
     }
 
@@ -27,7 +27,7 @@ impl<BS: RowTuple + Serialize, UA: LGolAxis, VA: LGolAxis> GolGraphTrait for LGo
         format!("init {} cycle {}", path.len(), cycle.len())
     }
 
-    fn freeze_dfs_node(&self, n: &LGolNode<BS>) -> LGolNode<BS> {
+    fn freeze_dfs_node(&self, n: &LGolNode<BS, UA::S, VA::S>) -> LGolNode<BS, UA::S, VA::S> {
         n.clone()
     }
 }
