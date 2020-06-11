@@ -116,9 +116,11 @@ impl<BS: RowTuple, US: LGolAxisStats, VS: LGolAxisStats> LGolNode<BS, US, VS> {
 #[derive(Clone)]
 #[derive(Debug)]
 #[derive(Default)]
+#[derive(Deserialize)]
 #[derive(Eq)]
 #[derive(Hash)]
 #[derive(PartialEq)]
+#[derive(Serialize)]
 pub struct LGolKeyNode<BS: RowTuple> {
     pub du: i16,
     pub dv: i16,
@@ -201,7 +203,7 @@ impl LGolAxis for (LGolEdge, LGolEdge) {
 #[derive(Copy)]
 pub struct LGolFancyAxis {
     // (numerator, denominator), a value of 1 is the entire width
-    w: (isize, isize),
+    pub w: (isize, isize),
 }
 
 impl LGolAxis for LGolFancyAxis {
@@ -717,6 +719,18 @@ impl<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> LGolGraph<BS, UA, VA> {
             w += 1;
         }
         pr.format()
+    }
+
+    pub fn zero_node(&self) -> LGolNode<BS, UA::S, VA::S> {
+        LGolNode {
+            du: 0,
+            dv: 0,
+            r0s: BS::default(),
+            r1: BS::Item::zero(),
+            r1l: 0,
+            r1_us: self.params.u_axis.zero_stat(&self.u_shift_data),
+            r1_vs: self.params.v_axis.zero_stat(&self.v_shift_data),
+        }
     }
 }
 
