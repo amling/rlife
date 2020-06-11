@@ -152,7 +152,7 @@ pub trait LGolAxis: Copy {
     fn right_edge(&self) -> LGolEdge;
 
     fn zero_stat(&self) -> Self::S;
-    fn add_stat(&self, s0: Self::S, v: isize) -> Option<Self::S>;
+    fn add_stat(&self, s0: Self::S, v: isize, c: bool) -> Option<Self::S>;
 
     fn recenter<BS: RowTuple>(&self, rs: BS) -> Option<BS>;
 }
@@ -171,7 +171,7 @@ impl LGolAxis for (LGolEdge, LGolEdge) {
     fn zero_stat(&self) {
     }
 
-    fn add_stat(&self, _s0: (), _v: isize) -> Option<()> {
+    fn add_stat(&self, _s0: (), _v: isize, _c: bool) -> Option<()> {
         Some(())
     }
 
@@ -442,23 +442,17 @@ impl<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> LGolGraph<BS, UA, VA> {
                 r0s: n1.r0s,
                 r1: n1.r1,
                 r1l: n1.r1l + 1,
-                r1_us: match v {
-                    false => n1.r1_us,
-                    true => match self.params.u_axis.add_stat(n1.r1_us, idx_u) {
-                        Some(us) => us,
-                        None => {
-                            continue 'v;
-                        }
-                    },
+                r1_us: match self.params.u_axis.add_stat(n1.r1_us, idx_u, v) {
+                    Some(us) => us,
+                    None => {
+                        continue 'v;
+                    }
                 },
-                r1_vs: match v {
-                    false => n1.r1_vs,
-                    true => match self.params.v_axis.add_stat(n1.r1_vs, idx_v) {
-                        Some(us) => us,
-                        None => {
-                            continue 'v;
-                        }
-                    },
+                r1_vs: match self.params.v_axis.add_stat(n1.r1_vs, idx_v, v) {
+                    Some(us) => us,
+                    None => {
+                        continue 'v;
+                    }
                 },
             };
 
