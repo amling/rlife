@@ -159,7 +159,7 @@ pub trait LGolAxis: Copy {
     fn zero_stat(&self) -> Self::S;
     fn add_stat(&self, s0: Self::S, v: isize, c: bool) -> Option<Self::S>;
 
-    fn recenter<BS: RowTuple>(&self, shift_rows: &LGolShiftRows, rs: BS) -> Option<BS>;
+    fn recenter<BS: RowTuple>(&self, shift_data: &LGolShiftData, rs: BS) -> Option<BS>;
 
     fn wrap_in_print(&self) -> bool;
 }
@@ -182,7 +182,7 @@ impl LGolAxis for (LGolEdge, LGolEdge) {
         Some(())
     }
 
-    fn recenter<BS: RowTuple>(&self, _shift_rows: &LGolShiftRows, rs: BS) -> Option<BS> {
+    fn recenter<BS: RowTuple>(&self, _shift_data: &LGolShiftData, rs: BS) -> Option<BS> {
         Some(rs)
     }
 
@@ -234,7 +234,7 @@ impl<UA: LGolAxis, VA: LGolAxis> LGolGraphParams<UA, VA> {
             (u, v)
         });
 
-        let compute_shift_rows = |mangle: &dyn Fn(Vec3) -> Vec3| {
+        let compute_shift_data = |mangle: &dyn Fn(Vec3) -> Vec3| {
             let period = {
                 let v1 = mangle(lc.xyt_to_uvw((1, 0, 0)));
                 let v2 = mangle(lc.xyt_to_uvw((0, 1, 0)));
@@ -259,14 +259,14 @@ impl<UA: LGolAxis, VA: LGolAxis> LGolGraphParams<UA, VA> {
                 c_idx.into_iter().map(|(_c, idx)| idx).collect()
             }).collect();
 
-            LGolShiftRows {
+            LGolShiftData {
                 period: period,
                 shift_rows: shift_rows,
             }
         };
 
-        let u_shift_rows = compute_shift_rows(&|uvw| uvw);
-        let v_shift_rows = compute_shift_rows(&|(u, v, w)| (v, u, w));
+        let u_shift_data = compute_shift_data(&|uvw| uvw);
+        let v_shift_data = compute_shift_data(&|(u, v, w)| (v, u, w));
 
         let xyt_idx = spots.iter().enumerate().map(|(idx, &(xyt, _uvw))| (xyt, idx)).collect::<HashMap<_, _>>();
 
@@ -426,15 +426,15 @@ impl<UA: LGolAxis, VA: LGolAxis> LGolGraphParams<UA, VA> {
             spots: spots,
             max_r1l: lc.adet as usize,
             checks: checks,
-            u_shift_rows: u_shift_rows,
-            v_shift_rows: v_shift_rows,
+            u_shift_data: u_shift_data,
+            v_shift_data: v_shift_data,
 
             _bs: PhantomData::default(),
         }
     }
 }
 
-pub struct LGolShiftRows {
+pub struct LGolShiftData {
     period: isize,
     shift_rows: Vec<Vec<usize>>,
 }
@@ -445,8 +445,8 @@ pub struct LGolGraph<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> {
     pub spots: Vec<(Vec3, Vec3)>,
     pub max_r1l: usize,
     pub checks: Vec<Vec<(Vec<(usize, BS::Item)>, u32, (usize, BS::Item), (usize, BS::Item))>>,
-    pub u_shift_rows: LGolShiftRows,
-    pub v_shift_rows: LGolShiftRows,
+    pub u_shift_data: LGolShiftData,
+    pub v_shift_data: LGolShiftData,
 
     _bs: PhantomData<BS>,
 }
@@ -467,13 +467,13 @@ impl<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> LGolGraph<BS, UA, VA> {
             }
             r0s.set(0, n1.r1);
 
-            let r0s = match self.params.u_axis.recenter(&self.u_shift_rows, r0s) {
+            let r0s = match self.params.u_axis.recenter(&self.u_shift_data, r0s) {
                 Some(r0s) => r0s,
                 None => {
                     return;
                 }
             };
-            let r0s = match self.params.v_axis.recenter(&self.v_shift_rows, r0s) {
+            let r0s = match self.params.v_axis.recenter(&self.v_shift_data, r0s) {
                 Some(r0s) => r0s,
                 None => {
                     return;
