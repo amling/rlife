@@ -150,8 +150,11 @@ pub trait LGolAxis: Copy {
 
     fn left_edge(&self) -> LGolEdge;
     fn right_edge(&self) -> LGolEdge;
+
     fn zero_stat(&self) -> Self::S;
     fn add_stat(&self, s0: Self::S, v: isize) -> Option<Self::S>;
+
+    fn recenter<BS: RowTuple>(&self, rs: BS) -> Option<BS>;
 }
 
 impl LGolAxis for (LGolEdge, LGolEdge) {
@@ -170,6 +173,10 @@ impl LGolAxis for (LGolEdge, LGolEdge) {
 
     fn add_stat(&self, _s0: (), _v: isize) -> Option<()> {
         Some(())
+    }
+
+    fn recenter<BS: RowTuple>(&self, rs: BS) -> Option<BS> {
+        Some(rs)
     }
 }
 
@@ -391,6 +398,10 @@ pub struct LGolGraph<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> {
 }
 
 impl<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> LGolGraph<BS, UA, VA> {
+    fn recenter(&self, rs: BS) -> BS {
+        return rs;
+    }
+
     fn expand_srch(&self, n1: &LGolNode<BS, UA::S, VA::S>, n2s: &mut Vec<LGolNode<BS, UA::S, VA::S>>) {
         let idx = n1.r1l as usize;
 
@@ -401,6 +412,19 @@ impl<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> LGolGraph<BS, UA, VA> {
                 r0s.set(i, n1.r0s.get(i - 1));
             }
             r0s.set(0, n1.r1);
+
+            let r0s = match self.params.u_axis.recenter(r0s) {
+                Some(r0s) => r0s,
+                None => {
+                    return;
+                }
+            };
+            let r0s = match self.params.v_axis.recenter(r0s) {
+                Some(r0s) => r0s,
+                None => {
+                    return;
+                }
+            };
 
             n2s.push(LGolNode {
                 r0s: r0s,
