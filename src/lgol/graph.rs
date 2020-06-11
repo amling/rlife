@@ -259,9 +259,17 @@ impl<UA: LGolAxis, VA: LGolAxis> LGolGraphParams<UA, VA> {
                 c_idx.into_iter().map(|(_c, idx)| idx).collect()
             }).collect();
 
+            let mut coord_idx_sorted: Vec<_> = spots.iter().enumerate().map(|(idx, &(_xyt, uvw))| (mangle(uvw).0, idx)).collect();
+            coord_idx_sorted.sort();
+            let min_coord = spots.iter().map(|&(_xyt, uvw)| mangle(uvw).0).min().unwrap();
+            let max_coord = spots.iter().map(|&(_xyt, uvw)| mangle(uvw).0).max().unwrap();
+
             LGolShiftData {
                 period: period,
                 shift_rows: shift_rows,
+                coord_idx_sorted: coord_idx_sorted,
+                min_coord: min_coord,
+                max_coord: max_coord,
             }
         };
 
@@ -437,6 +445,9 @@ impl<UA: LGolAxis, VA: LGolAxis> LGolGraphParams<UA, VA> {
 pub struct LGolShiftData {
     period: isize,
     shift_rows: Vec<Vec<usize>>,
+    coord_idx_sorted: Vec<(isize, usize)>,
+    min_coord: isize,
+    max_coord: isize,
 }
 
 pub struct LGolGraph<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> {
