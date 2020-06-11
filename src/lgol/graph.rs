@@ -1,9 +1,11 @@
 #![allow(unused_parens)]
 
+use ars_aa::lattice::LatticeCanonicalizable;
 use ars_ds::scalar::Scalar;
 use ars_ds::scalar::UScalar;
 use serde::Deserialize;
 use serde::Serialize;
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -223,6 +225,40 @@ impl<UA: LGolAxis, VA: LGolAxis> LGolGraphParams<UA, VA> {
             (u, v)
         });
 
+        let compute_shift_rows = |mangle: &dyn Fn(Vec3) -> Vec3| {
+            let period = {
+                let v1 = mangle(lc.xyt_to_uvw((1, 0, 0)));
+                let v2 = mangle(lc.xyt_to_uvw((0, 1, 0)));
+                let v3 = mangle(lc.xyt_to_uvw((0, 0, 1)));
+
+                let l3 = Vec3::canonicalize(vec![v1, v2, v3]);
+                let (_, (_, (lc, ()))) = l3;
+                lc.unwrap().0
+            };
+
+            let mut row_c_idx = BTreeMap::new();
+            for (idx, &(_xyt, uvw)) in spots.iter().enumerate() {
+                let (c, other, w) = mangle(uvw);
+                row_c_idx.entry((other, w)).or_insert_with(|| BTreeMap::new()).insert(c, idx);
+            }
+
+            let shift_rows: Vec<Vec<_>> = row_c_idx.into_iter().map(|(_row, c_idx)| {
+                let c_idx: Vec<_> = c_idx.into_iter().collect();
+                for i in 0..(c_idx.len() - 1) {
+                    assert_eq!(c_idx[i].0 + period, c_idx[i + 1].0);
+                }
+                c_idx.into_iter().map(|(_c, idx)| idx).collect()
+            }).collect();
+
+            LGolShiftRows {
+                period: period,
+                shift_rows: shift_rows,
+            }
+        };
+
+        let u_shift_rows = compute_shift_rows(&|uvw| uvw);
+        let v_shift_rows = compute_shift_rows(&|(u, v, w)| (v, u, w));
+
         let xyt_idx = spots.iter().enumerate().map(|(idx, &(xyt, _uvw))| (xyt, idx)).collect::<HashMap<_, _>>();
 
         let compute_prow_read = |rl, (x, y, t)| {
@@ -381,10 +417,17 @@ impl<UA: LGolAxis, VA: LGolAxis> LGolGraphParams<UA, VA> {
             spots: spots,
             max_r1l: lc.adet as usize,
             checks: checks,
+            u_shift_rows: u_shift_rows,
+            v_shift_rows: v_shift_rows,
 
             _bs: PhantomData::default(),
         }
     }
+}
+
+pub struct LGolShiftRows {
+    period: isize,
+    shift_rows: Vec<Vec<usize>>,
 }
 
 pub struct LGolGraph<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> {
@@ -393,6 +436,8 @@ pub struct LGolGraph<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> {
     pub spots: Vec<(Vec3, Vec3)>,
     pub max_r1l: usize,
     pub checks: Vec<Vec<(Vec<(usize, BS::Item)>, u32, (usize, BS::Item), (usize, BS::Item))>>,
+    pub u_shift_rows: LGolShiftRows,
+    pub v_shift_rows: LGolShiftRows,
 
     _bs: PhantomData<BS>,
 }
