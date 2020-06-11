@@ -1,6 +1,7 @@
 #![allow(unused_parens)]
 
 use ars_aa::lattice::LatticeCanonicalizable;
+use ars_aa::lattice::LatticeCanonicalizer;
 use ars_ds::scalar::Scalar;
 use ars_ds::scalar::UScalar;
 use serde::Deserialize;
@@ -141,6 +142,8 @@ pub struct LGolHashNode<BS: RowTuple> {
 #[derive(Clone)]
 #[derive(Copy)]
 #[derive(Debug)]
+#[derive(Eq)]
+#[derive(PartialEq)]
 pub enum LGolEdge {
     Empty,
     Wrap,
@@ -157,6 +160,8 @@ pub trait LGolAxis: Copy {
     fn add_stat(&self, s0: Self::S, v: isize, c: bool) -> Option<Self::S>;
 
     fn recenter<BS: RowTuple>(&self, rs: BS) -> Option<BS>;
+
+    fn wrap_in_print(&self) -> bool;
 }
 
 impl LGolAxis for (LGolEdge, LGolEdge) {
@@ -179,6 +184,10 @@ impl LGolAxis for (LGolEdge, LGolEdge) {
 
     fn recenter<BS: RowTuple>(&self, rs: BS) -> Option<BS> {
         Some(rs)
+    }
+
+    fn wrap_in_print(&self) -> bool {
+        self == &(LGolEdge::Wrap, LGolEdge::Wrap)
     }
 }
 
@@ -522,6 +531,15 @@ impl<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> LGolGraph<BS, UA, VA> {
     }
 
     fn collect_row(&self, pr: &mut PrintBag, c0: char, c1: char, row: BS::Item, rl: Option<usize>, w: isize) {
+        let mut wraps = vec![];
+        if self.params.u_axis.wrap_in_print() {
+            wraps.push(self.params.vu);
+        }
+        if self.params.v_axis.wrap_in_print() {
+            wraps.push(self.params.vv);
+        }
+        let wraps = Vec3::canonicalize(wraps);
+
         for (idx, &((x, y, t), _uvw)) in self.spots.iter().enumerate() {
             let (wx, wy, wt) = self.params.vw;
 
@@ -538,6 +556,7 @@ impl<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> LGolGraph<BS, UA, VA> {
                     c = '?';
                 }
             }
+            let (x, y, t) = wraps.canonicalize((x, y, t));
             pr.insert(x, y, t, c);
         }
     }
