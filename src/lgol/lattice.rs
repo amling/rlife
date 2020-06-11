@@ -101,9 +101,9 @@ impl LatticeCoords {
         let y = u * uy + v * vy + w * wy;
         let t = u * ut + v * vt + w * wt;
 
-        debug_assert_eq!(x % self.adet, 0);
-        debug_assert_eq!(y % self.adet, 0);
-        debug_assert_eq!(t % self.adet, 0);
+        assert_eq!(x % self.adet, 0);
+        assert_eq!(y % self.adet, 0);
+        assert_eq!(t % self.adet, 0);
 
         let x = x / self.adet;
         let y = y / self.adet;
