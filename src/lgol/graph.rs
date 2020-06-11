@@ -38,8 +38,8 @@ pub trait RowTuple: Copy + Debug + Default + Eq + Hash + Send + Sync {
     type Item: UScalar;
 
     fn len() -> usize;
-    fn get(&self, idx: usize) -> Self::Item;
-    fn set(&mut self, idx: usize, v: Self::Item);
+    fn as_slice(&self) -> &[Self::Item];
+    fn as_slice_mut(&mut self) -> &mut [Self::Item];
 }
 
 macro_rules! impl_row_tuple {
@@ -51,12 +51,12 @@ macro_rules! impl_row_tuple {
                 $n
             }
 
-            fn get(&self, idx: usize) -> B {
-                self[idx]
+            fn as_slice(&self) -> &[B] {
+                self
             }
 
-            fn set(&mut self, idx: usize, v: B) {
-                self[idx] = v;
+            fn as_slice_mut(&mut self) -> &mut [B] {
+                self
             }
         }
     }
@@ -78,6 +78,8 @@ impl_row_tuple!(6);
 #[derive(PartialEq)]
 #[derive(Serialize)]
 pub struct LGolNode<BS: RowTuple, US, VS> {
+    pub du: i16,
+    pub dv: i16,
     pub r0s: BS,
     pub r1: BS::Item,
     pub r1l: u8,
@@ -94,6 +96,8 @@ impl<BS: RowTuple, US: LGolAxisStats, VS: LGolAxisStats> DfsNode for LGolNode<BS
         }
 
         Some(LGolKeyNode {
+            du: self.du,
+            dv: self.dv,
             rs: self.r0s,
         })
     }
@@ -103,7 +107,7 @@ impl<BS: RowTuple, US: LGolAxisStats, VS: LGolAxisStats> LGolNode<BS, US, VS> {
     fn read_mask(&self, (idx, mask): (usize, BS::Item)) -> u32 {
         let r = match idx {
             0 => self.r1,
-            _ => self.r0s.get(idx - 1),
+            _ => self.r0s.as_slice()[idx - 1],
         };
         (r & mask).count_ones()
     }
@@ -116,6 +120,8 @@ impl<BS: RowTuple, US: LGolAxisStats, VS: LGolAxisStats> LGolNode<BS, US, VS> {
 #[derive(Hash)]
 #[derive(PartialEq)]
 pub struct LGolKeyNode<BS: RowTuple> {
+    pub du: i16,
+    pub dv: i16,
     pub rs: BS,
 }
 
@@ -156,10 +162,10 @@ pub trait LGolAxis: Copy {
     fn left_edge(&self) -> LGolEdge;
     fn right_edge(&self) -> LGolEdge;
 
-    fn zero_stat(&self) -> Self::S;
-    fn add_stat(&self, s0: Self::S, v: isize, c: bool) -> Option<Self::S>;
+    fn zero_stat(&self, shift_data: &LGolShiftData) -> Self::S;
+    fn add_stat(&self, s0: Self::S, c: isize, v: bool) -> Option<Self::S>;
 
-    fn recenter<BS: RowTuple>(&self, shift_data: &LGolShiftData, rs: BS) -> Option<BS>;
+    fn recenter<BS: RowTuple>(&self, shift_data: &LGolShiftData, rs: BS) -> (isize, BS);
 
     fn wrap_in_print(&self) -> bool;
 }
@@ -175,19 +181,94 @@ impl LGolAxis for (LGolEdge, LGolEdge) {
         self.1
     }
 
-    fn zero_stat(&self) {
+    fn zero_stat(&self, _shift_data: &LGolShiftData) {
     }
 
-    fn add_stat(&self, _s0: (), _v: isize, _c: bool) -> Option<()> {
+    fn add_stat(&self, _s0: (), _c: isize, _v: bool) -> Option<()> {
         Some(())
     }
 
-    fn recenter<BS: RowTuple>(&self, _shift_data: &LGolShiftData, rs: BS) -> Option<BS> {
-        Some(rs)
+    fn recenter<BS: RowTuple>(&self, _shift_data: &LGolShiftData, rs: BS) -> (isize, BS) {
+        (0, rs)
     }
 
     fn wrap_in_print(&self) -> bool {
         self == &(LGolEdge::Wrap, LGolEdge::Wrap)
+    }
+}
+
+#[derive(Clone)]
+#[derive(Copy)]
+pub struct LGolFancyAxis {
+    // TODO: determinant denominator issues (check below assumes this is in units of 1/|det| but user doesn't want to have to care about det)
+    w: isize,
+}
+
+impl LGolAxis for LGolFancyAxis {
+    type S = (isize, isize);
+
+    fn left_edge(&self) -> LGolEdge {
+        LGolEdge::Empty
+    }
+
+    fn right_edge(&self) -> LGolEdge {
+        LGolEdge::Empty
+    }
+
+    fn zero_stat(&self, shift_data: &LGolShiftData) -> (isize, isize) {
+        (shift_data.max_coord, shift_data.min_coord)
+    }
+
+    fn add_stat(&self, s0: (isize, isize), c: isize, v: bool) -> Option<(isize, isize)> {
+        if !v {
+            return Some(s0);
+        }
+
+        let min = s0.0.min(c);
+        let max = s0.1.max(c);
+
+        if max >= min + self.w {
+            return None;
+        }
+
+        Some((min, max))
+    }
+
+    fn recenter<BS: RowTuple>(&self, shift_data: &LGolShiftData, rs: BS) -> (isize, BS) {
+        let min = shift_data.find_bs_min(rs);
+        let max = shift_data.find_bs_max(rs);
+
+        let our_sum = min + max;
+        let def_sum = shift_data.min_coord + shift_data.max_coord;
+
+        let delta = our_sum - def_sum;
+        let delta = delta.div_euclid(2 * shift_data.period);
+
+        if delta == 0 {
+            return (0, rs);
+        }
+
+        let dc = delta * shift_data.period;
+
+        let mut rss = BS::default();
+        for shift_row in shift_data.shift_rows.iter() {
+            for (i, &idx) in shift_row.iter().enumerate() {
+                for j in 0..BS::len() {
+                    if rs.as_slice()[j].get_bit(idx) {
+                        // don't compute this earlier as it may be OOB
+                        let i2 = (((i as isize) - delta) as usize);
+                        let idx2 = shift_row[i2];
+                        rss.as_slice_mut()[j].set_bit(idx2, true);
+                    }
+                }
+            }
+        }
+
+        (dc, rss)
+    }
+
+    fn wrap_in_print(&self) -> bool {
+        false
     }
 }
 
@@ -453,6 +534,30 @@ pub struct LGolShiftData {
     max_coord: isize,
 }
 
+impl LGolShiftData {
+    fn find_bs_min<BS: RowTuple>(&self, rs: BS) -> isize {
+        for &(c, idx) in self.coord_idx_sorted.iter() {
+            for r in rs.as_slice() {
+                if r.get_bit(idx) {
+                    return c;
+                }
+            }
+        }
+        self.max_coord
+    }
+
+    fn find_bs_max<BS: RowTuple>(&self, rs: BS) -> isize {
+        for &(c, idx) in self.coord_idx_sorted.iter().rev() {
+            for r in rs.as_slice() {
+                if r.get_bit(idx) {
+                    return c;
+                }
+            }
+        }
+        self.min_coord
+    }
+}
+
 pub struct LGolGraph<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> {
     pub params: LGolGraphParams<UA, VA>,
 
@@ -467,8 +572,10 @@ pub struct LGolGraph<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> {
 }
 
 impl<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> LGolGraph<BS, UA, VA> {
-    fn recenter(&self, rs: BS) -> BS {
-        return rs;
+    fn recenter(&self, rs: BS) -> (isize, isize, BS) {
+        let (du, rs) = self.params.u_axis.recenter(&self.u_shift_data, rs);
+        let (dv, rs) = self.params.v_axis.recenter(&self.v_shift_data, rs);
+        (du, dv, rs)
     }
 
     fn expand_srch(&self, n1: &LGolNode<BS, UA::S, VA::S>, n2s: &mut Vec<LGolNode<BS, UA::S, VA::S>>) {
@@ -477,29 +584,23 @@ impl<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> LGolGraph<BS, UA, VA> {
         if idx == self.max_r1l {
             let mut r0s = BS::default();
 
-            for i in (1..BS::len()) {
-                r0s.set(i, n1.r0s.get(i - 1));
-            }
-            r0s.set(0, n1.r1);
+            r0s.as_slice_mut()[1..BS::len()].copy_from_slice(&n1.r0s.as_slice()[0..(BS::len() - 1)]);
+            r0s.as_slice_mut()[0] = n1.r1;
 
-            let r0s = match self.params.u_axis.recenter(&self.u_shift_data, r0s) {
-                Some(r0s) => r0s,
-                None => {
-                    return;
-                }
-            };
-            let r0s = match self.params.v_axis.recenter(&self.v_shift_data, r0s) {
-                Some(r0s) => r0s,
-                None => {
-                    return;
-                }
-            };
+            let (du, dv, r0s) = self.recenter(r0s);
+
+            if n1.r0s == BS::default() && (du, dv) != (0, 0) {
+                // reject stupid first row shifts
+                return;
+            }
 
             n2s.push(LGolNode {
+                du: n1.du + (du as i16),
+                dv: n1.dv + (dv as i16),
                 r0s: r0s,
                 r1: BS::Item::zero(),
-                r1_us: self.params.u_axis.zero_stat(),
-                r1_vs: self.params.v_axis.zero_stat(),
+                r1_us: self.params.u_axis.zero_stat(&self.u_shift_data),
+                r1_vs: self.params.v_axis.zero_stat(&self.v_shift_data),
                 r1l: 0,
             });
             return;
@@ -508,6 +609,8 @@ impl<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> LGolGraph<BS, UA, VA> {
         'v: for &v in &[false, true] {
             let (idx_u, idx_v, _) = self.spots[idx].1;
             let mut n2 = LGolNode {
+                du: n1.du,
+                dv: n1.dv,
                 r0s: n1.r0s,
                 r1: n1.r1,
                 r1l: n1.r1l + 1,
@@ -545,7 +648,10 @@ impl<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> LGolGraph<BS, UA, VA> {
         }
     }
 
-    fn collect_row(&self, pr: &mut PrintBag, c0: char, c1: char, row: BS::Item, rl: Option<usize>, w: isize) {
+    fn collect_row(&self, pr: &mut PrintBag, c0: char, c1: char, row: BS::Item, rl: Option<usize>, du: isize, dv: isize, w: isize) {
+        // awkwardly w is in actual steps of w while du and dv are in units of 1/|det|
+        let (dx, dy, dt) = self.lc.uvw_to_xyt((du, dv, self.lc.adet * w));
+
         let mut wraps = vec![];
         if self.params.u_axis.wrap_in_print() {
             wraps.push(self.params.vu);
@@ -556,11 +662,9 @@ impl<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> LGolGraph<BS, UA, VA> {
         let wraps = Vec3::canonicalize(wraps);
 
         for (idx, &((x, y, t), _uvw)) in self.spots.iter().enumerate() {
-            let (wx, wy, wt) = self.params.vw;
-
-            let x = x + w * wx;
-            let y = y + w * wy;
-            let t = t + w * wt;
+            let x = x + dx;
+            let y = y + dy;
+            let t = t + dt;
 
             let mut c = match row.get_bit(idx) {
                 true => c1,
@@ -580,17 +684,19 @@ impl<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> LGolGraph<BS, UA, VA> {
         let mut pr = PrintBag::new();
         let mut w = 0;
         for (n, row) in rows.iter().enumerate() {
+            let du = row.du as isize;
+            let dv = row.dv as isize;
             if n == 0 {
-                for i in (1..BS::len()).rev() {
-                    self.collect_row(&mut pr, '.', '*', row.rs.get(i), None, w);
+                for &r in row.rs.as_slice()[1..BS::len()].iter().rev() {
+                    self.collect_row(&mut pr, '.', '*', r, None, du, dv, w);
                     w += 1;
                 }
             }
-            self.collect_row(&mut pr, '.', '*', row.rs.get(0), None, w);
+            self.collect_row(&mut pr, '.', '*', row.rs.as_slice()[0], None, du, dv, w);
             w += 1;
         }
         if let Some(last) = last {
-            self.collect_row(&mut pr, '.', '*', last.r1, Some(last.r1l as usize), w);
+            self.collect_row(&mut pr, '.', '*', last.r1, Some(last.r1l as usize), (last.du as isize), (last.dv as isize), w);
         }
         pr.format()
     }
@@ -600,11 +706,11 @@ impl<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> LGolGraph<BS, UA, VA> {
         let mut w = 0;
         let last = BS::len() - 1;
         for row in path.iter() {
-            self.collect_row(&mut pr, '.', '*', row.rs.get(last), None, w);
+            self.collect_row(&mut pr, '.', '*', row.rs.as_slice()[last], None, (row.du as isize), (row.dv as isize), w);
             w += 1;
         }
         for row in cycle.iter() {
-            self.collect_row(&mut pr, 'x', 'o', row.rs.get(last), None, w);
+            self.collect_row(&mut pr, 'x', 'o', row.rs.as_slice()[last], None, (row.du as isize), (row.dv as isize), w);
             w += 1;
         }
         pr.format()
@@ -636,8 +742,8 @@ impl<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> DfsGraph<LGolNode<BS, UA::S, VA::
     }
 
     fn end<'a>(&'a self, n: &'a LGolKeyNode<BS>, _path: impl Iterator<Item=&'a LGolKeyNode<BS>>) -> Option<&'static str> {
-        for i in 0..BS::len() {
-            if n.rs.get(i) != BS::Item::zero() {
+        for &r in n.rs.as_slice() {
+            if r != BS::Item::zero() {
                 return None;
             }
         }
