@@ -245,7 +245,7 @@ impl LGolAxis for LGolFancyAxis {
         let def_sum = shift_data.min_coord + shift_data.max_coord;
 
         let delta = our_sum - def_sum;
-        let delta = delta.div_euclid(2 * shift_data.period);
+        let delta = (delta + shift_data.period).div_euclid(2 * shift_data.period);
 
         if delta == 0 {
             return (0, rs);
