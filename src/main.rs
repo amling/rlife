@@ -28,6 +28,7 @@ use lgol::axis::LGolFancyAxis;
 use lgol::bg::LGolBgEmpty;
 use lgol::bg::LGolBgVertStripes;
 use lgol::bg::LGolBgX2;
+use lgol::ends::LGolNoEnds;
 use lgol::graph::LGolGraphParams;
 use sal::SerdeFormat;
 
@@ -55,7 +56,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
         },
         v_axis: (LGolEdge::Wrap, LGolEdge::Wrap),
     };
-    let ge = ge.derived::<[B; 6]>();
+    let ge = ge.derived::<[B; 6]>(LGolNoEnds());
 
     let st = match args.next() {
         Some(path) => {

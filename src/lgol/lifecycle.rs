@@ -8,13 +8,14 @@ use crate::lgol;
 use gol::lifecycle::GolGraphTrait;
 use lgol::axis::LGolAxis;
 use lgol::bg::LGolBgCoord;
+use lgol::ends::LGolEnds;
 use lgol::graph::LGolGraph;
 use lgol::graph::LGolKeyNode;
 use lgol::graph::LGolNode;
 use lgol::graph::RowTuple;
 use lgol::lat1::Vec3;
 
-impl<BS: RowTuple + Serialize, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>> GolGraphTrait for LGolGraph<BS, BC, UA, VA> where BS::Item: Serialize, BC: Serialize, UA::S: Serialize, VA::S: Serialize {
+impl<BS: RowTuple + Serialize, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, E: LGolEnds<BS>> GolGraphTrait for LGolGraph<BS, BC, UA, VA, E> where BS::Item: Serialize, BC: Serialize, UA::S: Serialize, VA::S: Serialize {
     type N = LGolNode<BS, BC, UA::S, VA::S>;
     type FN = LGolNode<BS, BC, UA::S, VA::S>;
 
