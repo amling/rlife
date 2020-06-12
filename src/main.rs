@@ -6,6 +6,7 @@ use ars_ds::scalar::UScalar;
 use ars_rctl_main::rq::RctlRunQueue;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
+use std::marker::PhantomData;
 use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::AtomicUsize;
@@ -22,7 +23,7 @@ use dfs::lifecycle::DfsLifecycle;
 use dfs::lifecycle::LogLevel;
 use gol::lifecycle::GolLifecycle;
 use gol::lifecycle::GolRctlEp;
-use lgol::graph::LGolBgUnit;
+use lgol::graph::LGolBgEmpty;
 use lgol::graph::LGolEdge;
 use lgol::graph::LGolFancyAxis;
 use lgol::graph::LGolGraphParams;
@@ -43,10 +44,12 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
         vv: (0, -1, 3),
         vw: (0, 0, 1),
 
-        bg_coord: LGolBgUnit(),
+        bg_coord: PhantomData::<()>,
 
         u_axis: LGolFancyAxis {
             w: (wx, mx),
+            left_bg: LGolBgEmpty(),
+            right_bg: LGolBgEmpty(),
         },
         v_axis: (LGolEdge::Wrap, LGolEdge::Wrap),
     };
