@@ -39,7 +39,7 @@ impl<N: DfsNode> Path<N> {
         let mut vec = Vec::new();
         let mut map = HashMap::new();
         for kn in v {
-            let hn = kn.hash_node(vec.iter().rev());
+            let hn = kn.hash_node();
 
             let idx = vec.len();
 
@@ -57,7 +57,7 @@ impl<N: DfsNode> Path<N> {
     }
 
     pub fn find_or_push(&mut self, kn: &N::KN) -> Option<usize> {
-        let hn = kn.hash_node(self.kn_iter());
+        let hn = kn.hash_node();
         if let Some(hn) = hn {
             if let Some(idx) = self.map.get(&hn) {
                 return Some(*idx);
@@ -75,7 +75,7 @@ impl<N: DfsNode> Path<N> {
     pub fn pop(&mut self, kn_verify: &N::KN) {
         let kn = self.vec.pop().unwrap();
         debug_assert!(&kn == kn_verify);
-        if let Some(hn) = kn.hash_node(self.kn_iter()) {
+        if let Some(hn) = kn.hash_node() {
             let r = self.map.remove(&hn);
             debug_assert_eq!(Some(self.vec.len()), r);
         }
@@ -431,7 +431,7 @@ fn dfs_single_thread<N: DfsNode, GE: DfsGraph<N>, LE: DfsLifecycle<N>>(ge: &GE, 
         },
         _ => panic!(),
     }
-    let n2s = ge.expand(&n1, path.kn_iter()).into_iter();
+    let n2s = ge.expand(&n1).into_iter();
 
     // hard-code none for KN because we actually don't want to pop the caller-provided KN
     // corresponding to n1 off the path (if there is one)
@@ -468,7 +468,7 @@ fn dfs_single_thread<N: DfsNode, GE: DfsGraph<N>, LE: DfsLifecycle<N>>(ge: &GE, 
         // found a node to enter, let's put it on the stack
         let kn1 = n1.key_node();
         if let Some(kn1) = &kn1 {
-            if let Some(label) = ge.end(kn1, path.kn_iter()) {
+            if let Some(label) = ge.end(kn1) {
                 let mut path = path.vec.clone();
                 path.push(kn1.clone());
                 le.debug_end(&path, label);
@@ -503,7 +503,7 @@ fn dfs_single_thread<N: DfsNode, GE: DfsGraph<N>, LE: DfsLifecycle<N>>(ge: &GE, 
             return false;
         }
 
-        let n2s = ge.expand(&n1, path.kn_iter()).into_iter();
+        let n2s = ge.expand(&n1).into_iter();
         stack.push((n1, kn1, n2s));
     }
 }
