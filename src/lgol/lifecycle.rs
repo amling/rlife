@@ -23,9 +23,20 @@ impl<BS: RowTuple + Serialize, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<B
         self.format_cycle_rows(path, cycle, last)
     }
 
-    fn format_cycle_shape(&self, path: &Vec<LGolKeyNode<BS>>, cycle: &Vec<LGolKeyNode<BS>>, _last: &LGolKeyNode<BS>) -> String {
-        // we could do better...
-        format!("init {} cycle {}", path.len(), cycle.len())
+    fn format_cycle_shape(&self, path: &Vec<LGolKeyNode<BS>>, cycle: &Vec<LGolKeyNode<BS>>, last: &LGolKeyNode<BS>) -> String {
+        let dpath = {
+            let du = cycle[0].du as isize;
+            let dv = cycle[0].dv as isize;
+            let dw = (path.len() as isize) * self.lat1.adet;
+            self.lat1.uvw_to_xyt((du, dv, dw))
+        };
+        let dcycle = {
+            let du = (last.du - cycle[0].du) as isize;
+            let dv = (last.dv - cycle[0].dv) as isize;
+            let dw = (cycle.len() as isize) * self.lat1.adet;
+            self.lat1.uvw_to_xyt((du, dv, dw))
+        };
+        format!("path delta {:?} cycle delta {:?}", dpath, dcycle)
     }
 
     fn freeze_dfs_node(&self, n: &LGolNode<BS, BC, UA::S, VA::S>) -> LGolNode<BS, BC, UA::S, VA::S> {
