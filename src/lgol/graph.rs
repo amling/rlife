@@ -931,11 +931,19 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>> LGolGrap
     }
 
     pub fn zero_node(&self) -> LGolNode<BS, BC, UA::S, VA::S> {
+        self.regular_node((0, 0, 0), BS::default())
+    }
+
+    pub fn regular_node(&self, xyt: Vec3, r0s: BS) -> LGolNode<BS, BC, UA::S, VA::S> {
+        let (u, v, w) = self.lc.xyt_to_uvw(xyt);
+
+        assert_eq!(w, 0);
+
         LGolNode {
-            bg_coord: BC::from_xyt((0, 0, 0)),
-            du: 0,
-            dv: 0,
-            r0s: BS::default(),
+            bg_coord: BC::from_xyt(xyt),
+            du: (u as i16),
+            dv: (v as i16),
+            r0s: r0s,
             r1: BS::Item::zero(),
             r1l: 0,
             r1_us: self.params.u_axis.zero_stat(&self.u_shift_data),
