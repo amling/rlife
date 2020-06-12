@@ -428,11 +428,14 @@ impl<UA: LGolAxis, VA: LGolAxis> LGolGraphParams<UA, VA> {
         }).flatten().max().unwrap();
         assert!(max_row_idx <= BS::len(), "{} <= {}", max_row_idx, BS::len());
 
+        let max_r1l = (lc.adet as usize);
+
         LGolGraph {
             params: self.clone(),
 
+            lc: lc,
             spots: spots,
-            max_r1l: lc.adet as usize,
+            max_r1l: max_r1l,
             checks: checks,
             u_shift_data: u_shift_data,
             v_shift_data: v_shift_data,
@@ -453,6 +456,7 @@ pub struct LGolShiftData {
 pub struct LGolGraph<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> {
     pub params: LGolGraphParams<UA, VA>,
 
+    pub lc: LatticeCoords,
     pub spots: Vec<(Vec3, Vec3)>,
     pub max_r1l: usize,
     pub checks: Vec<Vec<(Vec<(usize, BS::Item)>, u32, (usize, BS::Item), (usize, BS::Item))>>,
