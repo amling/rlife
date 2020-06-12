@@ -24,7 +24,7 @@ use lgol::lattice::LatticeCoords;
 use lgol::lattice::Vec3;
 
 marker_trait! {
-    LGolAxisStats:
+    Nice:
     [Copy]
     [Debug]
     [Default]
@@ -77,7 +77,8 @@ impl_row_tuple!(6);
 #[derive(Hash)]
 #[derive(PartialEq)]
 #[derive(Serialize)]
-pub struct LGolNode<BS: RowTuple, US, VS> {
+pub struct LGolNode<BS: RowTuple, BCV, US, VS> {
+    pub bg_coord: BCV,
     pub du: i16,
     pub dv: i16,
     pub r0s: BS,
@@ -87,7 +88,7 @@ pub struct LGolNode<BS: RowTuple, US, VS> {
     pub r1_vs: VS,
 }
 
-impl<BS: RowTuple, US: LGolAxisStats, VS: LGolAxisStats> DfsNode for LGolNode<BS, US, VS> {
+impl<BS: RowTuple, BCV: Nice, US: Nice, VS: Nice> DfsNode for LGolNode<BS, BCV, US, VS> {
     type KN = LGolKeyNode<BS>;
 
     fn key_node(&self) -> Option<LGolKeyNode<BS>> {
@@ -103,7 +104,7 @@ impl<BS: RowTuple, US: LGolAxisStats, VS: LGolAxisStats> DfsNode for LGolNode<BS
     }
 }
 
-impl<BS: RowTuple, US: LGolAxisStats, VS: LGolAxisStats> LGolNode<BS, US, VS> {
+impl<BS: RowTuple, BCV: Nice, US: Nice, VS: Nice> LGolNode<BS, BCV, US, VS> {
     fn read_mask(&self, (idx, mask): (usize, BS::Item)) -> u32 {
         let r = match idx {
             0 => self.r1,
@@ -158,39 +159,39 @@ pub enum LGolEdge {
     Unknown,
 }
 
-pub trait LGolAxis: Copy {
-    type S: LGolAxisStats;
+pub trait LGolAxis<BC: LGolBgCoord>: Copy {
+    type S: Nice;
 
-    fn left_edge(&self) -> LGolEdge;
-    fn right_edge(&self) -> LGolEdge;
+    fn left_edge(&self, bg_coord: BC::V) -> LGolEdge;
+    fn right_edge(&self, bg_coord: BC::V) -> LGolEdge;
 
-    fn zero_stat(&self, shift_data: &LGolShiftData) -> Self::S;
-    fn add_stat(&self, shift_data: &LGolShiftData, s0: Self::S, c: isize, v: bool) -> Option<Self::S>;
+    fn zero_stat(&self, shift_data: &LGolShiftData<BC::V>) -> Self::S;
+    fn add_stat(&self, shift_data: &LGolShiftData<BC::V>, s0: Self::S, c: isize, v: bool) -> Option<Self::S>;
 
-    fn recenter<BS: RowTuple>(&self, shift_data: &LGolShiftData, rs: BS) -> (isize, BS);
+    fn recenter<BS: RowTuple>(&self, shift_data: &LGolShiftData<BC::V>, rs: BS) -> (isize, BS);
 
     fn wrap_in_print(&self) -> bool;
 }
 
-impl LGolAxis for (LGolEdge, LGolEdge) {
+impl<BC: LGolBgCoord> LGolAxis<BC> for (LGolEdge, LGolEdge) {
     type S = ();
 
-    fn left_edge(&self) -> LGolEdge {
+    fn left_edge(&self, _bg_coord: BC::V) -> LGolEdge {
         self.0
     }
 
-    fn right_edge(&self) -> LGolEdge {
+    fn right_edge(&self, _bg_coord: BC::V) -> LGolEdge {
         self.1
     }
 
-    fn zero_stat(&self, _shift_data: &LGolShiftData) {
+    fn zero_stat(&self, _shift_data: &LGolShiftData<BC::V>) {
     }
 
-    fn add_stat(&self, _shift_data: &LGolShiftData, _s0: (), _c: isize, _v: bool) -> Option<()> {
+    fn add_stat(&self, _shift_data: &LGolShiftData<BC::V>, _s0: (), _c: isize, _v: bool) -> Option<()> {
         Some(())
     }
 
-    fn recenter<BS: RowTuple>(&self, _shift_data: &LGolShiftData, rs: BS) -> (isize, BS) {
+    fn recenter<BS: RowTuple>(&self, _shift_data: &LGolShiftData<BC::V>, rs: BS) -> (isize, BS) {
         (0, rs)
     }
 
@@ -206,22 +207,22 @@ pub struct LGolFancyAxis {
     pub w: (isize, isize),
 }
 
-impl LGolAxis for LGolFancyAxis {
+impl<BC: LGolBgCoord> LGolAxis<BC> for LGolFancyAxis {
     type S = (isize, isize);
 
-    fn left_edge(&self) -> LGolEdge {
+    fn left_edge(&self, _bg_coord: BC::V) -> LGolEdge {
         LGolEdge::Empty
     }
 
-    fn right_edge(&self) -> LGolEdge {
+    fn right_edge(&self, _bg_coord: BC::V) -> LGolEdge {
         LGolEdge::Empty
     }
 
-    fn zero_stat(&self, shift_data: &LGolShiftData) -> (isize, isize) {
+    fn zero_stat(&self, shift_data: &LGolShiftData<BC::V>) -> (isize, isize) {
         (shift_data.max_coord, shift_data.min_coord)
     }
 
-    fn add_stat(&self, shift_data: &LGolShiftData, s0: (isize, isize), c: isize, v: bool) -> Option<(isize, isize)> {
+    fn add_stat(&self, shift_data: &LGolShiftData<BC::V>, s0: (isize, isize), c: isize, v: bool) -> Option<(isize, isize)> {
         if !v {
             return Some(s0);
         }
@@ -237,7 +238,7 @@ impl LGolAxis for LGolFancyAxis {
         Some((min, max))
     }
 
-    fn recenter<BS: RowTuple>(&self, shift_data: &LGolShiftData, rs: BS) -> (isize, BS) {
+    fn recenter<BS: RowTuple>(&self, shift_data: &LGolShiftData<BC::V>, rs: BS) -> (isize, BS) {
         let min = shift_data.find_bs_min(rs);
         let max = shift_data.find_bs_max(rs);
 
@@ -275,11 +276,88 @@ impl LGolAxis for LGolFancyAxis {
     }
 }
 
+pub trait LGolBgCoord: Clone {
+    type V: Nice;
+
+    fn mul(&self, n: isize, v: Self::V) -> Self::V;
+    fn add(&self, v1: Self::V, v2: Self::V) -> Self::V;
+    fn from_xyt(&self, xyt: Vec3) -> Self::V;
+    fn all(&self) -> Vec<Self::V>;
+}
+
 #[derive(Clone)]
-pub struct LGolGraphParams<UA: LGolAxis, VA: LGolAxis> {
+pub struct LGolBgUnit();
+
+impl LGolBgCoord for LGolBgUnit {
+    type V = ();
+
+    fn mul(&self, _n: isize, _v: ()) {
+    }
+
+    fn add(&self, _v1: (), _v2: ()) {
+    }
+
+    fn from_xyt(&self, _xyt: Vec3) {
+    }
+
+    fn all(&self) -> Vec<()> {
+        vec![()]
+    }
+}
+
+#[derive(Clone)]
+pub struct LGolBgX2();
+
+impl LGolBgCoord for LGolBgX2 {
+    type V = i8;
+
+    fn mul(&self, n: isize, v: i8) -> i8 {
+        ((n as i8) * v) % 2
+    }
+
+    fn add(&self, v1: i8, v2: i8) -> i8 {
+        (v1 + v2) % 2
+    }
+
+    fn from_xyt(&self, (x, _y, _t): Vec3) -> i8 {
+        (x % 2) as i8
+    }
+
+    fn all(&self) -> Vec<i8> {
+        vec![0, 1]
+    }
+}
+
+#[derive(Clone)]
+pub struct LGolBgY2();
+
+impl LGolBgCoord for LGolBgY2 {
+    type V = i8;
+
+    fn mul(&self, n: isize, v: i8) -> i8 {
+        ((n as i8) * v) % 2
+    }
+
+    fn add(&self, v1: i8, v2: i8) -> i8 {
+        (v1 + v2) % 2
+    }
+
+    fn from_xyt(&self, (_x, y, _t): Vec3) -> i8 {
+        (y % 2) as i8
+    }
+
+    fn all(&self) -> Vec<i8> {
+        vec![0, 1]
+    }
+}
+
+#[derive(Clone)]
+pub struct LGolGraphParams<BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>> {
     pub vu: Vec3,
     pub vv: Vec3,
     pub vw: Vec3,
+
+    pub bg_coord: BC,
 
     pub u_axis: UA,
     pub v_axis: VA,
@@ -291,8 +369,8 @@ enum PartialRowRead {
     Read(usize, usize),
 }
 
-impl<UA: LGolAxis, VA: LGolAxis> LGolGraphParams<UA, VA> {
-    pub fn derived<BS: RowTuple>(&self) -> LGolGraph<BS, UA, VA> {
+impl<BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>> LGolGraphParams<BC, UA, VA> {
+    pub fn derived<BS: RowTuple>(&self) -> LGolGraph<BS, BC, UA, VA> {
         let lc = LatticeCoords::new(self.vu, self.vv, self.vw);
 
         // step two: figure out (x, y, t) coordinates for fundamental volume
@@ -348,9 +426,16 @@ impl<UA: LGolAxis, VA: LGolAxis> LGolGraphParams<UA, VA> {
             let min_coord = spots.iter().map(|&(_xyt, uvw)| mangle(uvw).0).min().unwrap();
             let max_coord = spots.iter().map(|&(_xyt, uvw)| mangle(uvw).0).max().unwrap();
 
+            let bg_period = {
+                let uvw = mangle((period, 0, 0));
+                let xyt = lc.uvw_to_xyt(uvw);
+                self.bg_coord.from_xyt(xyt)
+            };
+
             LGolShiftData {
                 adet: lc.adet,
                 period: period,
+                bg_period: bg_period,
                 shift_rows: shift_rows,
                 coord_idx_sorted: coord_idx_sorted,
                 min_coord: min_coord,
@@ -363,15 +448,16 @@ impl<UA: LGolAxis, VA: LGolAxis> LGolGraphParams<UA, VA> {
 
         let xyt_idx = spots.iter().enumerate().map(|(idx, &(xyt, _uvw))| (xyt, idx)).collect::<HashMap<_, _>>();
 
-        let compute_prow_read = |rl, (x, y, t)| {
-            let (xyt, (lu, lv, lw)) = lc.canonicalize_xyt((x, y, t));
+        let compute_prow_read = |bg_coord, rl, xyt| {
+            let bg_coord = self.bg_coord.add(bg_coord, self.bg_coord.from_xyt(xyt));
+            let (xyt, (lu, lv, lw)) = lc.canonicalize_xyt(xyt);
 
             let u_edge;
             if lu < 0 {
-                u_edge = self.u_axis.left_edge();
+                u_edge = self.u_axis.left_edge(bg_coord);
             }
             else if lu > 0 {
-                u_edge = self.u_axis.right_edge();
+                u_edge = self.u_axis.right_edge(bg_coord);
             }
             else {
                 u_edge = LGolEdge::Wrap;
@@ -379,10 +465,10 @@ impl<UA: LGolAxis, VA: LGolAxis> LGolGraphParams<UA, VA> {
 
             let v_edge;
             if lv < 0 {
-                v_edge = self.v_axis.left_edge();
+                v_edge = self.v_axis.left_edge(bg_coord);
             }
             else if lv > 0 {
-                v_edge = self.v_axis.right_edge();
+                v_edge = self.v_axis.right_edge(bg_coord);
             }
             else {
                 v_edge = LGolEdge::Wrap;
@@ -392,7 +478,7 @@ impl<UA: LGolAxis, VA: LGolAxis> LGolGraphParams<UA, VA> {
                 LGolEdge::Wrap => v_edge,
                 _ => match v_edge {
                     LGolEdge::Wrap => u_edge,
-                    _ => panic!("Edge conflict at {:?}, u_edge {:?}, v_edge {:?}", (x, y, t), u_edge, v_edge),
+                    _ => panic!("Edge conflict at {:?}, u_edge {:?}, v_edge {:?}", xyt, u_edge, v_edge),
                 }
             };
 
@@ -429,7 +515,7 @@ impl<UA: LGolAxis, VA: LGolAxis> LGolGraphParams<UA, VA> {
             b
         };
 
-        let compute_checks = |idx, (x, y, t)| {
+        let compute_checks = |bg_coord, idx, (x, y, t)| {
             let rl = idx + 1;
 
             let mut checks = Vec::new();
@@ -439,14 +525,14 @@ impl<UA: LGolAxis, VA: LGolAxis> LGolGraphParams<UA, VA> {
                 let y2 = y + dy;
                 let t2 = t + dt;
 
-                let cur_mask = match compute_prow_read(rl, (x2, y2, t2)) {
+                let cur_mask = match compute_prow_read(bg_coord, rl, (x2, y2, t2)) {
                     PartialRowRead::Off => (0, BS::Item::zero()),
                     PartialRowRead::Unknown => {
                         return;
                     },
                     PartialRowRead::Read(row_idx, bit_idx) => (row_idx, single_mask(bit_idx)),
                 };
-                let fut_mask = match compute_prow_read(rl, (x2, y2, t2 + 1)) {
+                let fut_mask = match compute_prow_read(bg_coord, rl, (x2, y2, t2 + 1)) {
                     PartialRowRead::Off => (0, BS::Item::zero()),
                     PartialRowRead::Unknown => {
                         return;
@@ -467,7 +553,7 @@ impl<UA: LGolAxis, VA: LGolAxis> LGolGraphParams<UA, VA> {
                         let y3 = y2 + dy2;
                         let t3 = t2;
 
-                        match compute_prow_read(rl, (x3, y3, t3)) {
+                        match compute_prow_read(bg_coord, rl, (x3, y3, t3)) {
                             PartialRowRead::Off => {
                                 nh_ct += 1;
                             }
@@ -504,11 +590,17 @@ impl<UA: LGolAxis, VA: LGolAxis> LGolGraphParams<UA, VA> {
             checks
         };
 
-        let checks: Vec<_> = spots.iter().enumerate().map(|(idx, &(xyt, _))| compute_checks(idx, xyt)).collect();
+        let checks: HashMap<_, _> = self.bg_coord.all().into_iter().map(|bg_coord| {
+            let checks: Vec<_> = spots.iter().enumerate().map(|(idx, &(xyt, _))| compute_checks(bg_coord, idx, xyt)).collect();
 
-        let max_row_idx = checks.iter().map(|checks| {
-            checks.iter().map(|&(ref nh_masks, _, _, _)| {
-                nh_masks.iter().map(|&(row_idx, _)| row_idx)
+            (bg_coord, checks)
+        }).collect();
+
+        let max_row_idx = checks.iter().map(|(_bg_coord, checks)| {
+            checks.iter().map(|checks| {
+                checks.iter().map(|&(ref nh_masks, _, _, _)| {
+                    nh_masks.iter().map(|&(row_idx, _)| row_idx)
+                }).flatten()
             }).flatten()
         }).flatten().max().unwrap();
         assert!(max_row_idx <= BS::len(), "{} <= {}", max_row_idx, BS::len());
@@ -530,16 +622,17 @@ impl<UA: LGolAxis, VA: LGolAxis> LGolGraphParams<UA, VA> {
     }
 }
 
-pub struct LGolShiftData {
+pub struct LGolShiftData<BCV> {
     adet: isize,
     period: isize,
+    bg_period: BCV,
     shift_rows: Vec<Vec<usize>>,
     coord_idx_sorted: Vec<(isize, usize)>,
     min_coord: isize,
     max_coord: isize,
 }
 
-impl LGolShiftData {
+impl<BCV> LGolShiftData<BCV> {
     fn find_bs_min<BS: RowTuple>(&self, rs: BS) -> isize {
         for &(c, idx) in self.coord_idx_sorted.iter() {
             for r in rs.as_slice() {
@@ -563,27 +656,31 @@ impl LGolShiftData {
     }
 }
 
-pub struct LGolGraph<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> {
-    pub params: LGolGraphParams<UA, VA>,
+pub struct LGolGraph<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>> {
+    pub params: LGolGraphParams<BC, UA, VA>,
 
     pub lc: LatticeCoords,
     pub spots: Vec<(Vec3, Vec3)>,
     pub max_r1l: usize,
-    pub checks: Vec<Vec<(Vec<(usize, BS::Item)>, u32, (usize, BS::Item), (usize, BS::Item))>>,
-    pub u_shift_data: LGolShiftData,
-    pub v_shift_data: LGolShiftData,
+    pub checks: HashMap<BC::V, Vec<Vec<(Vec<(usize, BS::Item)>, u32, (usize, BS::Item), (usize, BS::Item))>>>,
+    pub u_shift_data: LGolShiftData<BC::V>,
+    pub v_shift_data: LGolShiftData<BC::V>,
 
     _bs: PhantomData<BS>,
 }
 
-impl<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> LGolGraph<BS, UA, VA> {
-    fn recenter(&self, rs: BS) -> (isize, isize, BS) {
-        let (du, rs) = self.params.u_axis.recenter(&self.u_shift_data, rs);
-        let (dv, rs) = self.params.v_axis.recenter(&self.v_shift_data, rs);
-        (du, dv, rs)
+impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>> LGolGraph<BS, BC, UA, VA> {
+    fn recenter(&self, rs: BS) -> (isize, isize, BC::V, BS) {
+        let (su, rs) = self.params.u_axis.recenter(&self.u_shift_data, rs);
+        let (sv, rs) = self.params.v_axis.recenter(&self.v_shift_data, rs);
+        let du = su * self.u_shift_data.period;
+        let dv = sv * self.v_shift_data.period;
+        let bc = &self.params.bg_coord;
+        let db = bc.add(bc.mul(su, self.u_shift_data.bg_period), bc.mul(sv, self.v_shift_data.bg_period));
+        (du, dv, db, rs)
     }
 
-    fn expand_srch(&self, n1: &LGolNode<BS, UA::S, VA::S>, n2s: &mut Vec<LGolNode<BS, UA::S, VA::S>>) {
+    fn expand_srch(&self, n1: &LGolNode<BS, BC::V, UA::S, VA::S>, n2s: &mut Vec<LGolNode<BS, BC::V, UA::S, VA::S>>) {
         let idx = n1.r1l as usize;
 
         if idx == self.max_r1l {
@@ -592,7 +689,7 @@ impl<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> LGolGraph<BS, UA, VA> {
             r0s.as_slice_mut()[1..BS::len()].copy_from_slice(&n1.r0s.as_slice()[0..(BS::len() - 1)]);
             r0s.as_slice_mut()[0] = n1.r1;
 
-            let (du, dv, r0s) = self.recenter(r0s);
+            let (du, dv, db, r0s) = self.recenter(r0s);
 
             if n1.r0s == BS::default() && (du, dv) != (0, 0) {
                 // reject stupid first row shifts
@@ -600,6 +697,7 @@ impl<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> LGolGraph<BS, UA, VA> {
             }
 
             n2s.push(LGolNode {
+                bg_coord: self.params.bg_coord.add(n1.bg_coord, db),
                 du: n1.du + (du as i16),
                 dv: n1.dv + (dv as i16),
                 r0s: r0s,
@@ -614,6 +712,7 @@ impl<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> LGolGraph<BS, UA, VA> {
         'v: for &v in &[false, true] {
             let (idx_u, idx_v, _) = self.spots[idx].1;
             let mut n2 = LGolNode {
+                bg_coord: n1.bg_coord,
                 du: n1.du,
                 dv: n1.dv,
                 r0s: n1.r0s,
@@ -635,7 +734,9 @@ impl<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> LGolGraph<BS, UA, VA> {
 
             n2.r1.set_bit(idx, v);
 
-            for &(ref nh_masks, nh_ct, cur_mask, fut_mask) in self.checks[idx].iter() {
+            let checks = self.checks.get(&n2.bg_coord).unwrap();
+            let checks = &checks[idx];
+            for &(ref nh_masks, nh_ct, cur_mask, fut_mask) in checks.iter() {
                 let mut nh = 0;
                 for &nh_mask in nh_masks {
                     nh += n2.read_mask(nh_mask);
@@ -685,7 +786,7 @@ impl<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> LGolGraph<BS, UA, VA> {
         }
     }
 
-    pub fn format_rows(&self, rows: &Vec<LGolKeyNode<BS>>, last: Option<&LGolNode<BS, UA::S, VA::S>>) -> Vec<String> {
+    pub fn format_rows(&self, rows: &Vec<LGolKeyNode<BS>>, last: Option<&LGolNode<BS, BC::V, UA::S, VA::S>>) -> Vec<String> {
         let mut pr = PrintBag::new();
         let mut w = 0;
         for (n, row) in rows.iter().enumerate() {
@@ -721,8 +822,9 @@ impl<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> LGolGraph<BS, UA, VA> {
         pr.format()
     }
 
-    pub fn zero_node(&self) -> LGolNode<BS, UA::S, VA::S> {
+    pub fn zero_node(&self) -> LGolNode<BS, BC::V, UA::S, VA::S> {
         LGolNode {
+            bg_coord: BC::V::default(),
             du: 0,
             dv: 0,
             r0s: BS::default(),
@@ -751,8 +853,8 @@ fn check_compat2(living: u32, known: u32, c: bool, f: bool) -> bool {
     }
 }
 
-impl<BS: RowTuple, UA: LGolAxis, VA: LGolAxis> DfsGraph<LGolNode<BS, UA::S, VA::S>> for LGolGraph<BS, UA, VA> {
-    fn expand<'a>(&'a self, n1: &'a LGolNode<BS, UA::S, VA::S>, _path: impl Iterator<Item=&'a LGolKeyNode<BS>>) -> Vec<LGolNode<BS, UA::S, VA::S>> {
+impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>> DfsGraph<LGolNode<BS, BC::V, UA::S, VA::S>> for LGolGraph<BS, BC, UA, VA> {
+    fn expand<'a>(&'a self, n1: &'a LGolNode<BS, BC::V, UA::S, VA::S>, _path: impl Iterator<Item=&'a LGolKeyNode<BS>>) -> Vec<LGolNode<BS, BC::V, UA::S, VA::S>> {
         let mut n2s = Vec::new();
         self.expand_srch(n1, &mut n2s);
         n2s

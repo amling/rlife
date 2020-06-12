@@ -22,6 +22,7 @@ use dfs::lifecycle::DfsLifecycle;
 use dfs::lifecycle::LogLevel;
 use gol::lifecycle::GolLifecycle;
 use gol::lifecycle::GolRctlEp;
+use lgol::graph::LGolBgUnit;
 use lgol::graph::LGolEdge;
 use lgol::graph::LGolFancyAxis;
 use lgol::graph::LGolGraphParams;
@@ -41,6 +42,8 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
         vu: (mx, 0, 0),
         vv: (0, -1, 3),
         vw: (0, 0, 1),
+
+        bg_coord: LGolBgUnit(),
 
         u_axis: LGolFancyAxis {
             w: (wx, mx),
