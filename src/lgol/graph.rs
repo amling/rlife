@@ -6,7 +6,6 @@ use ars_ds::scalar::Scalar;
 use ars_ds::scalar::UScalar;
 use serde::Deserialize;
 use serde::Serialize;
-use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -20,8 +19,12 @@ use dfs::graph::DfsGraph;
 use dfs::graph::DfsKeyNode;
 use dfs::graph::DfsNode;
 use gol::printbag::PrintBag;
+use lgol::bg::LGolBg;
+use lgol::bg::LGolBgCoord;
 use lgol::lat1::LGolLat1;
 use lgol::lat1::Vec3;
+use lgol::lat2::LGolLat2;
+use lgol::lat2::LGolShiftData;
 
 marker_trait! {
     Nice:
@@ -341,124 +344,6 @@ impl<BC: LGolBgCoord, LBG: LGolBg<BC>, RBG: LGolBg<BC>> LGolAxis<BC> for LGolFan
     }
 }
 
-pub trait LGolBgCoord: Nice {
-    fn mul(&self, n: isize) -> Self;
-    fn add(&self, other: Self) -> Self;
-    fn from_xyt(xyt: Vec3) -> Self;
-    fn all() -> Vec<Self>;
-}
-
-impl LGolBgCoord for () {
-    fn mul(&self, _n: isize) {
-    }
-
-    fn add(&self, _other: ()) {
-    }
-
-    fn from_xyt(_xyt: Vec3) {
-    }
-
-    fn all() -> Vec<()> {
-        vec![()]
-    }
-}
-
-#[derive(Clone)]
-#[derive(Copy)]
-#[derive(Debug)]
-#[derive(Default)]
-#[derive(Deserialize)]
-#[derive(Eq)]
-#[derive(Hash)]
-#[derive(Ord)]
-#[derive(PartialEq)]
-#[derive(PartialOrd)]
-#[derive(Serialize)]
-pub struct LGolBgX2(pub i8);
-
-impl LGolBgCoord for LGolBgX2 {
-    fn mul(&self, n: isize) -> LGolBgX2 {
-        LGolBgX2(((n as i8) * self.0).rem_euclid(2))
-    }
-
-    fn add(&self, other: LGolBgX2) -> LGolBgX2 {
-        LGolBgX2((self.0 + other.0) % 2)
-    }
-
-    fn from_xyt((x, _y, _t): Vec3) -> LGolBgX2 {
-        LGolBgX2(x.rem_euclid(2) as i8)
-    }
-
-    fn all() -> Vec<LGolBgX2> {
-        vec![LGolBgX2(0), LGolBgX2(1)]
-    }
-}
-
-#[derive(Clone)]
-#[derive(Copy)]
-#[derive(Debug)]
-#[derive(Default)]
-#[derive(Deserialize)]
-#[derive(Eq)]
-#[derive(Hash)]
-#[derive(Ord)]
-#[derive(PartialEq)]
-#[derive(PartialOrd)]
-#[derive(Serialize)]
-pub struct LGolBgY2(pub i8);
-
-impl LGolBgCoord for LGolBgY2 {
-    fn mul(&self, n: isize) -> LGolBgY2 {
-        LGolBgY2(((n as i8) * self.0).rem_euclid(2))
-    }
-
-    fn add(&self, other: LGolBgY2) -> LGolBgY2 {
-        LGolBgY2((self.0 + other.0) % 2)
-    }
-
-    fn from_xyt((_x, y, _t): Vec3) -> LGolBgY2 {
-        LGolBgY2(y.rem_euclid(2) as i8)
-    }
-
-    fn all() -> Vec<LGolBgY2> {
-        vec![LGolBgY2(0), LGolBgY2(1)]
-    }
-}
-
-pub trait LGolBg<BC: LGolBgCoord>: Copy {
-    fn bg_cell(&self, bg_coord: BC) -> bool;
-}
-
-#[derive(Clone)]
-#[derive(Copy)]
-pub struct LGolBgEmpty();
-
-impl<BC: LGolBgCoord> LGolBg<BC> for LGolBgEmpty {
-    fn bg_cell(&self, _bg_coord: BC) -> bool {
-        false
-    }
-}
-
-#[derive(Clone)]
-#[derive(Copy)]
-pub struct LGolBgVertStripes();
-
-impl LGolBg<LGolBgX2> for LGolBgVertStripes {
-    fn bg_cell(&self, bg_coord: LGolBgX2) -> bool {
-        bg_coord.0 == 0
-    }
-}
-
-#[derive(Clone)]
-#[derive(Copy)]
-pub struct LGolBgHorizStripes();
-
-impl LGolBg<LGolBgY2> for LGolBgHorizStripes {
-    fn bg_cell(&self, bg_coord: LGolBgY2) -> bool {
-        bg_coord.0 == 0
-    }
-}
-
 #[derive(Clone)]
 pub struct LGolGraphParams<BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>> {
     pub vu: Vec3,
@@ -480,91 +365,9 @@ enum PartialRowRead {
 impl<BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>> LGolGraphParams<BC, UA, VA> {
     pub fn derived<BS: RowTuple>(&self) -> LGolGraph<BS, BC, UA, VA> {
         let lat1 = LGolLat1::new(self.vu, self.vv, self.vw);
+        let lat2 = LGolLat2::new(&lat1);
 
-        // step two: figure out (x, y, t) coordinates for fundamental volume
-        let mut spots = Vec::new();
-        for t in 0..lat1.mt {
-            for x in 0..lat1.mx {
-                for y in 0..lat1.my {
-                    // this (x, y, t) is some equivalence class, but we want to shift it to be in
-                    // [0, 1)x[0, 1)x[0, 1) in uvw space
-                    let (xyt, _) = lat1.canonicalize_xyt((x, y, t));
-
-                    let uvw = lat1.xyt_to_uvw(xyt);
-
-                    spots.push((xyt, uvw));
-                }
-            }
-        }
-
-        spots.sort_by_key(|&(_, (u, v, _w))| {
-            // Ugh, in order to get u and v handled sanely in the "single w layer" case we have to
-            // ignore w (since some of them are shifted up in w space).  This will likely need
-            // revisitting when/if we do any "multiple w layer" searches...
-            (u, v)
-        });
-
-        let idx_bg_coord = spots.iter().map(|&(xyt, _)| BC::from_xyt(xyt)).collect();
-
-        let compute_shift_data = |mangle: &dyn Fn(Vec3) -> Vec3| {
-            let period = {
-                let v1 = mangle(lat1.xyt_to_uvw((1, 0, 0)));
-                let v2 = mangle(lat1.xyt_to_uvw((0, 1, 0)));
-                let v3 = mangle(lat1.xyt_to_uvw((0, 0, 1)));
-
-                let l3 = Vec3::canonicalize(vec![v1, v2, v3]);
-                let (_, (_, (lc, ()))) = l3;
-                lc.unwrap().0
-            };
-
-            let mut row_c_idx = BTreeMap::new();
-            for (idx, &(_xyt, uvw)) in spots.iter().enumerate() {
-                let (c, other, w) = mangle(uvw);
-                row_c_idx.entry((other, w)).or_insert_with(|| BTreeMap::new()).insert(c, idx);
-            }
-
-            let shift_rows: Vec<Vec<_>> = row_c_idx.into_iter().map(|(_row, c_idx)| {
-                let c_idx: Vec<_> = c_idx.into_iter().collect();
-                for i in 0..(c_idx.len() - 1) {
-                    assert_eq!(c_idx[i].0 + period, c_idx[i + 1].0);
-                }
-                c_idx.into_iter().map(|(_c, idx)| {
-                    let db = BC::from_xyt(spots[idx].0);
-                    (idx, db)
-                }).collect()
-            }).collect();
-
-            let mut checks: Vec<_> = spots.iter().enumerate().map(|(idx, &(xyt, uvw))| {
-                let c = mangle(uvw).0;
-                let db = BC::from_xyt(xyt);
-                (c, idx, db)
-            }).collect();
-            checks.sort();
-            let min_coord = spots.iter().map(|&(_xyt, uvw)| mangle(uvw).0).min().unwrap();
-            let max_coord = spots.iter().map(|&(_xyt, uvw)| mangle(uvw).0).max().unwrap();
-
-            let bg_period = {
-                let uvw = mangle((period, 0, 0));
-                let xyt = lat1.uvw_to_xyt(uvw);
-                BC::from_xyt(xyt)
-            };
-
-            LGolShiftData {
-                adet: lat1.adet,
-                w_bg_coord: BC::from_xyt(self.vw),
-                period: period,
-                bg_period: bg_period,
-                shift_rows: shift_rows,
-                checks: checks,
-                min_coord: min_coord,
-                max_coord: max_coord,
-            }
-        };
-
-        let u_shift_data = compute_shift_data(&|uvw| uvw);
-        let v_shift_data = compute_shift_data(&|(u, v, w)| (v, u, w));
-
-        let xyt_idx = spots.iter().enumerate().map(|(idx, &(xyt, _uvw))| (xyt, idx)).collect::<HashMap<_, _>>();
+        let xyt_idx = lat2.spots.iter().enumerate().map(|(idx, &(xyt, _uvw, _))| (xyt, idx)).collect::<HashMap<_, _>>();
 
         let compute_prow_read = |bg_coord: BC, rl, xyt| {
             let bg_coord = bg_coord.add(BC::from_xyt(xyt));
@@ -713,7 +516,7 @@ impl<BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>> LGolGraphParams<BC, UA
         };
 
         let checks: HashMap<_, _> = BC::all().into_iter().map(|bg_coord| {
-            let checks: Vec<_> = spots.iter().enumerate().map(|(idx, &(xyt, _))| compute_checks(bg_coord, idx, xyt)).collect();
+            let checks: Vec<_> = lat2.spots.iter().enumerate().map(|(idx, &(xyt, _, _))| compute_checks(bg_coord, idx, xyt)).collect();
 
             (bg_coord, checks)
         }).collect();
@@ -731,57 +534,38 @@ impl<BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>> LGolGraphParams<BC, UA
 
         LGolGraph {
             params: self.clone(),
-
             lat1: lat1,
-            spots: spots,
+            lat2: lat2,
+
             max_r1l: max_r1l,
             checks: checks,
-            u_shift_data: u_shift_data,
-            v_shift_data: v_shift_data,
-            idx_bg_coord: idx_bg_coord,
-            w_bg_coord: BC::from_xyt(self.vw),
 
             _bs: PhantomData::default(),
         }
     }
 }
 
-pub struct LGolShiftData<BC> {
-    adet: isize,
-    w_bg_coord: BC,
-    period: isize,
-    bg_period: BC,
-    shift_rows: Vec<Vec<(usize, BC)>>,
-    checks: Vec<(isize, usize, BC)>,
-    min_coord: isize,
-    max_coord: isize,
-}
-
 pub struct LGolGraph<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>> {
     pub params: LGolGraphParams<BC, UA, VA>,
-
     pub lat1: LGolLat1,
-    pub spots: Vec<(Vec3, Vec3)>,
+    pub lat2: LGolLat2<BC>,
+
     pub max_r1l: usize,
     pub checks: HashMap<BC, Vec<Vec<(Vec<(usize, BS::Item)>, u32, u32, (usize, BS::Item, bool), (usize, BS::Item, bool))>>>,
-    pub u_shift_data: LGolShiftData<BC>,
-    pub v_shift_data: LGolShiftData<BC>,
-    pub idx_bg_coord: Vec<BC>,
-    pub w_bg_coord: BC,
 
     _bs: PhantomData<BS>,
 }
 
 impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>> LGolGraph<BS, BC, UA, VA> {
     fn recenter(&self, bg_coord: BC, rs: BS) -> (isize, isize, BC, BS) {
-        let (su, rs) = self.params.u_axis.recenter(&self.u_shift_data, bg_coord, rs);
-        let bg_coord = bg_coord.add(self.u_shift_data.bg_period.mul(su));
+        let (su, rs) = self.params.u_axis.recenter(&self.lat2.u_shift_data, bg_coord, rs);
+        let bg_coord = bg_coord.add(self.lat2.u_shift_data.bg_period.mul(su));
 
-        let (sv, rs) = self.params.v_axis.recenter(&self.v_shift_data, bg_coord, rs);
-        let bg_coord = bg_coord.add(self.v_shift_data.bg_period.mul(sv));
+        let (sv, rs) = self.params.v_axis.recenter(&self.lat2.v_shift_data, bg_coord, rs);
+        let bg_coord = bg_coord.add(self.lat2.v_shift_data.bg_period.mul(sv));
 
-        let du = su * self.u_shift_data.period;
-        let dv = sv * self.v_shift_data.period;
+        let du = su * self.lat2.u_shift_data.period;
+        let dv = sv * self.lat2.v_shift_data.period;
         (du, dv, bg_coord, rs)
     }
 
@@ -793,7 +577,7 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>> LGolGrap
 
             r0s.as_slice_mut()[1..BS::len()].copy_from_slice(&n1.r0s.as_slice()[0..(BS::len() - 1)]);
             r0s.as_slice_mut()[0] = n1.r1;
-            let bg_coord = n1.bg_coord.add(self.w_bg_coord);
+            let bg_coord = n1.bg_coord.add(self.lat2.w_bg_coord);
 
             let (du, dv, bg_coord, r0s) = self.recenter(bg_coord, r0s);
 
@@ -808,16 +592,15 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>> LGolGrap
                 dv: n1.dv + (dv as i16),
                 r0s: r0s,
                 r1: BS::Item::zero(),
-                r1_us: self.params.u_axis.zero_stat(&self.u_shift_data),
-                r1_vs: self.params.v_axis.zero_stat(&self.v_shift_data),
+                r1_us: self.params.u_axis.zero_stat(&self.lat2.u_shift_data),
+                r1_vs: self.params.v_axis.zero_stat(&self.lat2.v_shift_data),
                 r1l: 0,
             });
             return;
         }
 
         'v: for &v in &[false, true] {
-            let (idx_u, idx_v, _) = self.spots[idx].1;
-            let bg_coord = self.idx_bg_coord[idx];
+            let (_, (idx_u, idx_v, _), bg_coord) = self.lat2.spots[idx];
             let mut n2 = LGolNode {
                 bg_coord: n1.bg_coord,
                 du: n1.du,
@@ -825,13 +608,13 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>> LGolGrap
                 r0s: n1.r0s,
                 r1: n1.r1,
                 r1l: n1.r1l + 1,
-                r1_us: match self.params.u_axis.add_stat(&self.u_shift_data, n1.r1_us, bg_coord, idx_u, v) {
+                r1_us: match self.params.u_axis.add_stat(&self.lat2.u_shift_data, n1.r1_us, bg_coord, idx_u, v) {
                     Some(us) => us,
                     None => {
                         continue 'v;
                     }
                 },
-                r1_vs: match self.params.v_axis.add_stat(&self.v_shift_data, n1.r1_vs, bg_coord, idx_v, v) {
+                r1_vs: match self.params.v_axis.add_stat(&self.lat2.v_shift_data, n1.r1_vs, bg_coord, idx_v, v) {
                     Some(us) => us,
                     None => {
                         continue 'v;
@@ -882,7 +665,7 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>> LGolGrap
         }
         let wraps = Vec3::canonicalize(wraps);
 
-        for (idx, &((x, y, t), _uvw)) in self.spots.iter().enumerate() {
+        for (idx, &((x, y, t), _uvw, _)) in self.lat2.spots.iter().enumerate() {
             let x = x + dx;
             let y = y + dy;
             let t = t + dt;
@@ -980,8 +763,8 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>> LGolGrap
             r0s: r0s,
             r1: BS::Item::zero(),
             r1l: 0,
-            r1_us: self.params.u_axis.zero_stat(&self.u_shift_data),
-            r1_vs: self.params.v_axis.zero_stat(&self.v_shift_data),
+            r1_us: self.params.u_axis.zero_stat(&self.lat2.u_shift_data),
+            r1_vs: self.params.v_axis.zero_stat(&self.lat2.v_shift_data),
         }
     }
 }

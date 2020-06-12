@@ -7,17 +7,17 @@ pub struct LGolLat1 {
     pub my: isize,
     pub mt: isize,
 
-    u_to_xyt: Vec3,
-    v_to_xyt: Vec3,
-    w_to_xyt: Vec3,
+    pub u_to_xyt: Vec3,
+    pub v_to_xyt: Vec3,
+    pub w_to_xyt: Vec3,
 
     pub det: isize,
     pub adet: isize,
     pub sdet: isize,
 
-    x_to_uvw: Vec3,
-    y_to_uvw: Vec3,
-    t_to_uvw: Vec3,
+    pub x_to_uvw: Vec3,
+    pub y_to_uvw: Vec3,
+    pub t_to_uvw: Vec3,
 }
 
 impl LGolLat1 {

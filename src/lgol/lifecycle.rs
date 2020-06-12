@@ -4,8 +4,8 @@ use crate::gol;
 use crate::lgol;
 
 use gol::lifecycle::GolGraphTrait;
+use lgol::bg::LGolBgCoord;
 use lgol::graph::LGolAxis;
-use lgol::graph::LGolBgCoord;
 use lgol::graph::LGolGraph;
 use lgol::graph::LGolKeyNode;
 use lgol::graph::LGolNode;
