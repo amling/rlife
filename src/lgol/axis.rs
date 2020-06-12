@@ -15,7 +15,7 @@ use lgol::lat2::LGolShiftData;
 #[derive(Debug)]
 #[derive(Eq)]
 #[derive(PartialEq)]
-pub enum LGolEdge {
+pub enum LGolEdgeRead {
     Known(bool),
     Wrap,
     Unknown,
@@ -24,8 +24,8 @@ pub enum LGolEdge {
 pub trait LGolAxis<BC: LGolBgCoord>: Copy {
     type S: Nice;
 
-    fn left_edge(&self, bg_coord: BC) -> LGolEdge;
-    fn right_edge(&self, bg_coord: BC) -> LGolEdge;
+    fn left_edge(&self, bg_coord: BC) -> LGolEdgeRead;
+    fn right_edge(&self, bg_coord: BC) -> LGolEdgeRead;
 
     fn zero_stat(&self, shift_data: &LGolShiftData<BC>) -> Self::S;
     fn add_stat(&self, shift_data: &LGolShiftData<BC>, s0: Self::S, bg_coord: BC, c: isize, v: bool) -> Option<Self::S>;
@@ -35,14 +35,14 @@ pub trait LGolAxis<BC: LGolBgCoord>: Copy {
     fn wrap_in_print(&self) -> bool;
 }
 
-impl<BC: LGolBgCoord> LGolAxis<BC> for (LGolEdge, LGolEdge) {
+impl<BC: LGolBgCoord> LGolAxis<BC> for (LGolEdgeRead, LGolEdgeRead) {
     type S = ();
 
-    fn left_edge(&self, _bg_coord: BC) -> LGolEdge {
+    fn left_edge(&self, _bg_coord: BC) -> LGolEdgeRead {
         self.0
     }
 
-    fn right_edge(&self, _bg_coord: BC) -> LGolEdge {
+    fn right_edge(&self, _bg_coord: BC) -> LGolEdgeRead {
         self.1
     }
 
@@ -58,7 +58,7 @@ impl<BC: LGolBgCoord> LGolAxis<BC> for (LGolEdge, LGolEdge) {
     }
 
     fn wrap_in_print(&self) -> bool {
-        self == &(LGolEdge::Wrap, LGolEdge::Wrap)
+        self == &(LGolEdgeRead::Wrap, LGolEdgeRead::Wrap)
     }
 }
 
@@ -104,12 +104,12 @@ impl<LBG, RBG> LGolFancyAxis<LBG, RBG> {
 impl<BC: LGolBgCoord, LBG: LGolBg<BC>, RBG: LGolBg<BC>> LGolAxis<BC> for LGolFancyAxis<LBG, RBG> {
     type S = (isize, isize);
 
-    fn left_edge(&self, bg_coord: BC) -> LGolEdge {
-        LGolEdge::Known(self.left_bg.bg_cell(bg_coord))
+    fn left_edge(&self, bg_coord: BC) -> LGolEdgeRead {
+        LGolEdgeRead::Known(self.left_bg.bg_cell(bg_coord))
     }
 
-    fn right_edge(&self, bg_coord: BC) -> LGolEdge {
-        LGolEdge::Known(self.right_bg.bg_cell(bg_coord))
+    fn right_edge(&self, bg_coord: BC) -> LGolEdgeRead {
+        LGolEdgeRead::Known(self.right_bg.bg_cell(bg_coord))
     }
 
     fn zero_stat(&self, shift_data: &LGolShiftData<BC>) -> (isize, isize) {

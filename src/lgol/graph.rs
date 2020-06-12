@@ -21,7 +21,7 @@ use dfs::graph::DfsKeyNode;
 use dfs::graph::DfsNode;
 use gol::printbag::PrintBag;
 use lgol::axis::LGolAxis;
-use lgol::axis::LGolEdge;
+use lgol::axis::LGolEdgeRead;
 use lgol::bg::LGolBgCoord;
 use lgol::ends::LGolEnds;
 use lgol::lat1::LGolLat1;
@@ -223,7 +223,7 @@ impl<BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>> LGolGraphParams<BC, UA
                 u_edge = self.u_axis.right_edge(bg_coord);
             }
             else {
-                u_edge = LGolEdge::Wrap;
+                u_edge = LGolEdgeRead::Wrap;
             }
 
             let v_edge;
@@ -234,20 +234,20 @@ impl<BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>> LGolGraphParams<BC, UA
                 v_edge = self.v_axis.right_edge(bg_coord);
             }
             else {
-                v_edge = LGolEdge::Wrap;
+                v_edge = LGolEdgeRead::Wrap;
             }
 
             let edge = match u_edge {
-                LGolEdge::Wrap => v_edge,
+                LGolEdgeRead::Wrap => v_edge,
                 _ => match v_edge {
-                    LGolEdge::Wrap => u_edge,
+                    LGolEdgeRead::Wrap => u_edge,
                     _ => panic!("Edge conflict at {:?}, u_edge {:?}, v_edge {:?}", xyt, u_edge, v_edge),
                 }
             };
 
             match edge {
-                LGolEdge::Known(b) => PartialRowRead::Known(b),
-                LGolEdge::Wrap => {
+                LGolEdgeRead::Known(b) => PartialRowRead::Known(b),
+                LGolEdgeRead::Wrap => {
                     let idx = *xyt_idx.get(&xyt).unwrap();
 
                     if lw > 0 {
@@ -268,7 +268,7 @@ impl<BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>> LGolGraphParams<BC, UA
                         }
                     }
                 }
-                LGolEdge::Unknown => PartialRowRead::Unknown,
+                LGolEdgeRead::Unknown => PartialRowRead::Unknown,
             }
         };
 

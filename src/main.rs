@@ -24,7 +24,7 @@ use dfs::lifecycle::DfsLifecycle;
 use dfs::lifecycle::LogLevel;
 use gol::lifecycle::GolLifecycle;
 use gol::lifecycle::GolRctlEp;
-use lgol::axis::LGolEdge;
+use lgol::axis::LGolEdgeRead;
 use lgol::axis::LGolFancyAxis;
 use lgol::bg::LGolBgEmpty;
 use lgol::bg::LGolBgVertStripes;
@@ -54,7 +54,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
             left_bg: LGolBgVertStripes(),
             right_bg: LGolBgEmpty(),
         },
-        v_axis: (LGolEdge::Wrap, LGolEdge::Wrap),
+        v_axis: (LGolEdgeRead::Wrap, LGolEdgeRead::Wrap),
     };
     let mut ge = ge.derived::<[B; 10], _>(HashSet::new());
 
