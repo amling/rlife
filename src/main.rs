@@ -24,6 +24,8 @@ use dfs::lifecycle::LogLevel;
 use gol::lifecycle::GolLifecycle;
 use gol::lifecycle::GolRctlEp;
 use lgol::graph::LGolBgEmpty;
+use lgol::graph::LGolBgVertStripes;
+use lgol::graph::LGolBgX2;
 use lgol::graph::LGolEdge;
 use lgol::graph::LGolFancyAxis;
 use lgol::graph::LGolGraphParams;
@@ -44,11 +46,11 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
         vv: (0, -1, 3),
         vw: (0, 0, 1),
 
-        bg_coord: PhantomData::<()>,
+        bg_coord: PhantomData::<LGolBgX2>,
 
         u_axis: LGolFancyAxis {
             w: (wx, mx),
-            left_bg: LGolBgEmpty(),
+            left_bg: LGolBgVertStripes(),
             right_bg: LGolBgEmpty(),
         },
         v_axis: (LGolEdge::Wrap, LGolEdge::Wrap),
@@ -60,7 +62,12 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
             SerdeFormat::Bincode.read(path).unwrap()
         },
         None => {
-            let n0 = ge.zero_node();
+            let rs = ge.parse_bs(&[
+                "*...", "**..", "**..",
+                "*...", "*...", "*.*.",
+            ]);
+            let (xyt, rs) = ge.recenter_xyt((0, 0, 0), rs);
+            let n0 = ge.regular_node(xyt, rs);
 
             Bfs2State::new(vec![(vec![n0.key_node().unwrap()], n0)])
         },
