@@ -13,7 +13,6 @@ use crate::dfs;
 
 use bfs::chunk_queue::ChunkQueue;
 use bfs::kn_pile::KnPile;
-use dfs::Path;
 use dfs::graph::DfsGraph;
 use dfs::graph::DfsKeyNode;
 use dfs::graph::DfsNode;
@@ -214,12 +213,8 @@ pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(mut 
                     let before = ws.iter().map(|w| w.q.len()).sum::<usize>();
                     let t0 = std::time::Instant::now();
                     singleton_par(threads, &mut ws, |w| {
-                        w.q.retain(|&(prev_idx, ref n)| {
-                            let path = kns.materialize_cloned(prev_idx);
-                            let mut path = Path::from_vec(path);
-                            let n = n.clone();
-
-                            deepen_search(ge, &mut path, n, *foresight)
+                        w.q.retain(|(_prev_idx, n)| {
+                            deepen_search(ge, n, *foresight)
                         });
                     });
                     let after = ws.iter().map(|w| w.q.len()).sum::<usize>();
@@ -236,15 +231,8 @@ pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(mut 
                     let before = ws.iter().map(|w| w.q2.len()).sum::<usize>();
                     let t0 = std::time::Instant::now();
                     singleton_par(threads, &mut ws, |w| {
-                        w.q2.retain(|&(prev_idx, ref n)| {
-                            let mut path = kns.materialize_cloned(prev_idx);
-                            if let Some(kn) = n.key_node() {
-                                path.push(kn.clone());
-                            }
-                            let mut path = Path::from_vec(path);
-                            let n = n.clone();
-
-                            deepen_search(ge, &mut path, n, *foresight - 1)
+                        w.q2.retain(|(_prev_idx, n)| {
+                            deepen_search(ge, n, *foresight - 1)
                         });
                     });
                     let after = ws.iter().map(|w| w.q2.len()).sum::<usize>();
@@ -349,15 +337,8 @@ pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(mut 
                     let t0 = std::time::Instant::now();
                     let before = q3.len();
                     cq_par(threads, shards, &mut q3, |q3| {
-                        q3.retain(|&(prev_idx, ref n)| {
-                            let mut path = kns.materialize_cloned(prev_idx);
-                            if let Some(kn) = n.key_node() {
-                                path.push(kn.clone());
-                            }
-                            let mut path = Path::from_vec(path);
-                            let n = n.clone();
-
-                            deepen_search(ge, &mut path, n, *foresight - 1)
+                        q3.retain(|(_prev_idx, n)| {
+                            deepen_search(ge, n, *foresight - 1)
                         });
                     });
                     let after = q3.len();
@@ -372,12 +353,8 @@ pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(mut 
                     let t0 = std::time::Instant::now();
                     let before = q4.len();
                     cq_par(threads, shards, &mut q4, |q4| {
-                        q4.retain(|&(prev_idx, ref n)| {
-                            let path = kns.materialize_cloned(prev_idx);
-                            let mut path = Path::from_vec(path);
-                            let n = n.clone();
-
-                            deepen_search(ge, &mut path, n, *foresight - 1)
+                        q4.retain(|(_prev_idx, n)| {
+                            deepen_search(ge, n, *foresight - 1)
                         });
                     });
                     let after = q4.len();
@@ -471,30 +448,19 @@ fn fmt_mem(mem: usize) -> String {
     return format!("{} B", mem);
 }
 
-fn deepen_search<N: DfsNode, GE: DfsGraph<N>>(ge: &GE, path: &mut Path<N>, n: N, foresight: usize) -> bool {
+fn deepen_search<N: DfsNode, GE: DfsGraph<N>>(ge: &GE, n: &N, foresight: usize) -> bool {
     if foresight == 0 {
         return true;
     }
 
-    for n2 in ge.expand(&n) {
-        let kn2 = n2.key_node();
-        if let Some(kn2) = &kn2 {
-            if let Some(_) = ge.end(kn2) {
-                return true;
-            }
-
-            if let Some(_) = path.find_or_push(kn2) {
+    for n2 in ge.expand(n) {
+        if let Some(kn2) = n2.key_node() {
+            if let Some(_) = ge.end(&kn2) {
                 return true;
             }
         }
 
-        let r = deepen_search(ge, path, n2, foresight - 1);
-
-        if let Some(kn2) = &kn2 {
-            path.pop(kn2);
-        }
-
-        if r {
+        if deepen_search(ge, &n2, foresight - 1) {
             return true;
         }
     }
