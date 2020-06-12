@@ -3,6 +3,8 @@
 #[macro_use]
 extern crate ars_macro;
 
+use ars_aa::lattice::LatticeCanonicalizable;
+use ars_aa::lattice::LatticeCanonicalizer;
 use ars_ds::err::StringError;
 use ars_ds::scalar::UScalar;
 use ars_rctl_main::rq::RctlRunQueue;
@@ -39,6 +41,7 @@ use lgol::bg::LGolBgEmpty;
 use lgol::bg::LGolBgVertStripes;
 use lgol::bg::LGolBgX2;
 use lgol::graph::LGolGraphParams;
+use lgol::lat1::Vec3;
 use sal::SerdeFormat;
 
 fn main() {
@@ -301,6 +304,55 @@ fn demo___lgol___oob_agar___main1<B: UScalar + DeserializeOwned + Serialize>() -
             ge.ends.insert(n);
         }
     }
+
+    assert!(ge.max_r1l <= B::size());
+
+    let mut le = GolLifecycle {
+        ge: &ge,
+        ep: rctl_spawn(),
+    };
+
+    bfs::bfs2(st, &ge, &mut le);
+
+    le.log(LogLevel::INFO, "Done");
+
+    Ok(())
+}
+
+#[allow(dead_code)]
+fn demo___lgol___periodic_edge___main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError> {
+    let mut args = env_args();
+
+    let mt = args.parse();
+
+    let vu = (0, 0, mt);
+    let vv = (-2, 0, 3);
+
+    let l2 = Vec3::canonicalize(vec![vu, vv]);
+    let l2 = l2.materialize();
+    assert_eq!(2, l2.len());
+    let cvu = l2[1];
+    let cvv = l2[0];
+
+    let ge = LGolGraphParams {
+        vu: cvu,
+        vv: cvv,
+        vw: (0, 1, 0),
+
+        bg_coord: PhantomData::<()>,
+
+        u_axis: (LGolEdgeRead::Wrap, LGolEdgeRead::Wrap),
+        v_axis: (LGolEdgeRead::Wrap, LGolEdgeRead::Wrap),
+    };
+    let ge = ge.derived::<[B; 2], _>(());
+
+    let st = args.read_state_or(SerdeFormat::Bincode, || {
+        let n0 = ge.cb_node((0, 0, 0), |(x, _y, _t)| {
+            x.rem_euclid(2) == 0
+        });
+
+        Bfs2State::new_simple(n0)
+    });
 
     assert!(ge.max_r1l <= B::size());
 
