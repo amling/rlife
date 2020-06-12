@@ -75,13 +75,21 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
     };
 
     {
-        let rs = ge.parse_bs(&[
-            "*.*..", "*....", ".***.", "*..*.", "**.**",
-            "*****", "*.**.", "*..*.", "*..**", "*..**",
-        ]);
-        let (xyt, rs) = ge.recenter_xyt((0, 0, 0), rs);
-        let n = ge.key_node(xyt, rs).lgol_hash_node();
-        ge.ends.insert(n);
+        let ends = vec![
+            // ripped from main greyship
+            &["**....", "*.*...", "*.....", "*.....", "*.....", "*.*...", "*.**..", "*.**..", "*.**..", "*.**.."],
+            &["*.....", "*.....", "*.*...", "*.**..", "*.**..", "*.**..", "*.**..", "*.**..", "*.*...", "*.*.*."],
+            &["*.*...", "*.**..", "*.**..", "*.**..", "*.**..", "*.**..", "*.*.*.", "*.*.*.", "*.*.*.", "*.*.*."],
+
+            // 2c/2 wick edge, interesting if we could find it
+            &["*.**..", "*.*.*.", "*.*...", "*..*..", "*.....", "*.**..", "*.**..", "*...*.", "*.*...", "*.*..."],
+        ];
+        for end in ends {
+            let rs = ge.parse_bs(end);
+            let (xyt, rs) = ge.recenter_xyt((0, 0, 0), rs);
+            let n = ge.key_node(xyt, rs).lgol_hash_node();
+            ge.ends.insert(n);
+        }
     }
 
     assert!(ge.max_r1l <= B::size());
