@@ -10,7 +10,9 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::fmt::Debug;
 use std::marker::PhantomData;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::AtomicUsize;
@@ -22,13 +24,11 @@ mod lgol;
 mod sal;
 
 use bfs::bfs2::Bfs2State;
-use dfs::graph::DfsNode;
 use dfs::lifecycle::DfsLifecycle;
 use dfs::lifecycle::LogLevel;
 use gol::graph::GolEdge;
 use gol::graph::GolGraphParams;
 use gol::graph::GolHashNode;
-use gol::graph::GolNode;
 use gol::graph::GolRecenter;
 use gol::lifecycle::GolLifecycle;
 use gol::lifecycle::GolRctlEp;
@@ -46,10 +46,10 @@ fn main() {
 }
 
 fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError> {
-    let mut args = std::env::args().skip(1);
+    let mut args = env_args();
 
-    let wx = args.next().unwrap().parse().unwrap();
-    let mx = args.next().unwrap().parse().unwrap();
+    let wx = args.parse();
+    let mx = args.parse();
 
     let ge = GolGraphParams {
         mt: 8,
@@ -66,38 +66,24 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
     };
     assert!(ge.mt * ge.mx <= B::size());
 
-    let st = match args.next() {
-        Some(path) => {
-            SerdeFormat::Bincode.read(path).unwrap()
-        },
-        None => {
-            let (r0, r1) = ge.parse_and_recenter_pair(
-                "*..*. ..**. ..*.* .**.. *.*.. *.*.. ..**. .***.",
-                "*...* ...** ..... .**.. .*... .*.*. *.... .*.*.",
-            );
-            let n0 = ge.regular_node::<B, ()>(r0, r1);
+    let st = args.read_state_or(SerdeFormat::Bincode, || {
+        let (r0, r1) = ge.parse_and_recenter_pair(
+            "*..*. ..**. ..*.* .**.. *.*.. *.*.. ..**. .***.",
+            "*...* ...** ..... .**.. .*... .*.*. *.... .*.*.",
+        );
+        let n0 = ge.regular_node::<B, ()>(r0, r1);
 
-            Bfs2State::new(vec![(vec![n0.key_node().unwrap()], n0)])
-        },
-    };
+        Bfs2State::new_simple(n0)
+    });
 
     let ge = ge.derived((), ());
 
-    let ep = Arc::new(GolRctlEp {
-        threads: AtomicUsize::new(8),
-        recollect_ms: AtomicU64::new(5000),
-        max_mem: AtomicUsize::new(2 << 30),
-        checkpt_rq: RctlRunQueue::new(),
-    });
-
-    ars_rctl_main::spawn(ep.clone());
-
     let mut le = GolLifecycle {
         ge: &ge,
-        ep: ep,
+        ep: rctl_spawn(),
     };
 
-    bfs::bfs2::<GolNode<B, _>, _, _>(st, &ge, &mut le);
+    bfs::bfs2(st, &ge, &mut le);
 
     le.log(LogLevel::INFO, "Done");
 
@@ -106,10 +92,10 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
 
 #[allow(dead_code)]
 fn demo___bfs2___main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError> {
-    let mut args = std::env::args().skip(1);
+    let mut args = env_args();
 
-    let wx = args.next().unwrap().parse().unwrap();
-    let mx = args.next().unwrap().parse().unwrap();
+    let wx = args.parse();
+    let mx = args.parse();
 
     let ge = GolGraphParams {
         mt: 8,
@@ -126,38 +112,24 @@ fn demo___bfs2___main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<()
     };
     assert!(ge.mt * ge.mx <= B::size());
 
-    let st = match args.next() {
-        Some(path) => {
-            SerdeFormat::Bincode.read(path).unwrap()
-        },
-        None => {
-            let (r0, r1) = ge.parse_and_recenter_pair(
-                "*..*. ..**. ..*.* .**.. *.*.. *.*.. ..**. .***.",
-                "*...* ...** ..... .**.. .*... .*.*. *.... .*.*.",
-            );
-            let n0 = ge.regular_node::<B, ()>(r0, r1);
+    let st = args.read_state_or(SerdeFormat::Bincode, || {
+        let (r0, r1) = ge.parse_and_recenter_pair(
+            "*..*. ..**. ..*.* .**.. *.*.. *.*.. ..**. .***.",
+            "*...* ...** ..... .**.. .*... .*.*. *.... .*.*.",
+        );
+        let n0 = ge.regular_node::<B, ()>(r0, r1);
 
-            Bfs2State::new(vec![(vec![n0.key_node().unwrap()], n0)])
-        },
-    };
+        Bfs2State::new_simple(n0)
+    });
 
     let ge = ge.derived((), ());
 
-    let ep = Arc::new(GolRctlEp {
-        threads: AtomicUsize::new(8),
-        recollect_ms: AtomicU64::new(5000),
-        max_mem: AtomicUsize::new(2 << 30),
-        checkpt_rq: RctlRunQueue::new(),
-    });
-
-    ars_rctl_main::spawn(ep.clone());
-
     let mut le = GolLifecycle {
         ge: &ge,
-        ep: ep,
+        ep: rctl_spawn(),
     };
 
-    bfs::bfs2::<GolNode<B, _>, _, _>(st, &ge, &mut le);
+    bfs::bfs2(st, &ge, &mut le);
 
     le.log(LogLevel::INFO, "Done");
 
@@ -166,10 +138,10 @@ fn demo___bfs2___main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<()
 
 #[allow(dead_code)]
 fn demo___bfs2___ends_db___main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError> {
-    let mut args = std::env::args().skip(1);
+    let mut args = env_args();
 
-    let wx = args.next().unwrap().parse().unwrap();
-    let mx = args.next().unwrap().parse().unwrap();
+    let wx = args.parse();
+    let mx = args.parse();
 
     let ge = GolGraphParams {
         mt: 8,
@@ -186,20 +158,15 @@ fn demo___bfs2___ends_db___main1<B: UScalar + DeserializeOwned + Serialize>() ->
     };
     assert!(ge.mt * ge.mx <= B::size());
 
-    let st = match args.next() {
-        Some(path) => {
-            SerdeFormat::Bincode.read(path).unwrap()
-        },
-        None => {
-            let (r0, r1) = ge.parse_and_recenter_pair(
-                "*..*. ..**. ..*.* .**.. *.*.. *.*.. ..**. .***.",
-                "*...* ...** ..... .**.. .*... .*.*. *.... .*.*.",
-            );
-            let n0 = ge.regular_node::<B, ()>(r0, r1);
+    let st = args.read_state_or(SerdeFormat::Bincode, || {
+        let (r0, r1) = ge.parse_and_recenter_pair(
+            "*..*. ..**. ..*.* .**.. *.*.. *.*.. ..**. .***.",
+            "*...* ...** ..... .**.. .*... .*.*. *.... .*.*.",
+        );
+        let n0 = ge.regular_node::<B, ()>(r0, r1);
 
-            Bfs2State::new(vec![(vec![n0.key_node().unwrap()], n0)])
-        },
-    };
+        Bfs2State::new_simple(n0)
+    });
 
     let ends = {
         let mut ps = GolPatterns::new();
@@ -210,7 +177,7 @@ fn demo___bfs2___ends_db___main1<B: UScalar + DeserializeOwned + Serialize>() ->
         };
         add_end(B::zero(), B::zero(), "zero");
         for s in ps.find_slices(ge.ox, ge.oy, ge.mt) {
-            if let Some((r0, r1)) = s.encode::<B>(ge.mx, ge.mt) {
+            if let Some((r0, r1)) = s.encode(ge.mx, ge.mt) {
                 let (_, r0, r1) = ge.recenter(r0, r1);
                 add_end(r0, r1, &s.label);
             }
@@ -226,23 +193,14 @@ fn demo___bfs2___ends_db___main1<B: UScalar + DeserializeOwned + Serialize>() ->
 
     let ge = ge.derived((), ends);
 
-    let ep = Arc::new(GolRctlEp {
-        threads: AtomicUsize::new(8),
-        recollect_ms: AtomicU64::new(5000),
-        max_mem: AtomicUsize::new(2 << 30),
-        checkpt_rq: RctlRunQueue::new(),
-    });
-
-    ars_rctl_main::spawn(ep.clone());
-
     let mut le = GolLifecycle {
         ge: &ge,
-        ep: ep,
+        ep: rctl_spawn(),
     };
 
     le.log(LogLevel::INFO, format!("Loaded {} ends", ge.ends.len()));
 
-    bfs::bfs2::<GolNode<B, _>, _, _>(st, &ge, &mut le);
+    bfs::bfs2(st, &ge, &mut le);
 
     le.log(LogLevel::INFO, "Done");
 
@@ -251,10 +209,10 @@ fn demo___bfs2___ends_db___main1<B: UScalar + DeserializeOwned + Serialize>() ->
 
 #[allow(dead_code)]
 fn demo___lgol___main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError> {
-    let mut args = std::env::args().skip(1);
+    let mut args = env_args();
 
-    let wx = args.next().unwrap().parse().unwrap();
-    let mx = args.next().unwrap().parse().unwrap();
+    let wx = args.parse();
+    let mx = args.parse();
 
     let ge = LGolGraphParams {
         vu: (mx, 0, 0),
@@ -272,31 +230,17 @@ fn demo___lgol___main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<()
     };
     let ge = ge.derived::<[B; 6], _>(());
 
-    let st = match args.next() {
-        Some(path) => {
-            SerdeFormat::Bincode.read(path).unwrap()
-        },
-        None => {
-            let n0 = ge.zero_node();
+    let st = args.read_state_or(SerdeFormat::Bincode, || {
+        let n0 = ge.zero_node();
 
-            Bfs2State::new(vec![(vec![n0.key_node().unwrap()], n0)])
-        },
-    };
+        Bfs2State::new_simple(n0)
+    });
 
     assert!(ge.max_r1l <= B::size());
 
-    let ep = Arc::new(GolRctlEp {
-        threads: AtomicUsize::new(8),
-        recollect_ms: AtomicU64::new(5000),
-        max_mem: AtomicUsize::new(2 << 30),
-        checkpt_rq: RctlRunQueue::new(),
-    });
-
-    ars_rctl_main::spawn(ep.clone());
-
     let mut le = GolLifecycle {
         ge: &ge,
-        ep: ep,
+        ep: rctl_spawn(),
     };
 
     bfs::bfs2(st, &ge, &mut le);
@@ -308,10 +252,10 @@ fn demo___lgol___main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<()
 
 #[allow(dead_code)]
 fn demo___lgol___oob_agar___main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError> {
-    let mut args = std::env::args().skip(1);
+    let mut args = env_args();
 
-    let wx = args.next().unwrap().parse().unwrap();
-    let mx = args.next().unwrap().parse().unwrap();
+    let wx = args.parse();
+    let mx = args.parse();
 
     let ge = LGolGraphParams {
         vu: (mx, 0, 0),
@@ -329,21 +273,16 @@ fn demo___lgol___oob_agar___main1<B: UScalar + DeserializeOwned + Serialize>() -
     };
     let mut ge = ge.derived::<[B; 10], _>(HashSet::new());
 
-    let st = match args.next() {
-        Some(path) => {
-            SerdeFormat::Bincode.read(path).unwrap()
-        },
-        None => {
-            let rs = ge.parse_bs(&[
-                "*...", "*...", "*...", "*...", "*...",
-                "*...", "*...", "*...", "*...", "*...",
-            ]);
-            let (xyt, rs) = ge.recenter_xyt((0, 0, 0), rs);
-            let n0 = ge.regular_node(xyt, rs);
+    let st = args.read_state_or(SerdeFormat::Bincode, || {
+        let rs = ge.parse_bs(&[
+            "*...", "*...", "*...", "*...", "*...",
+            "*...", "*...", "*...", "*...", "*...",
+        ]);
+        let (xyt, rs) = ge.recenter_xyt((0, 0, 0), rs);
+        let n0 = ge.regular_node(xyt, rs);
 
-            Bfs2State::new(vec![(vec![n0.key_node().unwrap()], n0)])
-        },
-    };
+        Bfs2State::new_simple(n0)
+    });
 
     {
         let ends = vec![
@@ -365,6 +304,42 @@ fn demo___lgol___oob_agar___main1<B: UScalar + DeserializeOwned + Serialize>() -
 
     assert!(ge.max_r1l <= B::size());
 
+    let mut le = GolLifecycle {
+        ge: &ge,
+        ep: rctl_spawn(),
+    };
+
+    bfs::bfs2(st, &ge, &mut le);
+
+    le.log(LogLevel::INFO, "Done");
+
+    Ok(())
+}
+
+struct ArgsHelper<I: Iterator<Item=String>>(I);
+
+impl<I: Iterator<Item=String>> ArgsHelper<I> {
+    fn parse<F: FromStr>(&mut self) -> F where F::Err: Debug {
+        self.0.next().unwrap().parse().unwrap()
+    }
+
+    fn read_state_or<S: DeserializeOwned>(&mut self, s: SerdeFormat, f: impl FnOnce() -> S) -> S {
+        match self.0.next() {
+            Some(path) => {
+                s.read(path).unwrap()
+            }
+            None => {
+                f()
+            }
+        }
+    }
+}
+
+fn env_args() -> ArgsHelper<impl Iterator<Item=String>> {
+    ArgsHelper(std::env::args().skip(1))
+}
+
+fn rctl_spawn() -> Arc<GolRctlEp> {
     let ep = Arc::new(GolRctlEp {
         threads: AtomicUsize::new(8),
         recollect_ms: AtomicU64::new(5000),
@@ -374,14 +349,5 @@ fn demo___lgol___oob_agar___main1<B: UScalar + DeserializeOwned + Serialize>() -
 
     ars_rctl_main::spawn(ep.clone());
 
-    let mut le = GolLifecycle {
-        ge: &ge,
-        ep: ep,
-    };
-
-    bfs::bfs2(st, &ge, &mut le);
-
-    le.log(LogLevel::INFO, "Done");
-
-    Ok(())
+    ep
 }

@@ -46,6 +46,10 @@ pub struct Bfs2State<N, KN: Default> {
 }
 
 impl<N: DfsNode> Bfs2State<N, N::KN> {
+    pub fn new_simple(n0: N) -> Bfs2State<N, N::KN> {
+        Self::new(vec![(vec![n0.key_node().unwrap()], n0)])
+    }
+
     pub fn new(init: impl IntoIterator<Item=(Vec<N::KN>, N)>) -> Bfs2State<N, N::KN> {
         let mut kns = KnPile::new();
         let mut q = ChunkQueue::new();
