@@ -2,7 +2,7 @@ use ars_aa::lattice::LatticeCanonicalizable;
 
 pub type Vec3 = (isize, isize, isize);
 
-pub struct LatticeCoords {
+pub struct LGolLat1 {
     pub mx: isize,
     pub my: isize,
     pub mt: isize,
@@ -20,8 +20,8 @@ pub struct LatticeCoords {
     t_to_uvw: Vec3,
 }
 
-impl LatticeCoords {
-    pub fn new(vu: Vec3, vv: Vec3, vw: Vec3) -> LatticeCoords {
+impl LGolLat1 {
+    pub fn new(vu: Vec3, vv: Vec3, vw: Vec3) -> LGolLat1 {
         let l3 = Vec3::canonicalize(vec![vu, vv, vw]);
         let (la, (lb, (lc, ()))) = l3;
         let (_, _, mt) = la.unwrap();
@@ -59,7 +59,7 @@ impl LatticeCoords {
         debug_assert_eq!(tu * uy + tv * vy + tw * wy, 0);
         debug_assert_eq!(tu * ut + tv * vt + tw * wt, det);
 
-        LatticeCoords {
+        LGolLat1 {
             mx: mx,
             my: my,
             mt: mt,

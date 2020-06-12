@@ -20,8 +20,8 @@ use dfs::graph::DfsGraph;
 use dfs::graph::DfsKeyNode;
 use dfs::graph::DfsNode;
 use gol::printbag::PrintBag;
-use lgol::lattice::LatticeCoords;
-use lgol::lattice::Vec3;
+use lgol::lat1::LGolLat1;
+use lgol::lat1::Vec3;
 
 marker_trait! {
     Nice:
@@ -479,18 +479,18 @@ enum PartialRowRead {
 
 impl<BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>> LGolGraphParams<BC, UA, VA> {
     pub fn derived<BS: RowTuple>(&self) -> LGolGraph<BS, BC, UA, VA> {
-        let lc = LatticeCoords::new(self.vu, self.vv, self.vw);
+        let lat1 = LGolLat1::new(self.vu, self.vv, self.vw);
 
         // step two: figure out (x, y, t) coordinates for fundamental volume
         let mut spots = Vec::new();
-        for t in 0..lc.mt {
-            for x in 0..lc.mx {
-                for y in 0..lc.my {
+        for t in 0..lat1.mt {
+            for x in 0..lat1.mx {
+                for y in 0..lat1.my {
                     // this (x, y, t) is some equivalence class, but we want to shift it to be in
                     // [0, 1)x[0, 1)x[0, 1) in uvw space
-                    let (xyt, _) = lc.canonicalize_xyt((x, y, t));
+                    let (xyt, _) = lat1.canonicalize_xyt((x, y, t));
 
-                    let uvw = lc.xyt_to_uvw(xyt);
+                    let uvw = lat1.xyt_to_uvw(xyt);
 
                     spots.push((xyt, uvw));
                 }
@@ -508,9 +508,9 @@ impl<BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>> LGolGraphParams<BC, UA
 
         let compute_shift_data = |mangle: &dyn Fn(Vec3) -> Vec3| {
             let period = {
-                let v1 = mangle(lc.xyt_to_uvw((1, 0, 0)));
-                let v2 = mangle(lc.xyt_to_uvw((0, 1, 0)));
-                let v3 = mangle(lc.xyt_to_uvw((0, 0, 1)));
+                let v1 = mangle(lat1.xyt_to_uvw((1, 0, 0)));
+                let v2 = mangle(lat1.xyt_to_uvw((0, 1, 0)));
+                let v3 = mangle(lat1.xyt_to_uvw((0, 0, 1)));
 
                 let l3 = Vec3::canonicalize(vec![v1, v2, v3]);
                 let (_, (_, (lc, ()))) = l3;
@@ -545,12 +545,12 @@ impl<BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>> LGolGraphParams<BC, UA
 
             let bg_period = {
                 let uvw = mangle((period, 0, 0));
-                let xyt = lc.uvw_to_xyt(uvw);
+                let xyt = lat1.uvw_to_xyt(uvw);
                 BC::from_xyt(xyt)
             };
 
             LGolShiftData {
-                adet: lc.adet,
+                adet: lat1.adet,
                 w_bg_coord: BC::from_xyt(self.vw),
                 period: period,
                 bg_period: bg_period,
@@ -568,7 +568,7 @@ impl<BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>> LGolGraphParams<BC, UA
 
         let compute_prow_read = |bg_coord: BC, rl, xyt| {
             let bg_coord = bg_coord.add(BC::from_xyt(xyt));
-            let (xyt, (lu, lv, lw)) = lc.canonicalize_xyt(xyt);
+            let (xyt, (lu, lv, lw)) = lat1.canonicalize_xyt(xyt);
 
             let u_edge;
             if lu < 0 {
@@ -727,12 +727,12 @@ impl<BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>> LGolGraphParams<BC, UA
         }).flatten().max().unwrap();
         assert!(max_row_idx <= BS::len(), "{} <= {}", max_row_idx, BS::len());
 
-        let max_r1l = (lc.adet as usize);
+        let max_r1l = (lat1.adet as usize);
 
         LGolGraph {
             params: self.clone(),
 
-            lc: lc,
+            lat1: lat1,
             spots: spots,
             max_r1l: max_r1l,
             checks: checks,
@@ -760,7 +760,7 @@ pub struct LGolShiftData<BC> {
 pub struct LGolGraph<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>> {
     pub params: LGolGraphParams<BC, UA, VA>,
 
-    pub lc: LatticeCoords,
+    pub lat1: LGolLat1,
     pub spots: Vec<(Vec3, Vec3)>,
     pub max_r1l: usize,
     pub checks: HashMap<BC, Vec<Vec<(Vec<(usize, BS::Item)>, u32, u32, (usize, BS::Item, bool), (usize, BS::Item, bool))>>>,
@@ -871,7 +871,7 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>> LGolGrap
 
     fn collect_row(&self, pr: &mut PrintBag, c0: char, c1: char, row: BS::Item, rl: Option<usize>, du: isize, dv: isize, w: isize) {
         // awkwardly w is in actual steps of w while du and dv are in units of 1/|det|
-        let (dx, dy, dt) = self.lc.uvw_to_xyt((du, dv, self.lc.adet * w));
+        let (dx, dy, dt) = self.lat1.uvw_to_xyt((du, dv, self.lat1.adet * w));
 
         let mut wraps = vec![];
         if self.params.u_axis.wrap_in_print() {
@@ -964,12 +964,12 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>> LGolGrap
     pub fn recenter_xyt(&self, xyt: Vec3, rs: BS) -> (Vec3, BS) {
         let bg_coord = BC::from_xyt(xyt);
         let (du, dv, _bg_coord, rs) = self.recenter(bg_coord, rs);
-        let xyt = self.lc.uvw_to_xyt((du, dv, 0));
+        let xyt = self.lat1.uvw_to_xyt((du, dv, 0));
         (xyt, rs)
     }
 
     pub fn regular_node(&self, xyt: Vec3, r0s: BS) -> LGolNode<BS, BC, UA::S, VA::S> {
-        let (u, v, w) = self.lc.xyt_to_uvw(xyt);
+        let (u, v, w) = self.lat1.xyt_to_uvw(xyt);
 
         assert_eq!(w, 0);
 

@@ -1,3 +1,3 @@
 pub mod graph;
-pub mod lattice;
+pub mod lat1;
 pub mod lifecycle;
