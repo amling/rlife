@@ -6,6 +6,7 @@ use ars_ds::scalar::UScalar;
 use ars_rctl_main::rq::RctlRunQueue;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
+use std::collections::HashSet;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
@@ -28,7 +29,6 @@ use lgol::axis::LGolFancyAxis;
 use lgol::bg::LGolBgEmpty;
 use lgol::bg::LGolBgVertStripes;
 use lgol::bg::LGolBgX2;
-use lgol::ends::LGolNoEnds;
 use lgol::graph::LGolGraphParams;
 use sal::SerdeFormat;
 
@@ -44,7 +44,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
 
     let ge = LGolGraphParams {
         vu: (mx, 0, 0),
-        vv: (0, -1, 3),
+        vv: (0, -1, 5),
         vw: (0, 0, 1),
 
         bg_coord: PhantomData::<LGolBgX2>,
@@ -56,7 +56,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
         },
         v_axis: (LGolEdge::Wrap, LGolEdge::Wrap),
     };
-    let ge = ge.derived::<[B; 6]>(LGolNoEnds());
+    let mut ge = ge.derived::<[B; 10], _>(HashSet::new());
 
     let st = match args.next() {
         Some(path) => {
@@ -64,8 +64,8 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
         },
         None => {
             let rs = ge.parse_bs(&[
-                "*...", "**..", "**..",
-                "*...", "*...", "*.*.",
+                "*...", "*...", "*...", "*...", "*...",
+                "*...", "*...", "*...", "*...", "*...",
             ]);
             let (xyt, rs) = ge.recenter_xyt((0, 0, 0), rs);
             let n0 = ge.regular_node(xyt, rs);
@@ -73,6 +73,16 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
             Bfs2State::new(vec![(vec![n0.key_node().unwrap()], n0)])
         },
     };
+
+    {
+        let rs = ge.parse_bs(&[
+            "*.*..", "*....", ".***.", "*..*.", "**.**",
+            "*****", "*.**.", "*..*.", "*..**", "*..**",
+        ]);
+        let (xyt, rs) = ge.recenter_xyt((0, 0, 0), rs);
+        let n = ge.key_node(xyt, rs).lgol_hash_node();
+        ge.ends.insert(n);
+    }
 
     assert!(ge.max_r1l <= B::size());
 

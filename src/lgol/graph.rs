@@ -615,6 +615,19 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, E: LGolE
             r1_vs: self.params.v_axis.zero_stat(&self.lat2.v_shift_data),
         }
     }
+
+    pub fn key_node(&self, xyt: Vec3, rs: BS) -> LGolKeyNode<BS, BC> {
+        let (u, v, w) = self.lat1.xyt_to_uvw(xyt);
+
+        assert_eq!(w, 0);
+
+        LGolKeyNode {
+            bg_coord: BC::from_xyt(xyt),
+            du: (u as i16),
+            dv: (v as i16),
+            rs: rs,
+        }
+    }
 }
 
 fn check_compat2(living: u32, known: u32, c: bool, f: bool) -> bool {
