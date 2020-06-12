@@ -2,7 +2,6 @@
 
 use ars_ds::nice::Nice;
 use ars_ds::scalar::Scalar;
-use std::fmt::Debug;
 
 use crate::lgol;
 
