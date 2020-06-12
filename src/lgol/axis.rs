@@ -10,6 +10,7 @@ use lgol::bg::LGolBgCoord;
 use lgol::graph::RowTuple;
 use lgol::lat2::LGolShiftData;
 
+#[allow(dead_code)]
 #[derive(Clone)]
 #[derive(Copy)]
 #[derive(Debug)]

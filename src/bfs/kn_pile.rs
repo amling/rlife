@@ -175,6 +175,7 @@ impl<N: Default> KnPile<N> {
         std::mem::size_of::<(usize, N)>()
     }
 
+    #[allow(dead_code)]
     pub fn path_iter<'a>(&'a self, idx: usize) -> impl Iterator<Item=&'a N> {
         PathIter {
             kns: self,

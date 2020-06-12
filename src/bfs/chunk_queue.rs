@@ -74,6 +74,7 @@ impl<N> ChunkQueue<N> {
         None
     }
 
+    #[allow(dead_code)]
     pub fn into_iter(self) -> impl Iterator<Item=N> {
         self.q.into_iter().map(|q| q.into_iter()).flatten()
     }
@@ -86,6 +87,7 @@ impl<N> ChunkQueue<N> {
         self.q.iter_mut().map(|q| q.iter_mut()).flatten()
     }
 
+    #[allow(dead_code)]
     pub fn chunks_mut(&mut self) -> impl Iterator<Item=&mut [N]> {
         self.q.iter_mut().map(|q| {
             let (s1, s2) = q.as_mut_slices();

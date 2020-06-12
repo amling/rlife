@@ -586,6 +586,7 @@ impl GolGraphParams {
         }
     }
 
+    #[allow(dead_code)]
     pub fn zero_node<B: UScalar, Y: GolDy>(&self) -> GolNode<B, Y> {
         self.cb_node(|_, _, _| false)
     }

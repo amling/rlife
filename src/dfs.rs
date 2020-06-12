@@ -35,6 +35,7 @@ impl<N: DfsNode> Path<N> {
         }
     }
 
+    #[allow(dead_code)]
     pub fn from_vec(v: Vec<N::KN>) -> Self {
         let mut vec = Vec::new();
         let mut map = HashMap::new();
@@ -81,6 +82,7 @@ impl<N: DfsNode> Path<N> {
         }
     }
 
+    #[allow(dead_code)]
     pub fn kn_iter<'a>(&'a self) -> impl Iterator<Item=&'a N::KN> {
         self.vec.iter().rev()
     }
@@ -142,30 +144,6 @@ impl<N: Clone> Tree<N> {
         TreeSerdeProxy(acc)
     }
 
-    pub fn proxy_cts(&self) -> (usize, usize, usize, usize) {
-        let mut acc = (0, 0, 0, 0);
-        self.proxy_cts_aux(&mut acc);
-        acc
-    }
-
-    fn proxy_cts_aux(&self, acc: &mut (usize, usize, usize, usize)) {
-        match self.1 {
-            TreeStatus::Unopened => {
-                acc.0 += 1;
-            }
-            TreeStatus::Opened(ref children) => {
-                acc.1 += 1;
-                for child in children {
-                    child.proxy_cts_aux(acc);
-                }
-                acc.2 += 1;
-            }
-            TreeStatus::Closed => {
-                acc.3 += 1;
-            }
-        }
-    }
-
     fn to_serde_proxy_aux(&self, acc: &mut Vec<TreeSerdeProxyElement<N>>) {
         let n = self.0.clone();
         match self.1 {
@@ -183,6 +161,7 @@ impl<N: Clone> Tree<N> {
 }
 
 impl<N: Clone> TreeSerdeProxy<N> {
+    #[allow(dead_code)]
     pub fn to_tree(&self) -> Tree<N> {
         let mut idx = 0;
         let r = self.to_tree_aux(&mut idx);
@@ -212,6 +191,7 @@ impl<N: Clone> TreeSerdeProxy<N> {
     }
 }
 
+#[allow(dead_code)]
 pub fn sdfs<N: DfsNode, GE: DfsGraph<N>, LE: DfsLifecycle<N>>(root: &mut Tree<N>, ge: &GE, le: &mut LE) {
     loop {
         let mut unopened = Vec::new();
@@ -234,6 +214,7 @@ pub fn sdfs<N: DfsNode, GE: DfsGraph<N>, LE: DfsLifecycle<N>>(root: &mut Tree<N>
     }
 }
 
+#[allow(dead_code)]
 pub fn dfs<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(root: &mut Tree<N>, ge: &GE, le: &mut LE) {
     let mut very_longest: Option<Vec<N::KN>> = None;
 
