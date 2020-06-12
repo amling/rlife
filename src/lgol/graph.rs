@@ -170,7 +170,7 @@ impl<BS: RowTuple, BC: Nice> LGolKeyNode<BS, BC> {
 impl<BS: RowTuple, BC: Nice> DfsKeyNode for LGolKeyNode<BS, BC> {
     type HN = LGolHashNode<BS, BC>;
 
-    fn hash_node<'a>(&'a self, _path: impl Iterator<Item=&'a LGolKeyNode<BS, BC>>) -> Option<LGolHashNode<BS, BC>> {
+    fn hash_node(&self) -> Option<LGolHashNode<BS, BC>> {
         Some(self.lgol_hash_node())
     }
 }
@@ -648,13 +648,13 @@ fn check_compat2(living: u32, known: u32, c: bool, f: bool) -> bool {
 }
 
 impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, E: LGolEnds<BS, BC>> DfsGraph<LGolNode<BS, BC, UA::S, VA::S>> for LGolGraph<BS, BC, UA, VA, E> {
-    fn expand<'a>(&'a self, n1: &'a LGolNode<BS, BC, UA::S, VA::S>, _path: impl Iterator<Item=&'a LGolKeyNode<BS, BC>>) -> Vec<LGolNode<BS, BC, UA::S, VA::S>> {
+    fn expand(&self, n1: &LGolNode<BS, BC, UA::S, VA::S>) -> Vec<LGolNode<BS, BC, UA::S, VA::S>> {
         let mut n2s = Vec::new();
         self.expand_srch(n1, &mut n2s);
         n2s
     }
 
-    fn end<'a>(&'a self, n: &'a LGolKeyNode<BS, BC>, _path: impl Iterator<Item=&'a LGolKeyNode<BS, BC>>) -> Option<&'a str> {
+    fn end(&self, n: &LGolKeyNode<BS, BC>) -> Option<&str> {
         self.ends.end(n)
     }
 }

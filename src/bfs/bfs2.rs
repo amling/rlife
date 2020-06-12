@@ -140,10 +140,10 @@ pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(mut 
                         }
                     };
 
-                    for n2 in ge.expand(&n, kns.path_iter(prev_idx)) {
+                    for n2 in ge.expand(&n) {
                         let kn2 = n2.key_node();
                         if let Some(kn2) = &kn2 {
-                            if let Some(label) = ge.end(kn2, kns.path_iter(prev_idx)) {
+                            if let Some(label) = ge.end(kn2) {
                                 let mut path = kns.materialize_cloned(prev_idx);
                                 path.push(kn2.clone());
                                 le.debug_end(&path, label);
@@ -151,9 +151,9 @@ pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(mut 
                                 continue;
                             }
 
-                            let hn2 = kn2.hash_node(kns.path_iter(prev_idx));
-                            let find_f = |idx, prev_idx, kn: &N::KN| {
-                                if kn.hash_node(kns.path_iter(prev_idx)) == hn2 {
+                            let hn2 = kn2.hash_node();
+                            let find_f = |idx, _prev_idx, kn: &N::KN| {
+                                if kn.hash_node() == hn2 {
                                     Some(idx)
                                 }
                                 else {
@@ -476,10 +476,10 @@ fn deepen_search<N: DfsNode, GE: DfsGraph<N>>(ge: &GE, path: &mut Path<N>, n: N,
         return true;
     }
 
-    for n2 in ge.expand(&n, path.kn_iter()) {
+    for n2 in ge.expand(&n) {
         let kn2 = n2.key_node();
         if let Some(kn2) = &kn2 {
-            if let Some(_) = ge.end(kn2, path.kn_iter()) {
+            if let Some(_) = ge.end(kn2) {
                 return true;
             }
 

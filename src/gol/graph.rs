@@ -125,7 +125,7 @@ impl<B: UScalar> GolKeyNode<B> {
 impl<B: UScalar> DfsKeyNode for GolKeyNode<B> {
     type HN = GolHashNode<B>;
 
-    fn hash_node<'a>(&'a self, _path: impl Iterator<Item=&'a GolKeyNode<B>>) -> Option<GolHashNode<B>> {
+    fn hash_node(&self) -> Option<GolHashNode<B>> {
         Some(self.gol_hash_node())
     }
 }
@@ -758,13 +758,13 @@ fn check_compat2(living: u32, known: u32, c: bool, f: bool) -> bool {
 }
 
 impl<B: UScalar, Y: GolDy, F: GolForce<Y>, E: GolEnds<B>> DfsGraph<GolNode<B, Y>> for GolGraph<B, Y, F, E> {
-    fn expand<'a>(&'a self, n1: &'a GolNode<B, Y>, _path: impl Iterator<Item=&'a GolKeyNode<B>>) -> Vec<GolNode<B, Y>> {
+    fn expand(&self, n1: &GolNode<B, Y>) -> Vec<GolNode<B, Y>> {
         let mut n2s = Vec::new();
         self.expand_srch(n1, &mut n2s);
         n2s
     }
 
-    fn end<'a>(&'a self, n: &'a GolKeyNode<B>, _path: impl Iterator<Item=&'a GolKeyNode<B>>) -> Option<&'a str> {
+    fn end(&self, n: &GolKeyNode<B>) -> Option<&str> {
         self.ends.end(n)
     }
 }
