@@ -1,3 +1,4 @@
+pub mod axis;
 pub mod bg;
 pub mod graph;
 pub mod lat1;

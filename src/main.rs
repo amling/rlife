@@ -23,11 +23,11 @@ use dfs::lifecycle::DfsLifecycle;
 use dfs::lifecycle::LogLevel;
 use gol::lifecycle::GolLifecycle;
 use gol::lifecycle::GolRctlEp;
+use lgol::axis::LGolEdge;
+use lgol::axis::LGolFancyAxis;
 use lgol::bg::LGolBgEmpty;
 use lgol::bg::LGolBgVertStripes;
 use lgol::bg::LGolBgX2;
-use lgol::graph::LGolEdge;
-use lgol::graph::LGolFancyAxis;
 use lgol::graph::LGolGraphParams;
 use sal::SerdeFormat;
 
