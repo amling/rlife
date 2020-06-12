@@ -616,6 +616,28 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, E: LGolE
         }
     }
 
+    #[allow(dead_code)]
+    pub fn cb_node(&self, xyt0: Vec3, mut f: impl FnMut(Vec3) -> bool) -> LGolNode<BS, BC, UA::S, VA::S> {
+        let mut r0s = BS::default();
+
+        let (ix, iy, it) = xyt0;
+        let (wx, wy, wt) = self.lat1.w_to_xyt;
+
+        for (idx, &((sx, sy, st), _uvw, _bg_coord)) in self.lat2.spots.iter().enumerate() {
+            for (j, r0) in r0s.as_slice_mut().iter_mut().enumerate() {
+                let x = ix + sx - ((j as isize) + 1) * wx;
+                let y = iy + sy - ((j as isize) + 1) * wy;
+                let t = it + st - ((j as isize) + 1) * wt;
+
+                if f((x, y, t)) {
+                    r0.set_bit(idx, true);
+                }
+            }
+        }
+
+        self.regular_node(xyt0, r0s)
+    }
+
     pub fn key_node(&self, xyt: Vec3, rs: BS) -> LGolKeyNode<BS, BC> {
         let (u, v, w) = self.lat1.xyt_to_uvw(xyt);
 
