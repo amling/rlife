@@ -62,6 +62,73 @@ impl<BC: LGolBgCoord> LGolAxis<BC> for (LGolEdgeRead, LGolEdgeRead) {
     }
 }
 
+trait LGolEdge<BC>: Copy {
+    fn edge(&self, bg_coord: BC) -> LGolEdgeRead;
+    fn is_wrap(&self) -> bool;
+}
+
+#[derive(Clone)]
+#[derive(Copy)]
+pub struct LGolSimpleEdge(pub LGolEdgeRead);
+
+impl<BC> LGolEdge<BC> for LGolSimpleEdge {
+    fn edge(&self, _bg_coord: BC) -> LGolEdgeRead {
+        self.0
+    }
+
+    fn is_wrap(&self) -> bool {
+        self.0 == LGolEdgeRead::Wrap
+    }
+}
+
+#[derive(Clone)]
+#[derive(Copy)]
+pub struct LGolBgEdge<BG>(pub BG);
+
+impl<BC: LGolBgCoord, BG: LGolBg<BC>> LGolEdge<BC> for LGolBgEdge<BG> {
+    fn edge(&self, bg_coord: BC) -> LGolEdgeRead {
+        LGolEdgeRead::Known(self.0.bg_cell(bg_coord))
+    }
+
+    fn is_wrap(&self) -> bool {
+        false
+    }
+}
+
+#[derive(Clone)]
+#[derive(Copy)]
+pub struct LGolSimpleAxis<LE, RE> {
+    pub left_edge: LE,
+    pub right_edge: RE,
+}
+
+impl<BC: LGolBgCoord, LE: LGolEdge<BC>, RE: LGolEdge<BC>> LGolAxis<BC> for LGolSimpleAxis<LE, RE> {
+    type S = ();
+
+    fn left_edge(&self, bg_coord: BC) -> LGolEdgeRead {
+        self.left_edge.edge(bg_coord)
+    }
+
+    fn right_edge(&self, bg_coord: BC) -> LGolEdgeRead {
+        self.right_edge.edge(bg_coord)
+    }
+
+    fn zero_stat(&self, _shift_data: &LGolShiftData<BC>) {
+    }
+
+    fn add_stat(&self, _shift_data: &LGolShiftData<BC>, _s0: (), _bg_coord: BC, _c: isize, _v: bool) -> Option<()> {
+        Some(())
+    }
+
+    fn recenter<BS: RowTuple>(&self, _shift_data: &LGolShiftData<BC>, _bg_coord: BC, rs: BS) -> (isize, BS) {
+        (0, rs)
+    }
+
+    fn wrap_in_print(&self) -> bool {
+        self.left_edge.is_wrap() && self.right_edge.is_wrap()
+    }
+}
+
 #[derive(Clone)]
 #[derive(Copy)]
 pub struct LGolFancyAxis<LBG, RBG> {
