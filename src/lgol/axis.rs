@@ -215,10 +215,8 @@ impl<BC: LGolBgCoord, LBG: LGolBg<BC>, RBG: LGolBg<BC>> LGolAxis<BC> for LGolFan
             return (0, rs);
         }
 
-        let dc = delta * shift_data.period;
-
         // update bg_coord to reflect new position
-        let bg_coord = bg_coord.add(shift_data.bg_period.mul(dc));
+        let bg_coord = bg_coord.add(shift_data.bg_period.mul(delta));
 
         let mut rss = BS::default();
         for shift_row in shift_data.shift_rows.iter() {
@@ -256,7 +254,7 @@ impl<BC: LGolBgCoord, LBG: LGolBg<BC>, RBG: LGolBg<BC>> LGolAxis<BC> for LGolFan
             }
         }
 
-        (dc, rss)
+        (delta, rss)
     }
 
     fn wrap_in_print(&self) -> bool {
