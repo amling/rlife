@@ -1,5 +1,6 @@
 #![allow(unused_parens)]
 
+use ars_ds::nice::Nice;
 use serde::Deserialize;
 use serde::Serialize;
 use std::fmt::Debug;
@@ -7,7 +8,6 @@ use std::hash::Hash;
 
 use crate::lgol;
 
-use lgol::graph::Nice;
 use lgol::lat1::Vec3;
 
 pub trait LGolBgCoord: Nice {

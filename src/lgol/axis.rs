@@ -1,5 +1,6 @@
 #![allow(unused_parens)]
 
+use ars_ds::nice::Nice;
 use ars_ds::scalar::Scalar;
 use std::fmt::Debug;
 
@@ -7,7 +8,6 @@ use crate::lgol;
 
 use lgol::bg::LGolBg;
 use lgol::bg::LGolBgCoord;
-use lgol::graph::Nice;
 use lgol::graph::RowTuple;
 use lgol::lat2::LGolShiftData;
 

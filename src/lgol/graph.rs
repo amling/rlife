@@ -2,6 +2,7 @@
 
 use ars_aa::lattice::LatticeCanonicalizable;
 use ars_aa::lattice::LatticeCanonicalizer;
+use ars_ds::nice::Nice;
 use ars_ds::scalar::Scalar;
 use ars_ds::scalar::UScalar;
 use serde::Deserialize;
@@ -25,18 +26,6 @@ use lgol::bg::LGolBgCoord;
 use lgol::lat1::LGolLat1;
 use lgol::lat1::Vec3;
 use lgol::lat2::LGolLat2;
-
-marker_trait! {
-    Nice:
-    [Copy]
-    [Debug]
-    [Default]
-    [Eq]
-    [Hash]
-    [Ord]
-    [Send]
-    [Sync]
-}
 
 pub trait RowTuple: Copy + Debug + Default + Eq + Hash + Send + Sync {
     type Item: UScalar;
