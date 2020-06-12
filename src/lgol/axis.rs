@@ -62,7 +62,7 @@ impl<BC: LGolBgCoord> LGolAxis<BC> for (LGolEdgeRead, LGolEdgeRead) {
     }
 }
 
-trait LGolEdge<BC>: Copy {
+pub trait LGolEdge<BC>: Copy {
     fn edge(&self, bg_coord: BC) -> LGolEdgeRead;
     fn is_wrap(&self) -> bool;
 }
