@@ -430,8 +430,10 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>> LGolGrap
             return;
         }
 
+        let (_, (idx_u, idx_v, _), idx_bg_coord) = self.lat2.spots[idx];
+        let v_bg_coord = n1.bg_coord.add(idx_bg_coord);
+
         'v: for &v in &[false, true] {
-            let (_, (idx_u, idx_v, _), bg_coord) = self.lat2.spots[idx];
             let mut n2 = LGolNode {
                 bg_coord: n1.bg_coord,
                 du: n1.du,
@@ -439,13 +441,13 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>> LGolGrap
                 r0s: n1.r0s,
                 r1: n1.r1,
                 r1l: n1.r1l + 1,
-                r1_us: match self.params.u_axis.add_stat(&self.lat2.u_shift_data, n1.r1_us, bg_coord, idx_u, v) {
+                r1_us: match self.params.u_axis.add_stat(&self.lat2.u_shift_data, n1.r1_us, v_bg_coord, idx_u, v) {
                     Some(us) => us,
                     None => {
                         continue 'v;
                     }
                 },
-                r1_vs: match self.params.v_axis.add_stat(&self.lat2.v_shift_data, n1.r1_vs, bg_coord, idx_v, v) {
+                r1_vs: match self.params.v_axis.add_stat(&self.lat2.v_shift_data, n1.r1_vs, v_bg_coord, idx_v, v) {
                     Some(us) => us,
                     None => {
                         continue 'v;
