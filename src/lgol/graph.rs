@@ -41,6 +41,7 @@ pub trait RowTuple: Copy + Debug + Default + Eq + Hash + Send + Sync {
     fn len() -> usize;
     fn as_slice(&self) -> &[Self::Item];
     fn as_slice_mut(&mut self) -> &mut [Self::Item];
+    fn from_slice(slice: &[Self::Item]) -> Self;
 }
 
 macro_rules! impl_row_tuple {
@@ -58,6 +59,12 @@ macro_rules! impl_row_tuple {
 
             fn as_slice_mut(&mut self) -> &mut [B] {
                 self
+            }
+
+            fn from_slice(slice: &[B]) -> [B; $n] {
+                let mut r = [B::default(); $n];
+                r.copy_from_slice(slice);
+                r
             }
         }
     }
@@ -932,6 +939,33 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>> LGolGrap
 
     pub fn zero_node(&self) -> LGolNode<BS, BC, UA::S, VA::S> {
         self.regular_node((0, 0, 0), BS::default())
+    }
+
+    pub fn parse_bs<S: AsRef<str>>(&self, rs: impl IntoIterator<Item=S>) -> BS {
+        let mut rs: Vec<_> = rs.into_iter().map(|s| {
+            let s = s.as_ref();
+
+            let mut r = BS::Item::zero();
+            for (idx, c) in s.chars().enumerate() {
+                assert!(idx < self.max_r1l);
+                let b = match c {
+                    '.' => false,
+                    '*' => true,
+                    _ => panic!(),
+                };
+                r.set_bit(idx, b);
+            }
+            r
+        }).collect();
+        rs.reverse();
+        BS::from_slice(&rs)
+    }
+
+    pub fn recenter_xyt(&self, xyt: Vec3, rs: BS) -> (Vec3, BS) {
+        let bg_coord = BC::from_xyt(xyt);
+        let (du, dv, _bg_coord, rs) = self.recenter(bg_coord, rs);
+        let xyt = self.lc.uvw_to_xyt((du, dv, 0));
+        (xyt, rs)
     }
 
     pub fn regular_node(&self, xyt: Vec3, r0s: BS) -> LGolNode<BS, BC, UA::S, VA::S> {
