@@ -117,14 +117,15 @@ pub struct LGolNode<BS: RowTuple, BC, US, VS> {
 }
 
 impl<BS: RowTuple, BC: Nice, US: Nice, VS: Nice> DfsNode for LGolNode<BS, BC, US, VS> {
-    type KN = LGolKeyNode<BS>;
+    type KN = LGolKeyNode<BS, BC>;
 
-    fn key_node(&self) -> Option<LGolKeyNode<BS>> {
+    fn key_node(&self) -> Option<LGolKeyNode<BS, BC>> {
         if self.r1l != 0 {
             return None;
         }
 
         Some(LGolKeyNode {
+            bg_coord: self.bg_coord,
             du: self.du,
             dv: self.dv,
             rs: self.r0s,
@@ -150,24 +151,26 @@ impl<BS: RowTuple, BC: Nice, US: Nice, VS: Nice> LGolNode<BS, BC, US, VS> {
 #[derive(Hash)]
 #[derive(PartialEq)]
 #[derive(Serialize)]
-pub struct LGolKeyNode<BS: RowTuple> {
+pub struct LGolKeyNode<BS: RowTuple, BC> {
+    pub bg_coord: BC,
     pub du: i16,
     pub dv: i16,
     pub rs: BS,
 }
 
-impl<BS: RowTuple> LGolKeyNode<BS> {
-    pub fn lgol_hash_node(&self) -> LGolHashNode<BS> {
+impl<BS: RowTuple, BC: Nice> LGolKeyNode<BS, BC> {
+    pub fn lgol_hash_node(&self) -> LGolHashNode<BS, BC> {
         LGolHashNode {
+            bg_coord: self.bg_coord,
             rs: self.rs,
         }
     }
 }
 
-impl<BS: RowTuple> DfsKeyNode for LGolKeyNode<BS> {
-    type HN = LGolHashNode<BS>;
+impl<BS: RowTuple, BC: Nice> DfsKeyNode for LGolKeyNode<BS, BC> {
+    type HN = LGolHashNode<BS, BC>;
 
-    fn hash_node<'a>(&'a self, _path: impl Iterator<Item=&'a LGolKeyNode<BS>>) -> Option<LGolHashNode<BS>> {
+    fn hash_node<'a>(&'a self, _path: impl Iterator<Item=&'a LGolKeyNode<BS, BC>>) -> Option<LGolHashNode<BS, BC>> {
         Some(self.lgol_hash_node())
     }
 }
@@ -178,7 +181,8 @@ impl<BS: RowTuple> DfsKeyNode for LGolKeyNode<BS> {
 #[derive(Eq)]
 #[derive(Hash)]
 #[derive(PartialEq)]
-pub struct LGolHashNode<BS: RowTuple> {
+pub struct LGolHashNode<BS: RowTuple, BC> {
+    pub bg_coord: BC,
     pub rs: BS,
 }
 
@@ -201,7 +205,7 @@ enum PartialRowRead {
 }
 
 impl<BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>> LGolGraphParams<BC, UA, VA> {
-    pub fn derived<BS: RowTuple, E: LGolEnds<BS>>(&self, ends: E) -> LGolGraph<BS, BC, UA, VA, E> {
+    pub fn derived<BS: RowTuple, E: LGolEnds<BS, BC>>(&self, ends: E) -> LGolGraph<BS, BC, UA, VA, E> {
         let lat1 = LGolLat1::new(self.vu, self.vv, self.vw);
         let lat2 = LGolLat2::new(&lat1);
 
@@ -385,7 +389,7 @@ impl<BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>> LGolGraphParams<BC, UA
     }
 }
 
-pub struct LGolGraph<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, E: LGolEnds<BS>> {
+pub struct LGolGraph<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, E: LGolEnds<BS, BC>> {
     pub params: LGolGraphParams<BC, UA, VA>,
     pub lat1: LGolLat1,
     pub lat2: LGolLat2<BC>,
@@ -398,7 +402,7 @@ pub struct LGolGraph<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAx
     _bs: PhantomData<BS>,
 }
 
-impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, E: LGolEnds<BS>> LGolGraph<BS, BC, UA, VA, E> {
+impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, E: LGolEnds<BS, BC>> LGolGraph<BS, BC, UA, VA, E> {
     fn recenter(&self, bg_coord: BC, rs: BS) -> (isize, isize, BC, BS) {
         let (su, rs) = self.params.u_axis.recenter(&self.lat2.u_shift_data, bg_coord, rs);
         let bg_coord = bg_coord.add(self.lat2.u_shift_data.bg_period.mul(su));
@@ -528,7 +532,7 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, E: LGolE
         }
     }
 
-    pub fn format_rows(&self, rows: &Vec<LGolKeyNode<BS>>, last: Option<&LGolNode<BS, BC, UA::S, VA::S>>) -> Vec<String> {
+    pub fn format_rows(&self, rows: &Vec<LGolKeyNode<BS, BC>>, last: Option<&LGolNode<BS, BC, UA::S, VA::S>>) -> Vec<String> {
         let mut pr = PrintBag::new();
         let mut w = 0;
         for (n, row) in rows.iter().enumerate() {
@@ -549,7 +553,7 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, E: LGolE
         pr.format()
     }
 
-    pub fn format_cycle_rows(&self, path: &Vec<LGolKeyNode<BS>>, cycle: &Vec<LGolKeyNode<BS>>, _last: &LGolKeyNode<BS>) -> Vec<String> {
+    pub fn format_cycle_rows(&self, path: &Vec<LGolKeyNode<BS, BC>>, cycle: &Vec<LGolKeyNode<BS, BC>>, _last: &LGolKeyNode<BS, BC>) -> Vec<String> {
         let mut pr = PrintBag::new();
         let mut w = 0;
         let last = BS::len() - 1;
@@ -630,14 +634,14 @@ fn check_compat2(living: u32, known: u32, c: bool, f: bool) -> bool {
     }
 }
 
-impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, E: LGolEnds<BS>> DfsGraph<LGolNode<BS, BC, UA::S, VA::S>> for LGolGraph<BS, BC, UA, VA, E> {
-    fn expand<'a>(&'a self, n1: &'a LGolNode<BS, BC, UA::S, VA::S>, _path: impl Iterator<Item=&'a LGolKeyNode<BS>>) -> Vec<LGolNode<BS, BC, UA::S, VA::S>> {
+impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, E: LGolEnds<BS, BC>> DfsGraph<LGolNode<BS, BC, UA::S, VA::S>> for LGolGraph<BS, BC, UA, VA, E> {
+    fn expand<'a>(&'a self, n1: &'a LGolNode<BS, BC, UA::S, VA::S>, _path: impl Iterator<Item=&'a LGolKeyNode<BS, BC>>) -> Vec<LGolNode<BS, BC, UA::S, VA::S>> {
         let mut n2s = Vec::new();
         self.expand_srch(n1, &mut n2s);
         n2s
     }
 
-    fn end<'a>(&'a self, n: &'a LGolKeyNode<BS>, _path: impl Iterator<Item=&'a LGolKeyNode<BS>>) -> Option<&'a str> {
+    fn end<'a>(&'a self, n: &'a LGolKeyNode<BS, BC>, _path: impl Iterator<Item=&'a LGolKeyNode<BS, BC>>) -> Option<&'a str> {
         self.ends.end(n)
     }
 }

@@ -15,19 +15,19 @@ use lgol::graph::LGolNode;
 use lgol::graph::RowTuple;
 use lgol::lat1::Vec3;
 
-impl<BS: RowTuple + Serialize, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, E: LGolEnds<BS>> GolGraphTrait for LGolGraph<BS, BC, UA, VA, E> where BS::Item: Serialize, BC: Serialize, UA::S: Serialize, VA::S: Serialize {
+impl<BS: RowTuple + Serialize, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, E: LGolEnds<BS, BC>> GolGraphTrait for LGolGraph<BS, BC, UA, VA, E> where BS::Item: Serialize, BC: Serialize, UA::S: Serialize, VA::S: Serialize {
     type N = LGolNode<BS, BC, UA::S, VA::S>;
     type FN = LGolNode<BS, BC, UA::S, VA::S>;
 
-    fn format_rows(&self, rows: &Vec<LGolKeyNode<BS>>, last: Option<&LGolNode<BS, BC, UA::S, VA::S>>) -> Vec<String> {
+    fn format_rows(&self, rows: &Vec<LGolKeyNode<BS, BC>>, last: Option<&LGolNode<BS, BC, UA::S, VA::S>>) -> Vec<String> {
         self.format_rows(rows, last)
     }
 
-    fn format_cycle_rows(&self, path: &Vec<LGolKeyNode<BS>>, cycle: &Vec<LGolKeyNode<BS>>, last: &LGolKeyNode<BS>) -> Vec<String> {
+    fn format_cycle_rows(&self, path: &Vec<LGolKeyNode<BS, BC>>, cycle: &Vec<LGolKeyNode<BS, BC>>, last: &LGolKeyNode<BS, BC>) -> Vec<String> {
         self.format_cycle_rows(path, cycle, last)
     }
 
-    fn format_cycle_shape(&self, path: &Vec<LGolKeyNode<BS>>, cycle: &Vec<LGolKeyNode<BS>>, last: &LGolKeyNode<BS>) -> String {
+    fn format_cycle_shape(&self, path: &Vec<LGolKeyNode<BS, BC>>, cycle: &Vec<LGolKeyNode<BS, BC>>, last: &LGolKeyNode<BS, BC>) -> String {
         let dpath = {
             let du = cycle[0].du as isize;
             let dv = cycle[0].dv as isize;
