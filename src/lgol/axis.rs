@@ -76,8 +76,9 @@ impl<LBG, RBG> LGolFancyAxis<LBG, RBG> {
     fn find_bs_min<BS: RowTuple, BC: LGolBgCoord>(&self, shift_data: &LGolShiftData<BC>, bg_coord: BC, rs: BS) -> isize where LBG: LGolBg<BC> {
         for &(c, idx, db) in shift_data.checks.iter() {
             let bg_coord = db.add(bg_coord);
-            let bg_cell = self.left_bg.bg_cell(bg_coord);
-            for r in rs.as_slice() {
+            for (j, r) in rs.as_slice().iter().enumerate() {
+                let bg_coord = bg_coord.add(shift_data.w_bg_coord.mul(-((j as isize) + 1)));
+                let bg_cell = self.left_bg.bg_cell(bg_coord);
                 if r.get_bit(idx) != bg_cell {
                     return c;
                 }
@@ -89,8 +90,9 @@ impl<LBG, RBG> LGolFancyAxis<LBG, RBG> {
     fn find_bs_max<BS: RowTuple, BC: LGolBgCoord>(&self, shift_data: &LGolShiftData<BC>, bg_coord: BC, rs: BS) -> isize where RBG: LGolBg<BC> {
         for &(c, idx, db) in shift_data.checks.iter().rev() {
             let bg_coord = db.add(bg_coord);
-            let bg_cell = self.right_bg.bg_cell(bg_coord);
-            for r in rs.as_slice() {
+            for (j, r) in rs.as_slice().iter().enumerate() {
+                let bg_coord = bg_coord.add(shift_data.w_bg_coord.mul(-((j as isize) + 1)));
+                let bg_cell = self.right_bg.bg_cell(bg_coord);
                 if r.get_bit(idx) != bg_cell {
                     return c;
                 }
