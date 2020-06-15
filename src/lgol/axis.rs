@@ -170,6 +170,58 @@ impl<LBG, RBG> LGolFancyAxis<LBG, RBG> {
     }
 }
 
+impl<LBG, RBG> LGolFancyAxis<LBG, RBG> {
+    fn shift<BS: RowTuple, BC: LGolBgCoord>(&self, shift_data: &LGolShiftData<BC>, hn: LGolHashNode<BS, BC>, delta: isize) -> LGolHashNode<BS, BC> where LBG: LGolBg<BC>, RBG: LGolBg<BC> {
+        if delta == 0 {
+            return hn;
+        }
+
+        // update bg_coord to reflect new position
+        let bg_coord = hn.bg_coord.add(shift_data.bg_period.mul(delta));
+
+        let mut rss = BS::default();
+        for shift_row in shift_data.shift_rows.iter() {
+            for (i, &(idx, db)) in shift_row.iter().enumerate() {
+                // update bg_coord for idx
+                let bg_coord = bg_coord.add(db);
+
+                let i2 = (i as isize) + delta;
+                for j in 0..BS::len() {
+                    // update bg_coord for (j + 1)
+                    let bg_coord = bg_coord.add(shift_data.w_bg_coord.mul(-((j as isize) + 1)));
+
+                    let b;
+                    if i2 < 0 {
+                        // read off left end of previous, fill with left BG
+                        b = self.left_bg.bg_cell(bg_coord);
+                    }
+                    else {
+                        let i2 = (i2 as usize);
+                        if i2 >= shift_row.len() {
+                            // read off right end of previous, fill with right BG
+                            b = self.right_bg.bg_cell(bg_coord);
+                        }
+                        else {
+                            // read from previous
+                            let idx2 = shift_row[i2].0;
+                            b = hn.rs.as_slice()[j].get_bit(idx2);
+                        }
+                    }
+
+                    if b {
+                        rss.as_slice_mut()[j].set_bit(idx, true);
+                    }
+                }
+            }
+        }
+
+        LGolHashNode {
+            bg_coord: bg_coord,
+            rs: rss,
+        }
+    }
+}
+
 impl<BC: LGolBgCoord, LBG: LGolBg<BC>, RBG: LGolBg<BC>> LGolAxis<BC> for LGolFancyAxis<LBG, RBG> {
     type S = (isize, isize);
 
@@ -213,55 +265,7 @@ impl<BC: LGolBgCoord, LBG: LGolBg<BC>, RBG: LGolBg<BC>> LGolAxis<BC> for LGolFan
         let delta = our_sum - def_sum;
         let delta = (delta + shift_data.period).div_euclid(2 * shift_data.period);
 
-        if delta == 0 {
-            return (0, hn);
-        }
-
-        // update bg_coord to reflect new position
-        let bg_coord = hn.bg_coord.add(shift_data.bg_period.mul(delta));
-
-        let mut rss = BS::default();
-        for shift_row in shift_data.shift_rows.iter() {
-            for (i, &(idx, db)) in shift_row.iter().enumerate() {
-                // update bg_coord for idx
-                let bg_coord = bg_coord.add(db);
-
-                let i2 = (i as isize) + delta;
-                for j in 0..BS::len() {
-                    // update bg_coord for (j + 1)
-                    let bg_coord = bg_coord.add(shift_data.w_bg_coord.mul(-((j as isize) + 1)));
-
-                    let b;
-                    if i2 < 0 {
-                        // read off left end of previous, fill with left BG
-                        b = self.left_bg.bg_cell(bg_coord);
-                    }
-                    else {
-                        let i2 = (i2 as usize);
-                        if i2 >= shift_row.len() {
-                            // read off right end of previous, fill with right BG
-                            b = self.right_bg.bg_cell(bg_coord);
-                        }
-                        else {
-                            // read from previous
-                            let idx2 = shift_row[i2].0;
-                            b = hn.rs.as_slice()[j].get_bit(idx2);
-                        }
-                    }
-
-                    if b {
-                        rss.as_slice_mut()[j].set_bit(idx, true);
-                    }
-                }
-            }
-        }
-
-        let hn = LGolHashNode {
-            bg_coord: bg_coord,
-            rs: rss,
-        };
-
-        (delta, hn)
+        (delta, self.shift(shift_data, hn, delta))
     }
 
     fn wrap_in_print(&self) -> bool {
