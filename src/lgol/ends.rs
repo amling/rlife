@@ -75,3 +75,24 @@ impl<BS: RowTuple, BC: LGolBgCoord, S: AsRef<str>> LGolEnds<BS, BC> for LGolMask
         None
     }
 }
+
+impl<BS: RowTuple, BC: LGolBgCoord, S> LGolMaskEnds<BS, BC, S> {
+    #[allow(dead_code)]
+    pub fn new() -> LGolMaskEnds<BS, BC, S> {
+        LGolMaskEnds(HashMap::new())
+    }
+
+    #[allow(dead_code)]
+    pub fn add(&mut self, bg_coord: BC, mask: BS, pat: BS, s: S) {
+        {
+            let mut masked = pat;
+            masked.mask(&mask);
+            assert_eq!(pat, masked);
+        }
+
+        let m = &mut self.0;
+        let m = m.entry(bg_coord).or_insert_with(|| HashMap::new());
+        let m = m.entry(mask).or_insert_with(|| HashMap::new());
+        m.insert(pat, s);
+    }
+}
