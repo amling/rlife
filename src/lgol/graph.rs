@@ -38,6 +38,7 @@ pub trait RowTuple: Copy + Debug + Default + Eq + Hash + Send + Sync {
     fn as_slice(&self) -> &[Self::Item];
     fn as_slice_mut(&mut self) -> &mut [Self::Item];
     fn from_slice(slice: &[Self::Item]) -> Self;
+    fn mask(&mut self, other: &Self);
 }
 
 macro_rules! impl_row_tuple {
@@ -61,6 +62,12 @@ macro_rules! impl_row_tuple {
                 let mut r = [B::default(); $n];
                 r.copy_from_slice(slice);
                 r
+            }
+
+            fn mask(&mut self, other: &[B; $n]) {
+                for (r, m) in self.iter_mut().zip(other.iter()) {
+                    *r &= *m;
+                }
             }
         }
     }
