@@ -6,15 +6,14 @@ use std::collections::HashSet;
 use crate::lgol;
 
 use lgol::graph::LGolHashNode;
-use lgol::graph::LGolKeyNode;
 use lgol::graph::RowTuple;
 
 pub trait LGolEnds<BS: RowTuple, BC> {
-    fn end(&self, n: &LGolKeyNode<BS, BC>) -> Option<&str>;
+    fn end(&self, n: &LGolHashNode<BS, BC>) -> Option<&str>;
 }
 
 impl<BS: RowTuple, BC> LGolEnds<BS, BC> for () {
-    fn end(&self, n: &LGolKeyNode<BS, BC>) -> Option<&str> {
+    fn end(&self, n: &LGolHashNode<BS, BC>) -> Option<&str> {
         for &r in n.rs.as_slice() {
             if r != BS::Item::zero() {
                 return None;
@@ -25,8 +24,8 @@ impl<BS: RowTuple, BC> LGolEnds<BS, BC> for () {
 }
 
 impl<BS: RowTuple, BC: Nice> LGolEnds<BS, BC> for HashSet<LGolHashNode<BS, BC>> {
-    fn end(&self, n: &LGolKeyNode<BS, BC>) -> Option<&str> {
-        if self.contains(&n.lgol_hash_node()) {
+    fn end(&self, n: &LGolHashNode<BS, BC>) -> Option<&str> {
+        if self.contains(n) {
             Some("")
         }
         else {
@@ -36,15 +35,15 @@ impl<BS: RowTuple, BC: Nice> LGolEnds<BS, BC> for HashSet<LGolHashNode<BS, BC>> 
 }
 
 impl<BS: RowTuple, BC: Nice, S: AsRef<str>> LGolEnds<BS, BC> for HashMap<LGolHashNode<BS, BC>, S> {
-    fn end(&self, n: &LGolKeyNode<BS, BC>) -> Option<&str> {
-        self.get(&n.lgol_hash_node()).map(|s| s.as_ref())
+    fn end(&self, n: &LGolHashNode<BS, BC>) -> Option<&str> {
+        self.get(n).map(|s| s.as_ref())
     }
 }
 
 pub struct LGolNoEnds();
 
 impl<BS: RowTuple, BC> LGolEnds<BS, BC> for LGolNoEnds {
-    fn end(&self, _n: &LGolKeyNode<BS, BC>) -> Option<&str> {
+    fn end(&self, _n: &LGolHashNode<BS, BC>) -> Option<&str> {
         None
     }
 }

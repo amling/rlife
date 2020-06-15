@@ -7,6 +7,7 @@ use crate::lgol;
 
 use lgol::bg::LGolBg;
 use lgol::bg::LGolBgCoord;
+use lgol::graph::LGolHashNode;
 use lgol::graph::RowTuple;
 use lgol::lat2::LGolShiftData;
 
@@ -31,7 +32,7 @@ pub trait LGolAxis<BC: LGolBgCoord>: Copy {
     fn zero_stat(&self, shift_data: &LGolShiftData<BC>) -> Self::S;
     fn add_stat(&self, shift_data: &LGolShiftData<BC>, s0: Self::S, bg_coord: BC, c: isize, v: bool) -> Option<Self::S>;
 
-    fn recenter<BS: RowTuple>(&self, shift_data: &LGolShiftData<BC>, bg_coord: BC, rs: BS) -> (isize, BS);
+    fn recenter<BS: RowTuple>(&self, shift_data: &LGolShiftData<BC>, hn: LGolHashNode<BS, BC>) -> (isize, LGolHashNode<BS, BC>);
 
     fn wrap_in_print(&self) -> bool;
 }
@@ -54,8 +55,8 @@ impl<BC: LGolBgCoord> LGolAxis<BC> for (LGolEdgeRead, LGolEdgeRead) {
         Some(())
     }
 
-    fn recenter<BS: RowTuple>(&self, _shift_data: &LGolShiftData<BC>, _bg_coord: BC, rs: BS) -> (isize, BS) {
-        (0, rs)
+    fn recenter<BS: RowTuple>(&self, _shift_data: &LGolShiftData<BC>, hn: LGolHashNode<BS, BC>) -> (isize, LGolHashNode<BS, BC>) {
+        (0, hn)
     }
 
     fn wrap_in_print(&self) -> bool {
@@ -121,8 +122,8 @@ impl<BC: LGolBgCoord, LE: LGolEdge<BC>, RE: LGolEdge<BC>> LGolAxis<BC> for LGolS
         Some(())
     }
 
-    fn recenter<BS: RowTuple>(&self, _shift_data: &LGolShiftData<BC>, _bg_coord: BC, rs: BS) -> (isize, BS) {
-        (0, rs)
+    fn recenter<BS: RowTuple>(&self, _shift_data: &LGolShiftData<BC>, hn: LGolHashNode<BS, BC>) -> (isize, LGolHashNode<BS, BC>) {
+        (0, hn)
     }
 
     fn wrap_in_print(&self) -> bool {
@@ -140,10 +141,10 @@ pub struct LGolFancyAxis<LBG, RBG> {
 }
 
 impl<LBG, RBG> LGolFancyAxis<LBG, RBG> {
-    fn find_bs_min<BS: RowTuple, BC: LGolBgCoord>(&self, shift_data: &LGolShiftData<BC>, bg_coord: BC, rs: BS) -> isize where LBG: LGolBg<BC> {
+    fn find_bs_min<BS: RowTuple, BC: LGolBgCoord>(&self, shift_data: &LGolShiftData<BC>, hn: &LGolHashNode<BS, BC>) -> isize where LBG: LGolBg<BC> {
         for &(c, idx, db) in shift_data.checks.iter() {
-            let bg_coord = db.add(bg_coord);
-            for (j, r) in rs.as_slice().iter().enumerate() {
+            let bg_coord = db.add(hn.bg_coord);
+            for (j, r) in hn.rs.as_slice().iter().enumerate() {
                 let bg_coord = bg_coord.add(shift_data.w_bg_coord.mul(-((j as isize) + 1)));
                 let bg_cell = self.left_bg.bg_cell(bg_coord);
                 if r.get_bit(idx) != bg_cell {
@@ -154,10 +155,10 @@ impl<LBG, RBG> LGolFancyAxis<LBG, RBG> {
         shift_data.max_coord
     }
 
-    fn find_bs_max<BS: RowTuple, BC: LGolBgCoord>(&self, shift_data: &LGolShiftData<BC>, bg_coord: BC, rs: BS) -> isize where RBG: LGolBg<BC> {
+    fn find_bs_max<BS: RowTuple, BC: LGolBgCoord>(&self, shift_data: &LGolShiftData<BC>, hn: &LGolHashNode<BS, BC>) -> isize where RBG: LGolBg<BC> {
         for &(c, idx, db) in shift_data.checks.iter().rev() {
-            let bg_coord = db.add(bg_coord);
-            for (j, r) in rs.as_slice().iter().enumerate() {
+            let bg_coord = db.add(hn.bg_coord);
+            for (j, r) in hn.rs.as_slice().iter().enumerate() {
                 let bg_coord = bg_coord.add(shift_data.w_bg_coord.mul(-((j as isize) + 1)));
                 let bg_cell = self.right_bg.bg_cell(bg_coord);
                 if r.get_bit(idx) != bg_cell {
@@ -202,9 +203,9 @@ impl<BC: LGolBgCoord, LBG: LGolBg<BC>, RBG: LGolBg<BC>> LGolAxis<BC> for LGolFan
         Some((min, max))
     }
 
-    fn recenter<BS: RowTuple>(&self, shift_data: &LGolShiftData<BC>, bg_coord: BC, rs: BS) -> (isize, BS) {
-        let min = self.find_bs_min(shift_data, bg_coord, rs);
-        let max = self.find_bs_max(shift_data, bg_coord, rs);
+    fn recenter<BS: RowTuple>(&self, shift_data: &LGolShiftData<BC>, hn: LGolHashNode<BS, BC>) -> (isize, LGolHashNode<BS, BC>) {
+        let min = self.find_bs_min(shift_data, &hn);
+        let max = self.find_bs_max(shift_data, &hn);
 
         let our_sum = min + max;
         let def_sum = shift_data.min_coord + shift_data.max_coord;
@@ -213,11 +214,11 @@ impl<BC: LGolBgCoord, LBG: LGolBg<BC>, RBG: LGolBg<BC>> LGolAxis<BC> for LGolFan
         let delta = (delta + shift_data.period).div_euclid(2 * shift_data.period);
 
         if delta == 0 {
-            return (0, rs);
+            return (0, hn);
         }
 
         // update bg_coord to reflect new position
-        let bg_coord = bg_coord.add(shift_data.bg_period.mul(delta));
+        let bg_coord = hn.bg_coord.add(shift_data.bg_period.mul(delta));
 
         let mut rss = BS::default();
         for shift_row in shift_data.shift_rows.iter() {
@@ -244,7 +245,7 @@ impl<BC: LGolBgCoord, LBG: LGolBg<BC>, RBG: LGolBg<BC>> LGolAxis<BC> for LGolFan
                         else {
                             // read from previous
                             let idx2 = shift_row[i2].0;
-                            b = rs.as_slice()[j].get_bit(idx2);
+                            b = hn.rs.as_slice()[j].get_bit(idx2);
                         }
                     }
 
@@ -255,7 +256,12 @@ impl<BC: LGolBgCoord, LBG: LGolBg<BC>, RBG: LGolBg<BC>> LGolAxis<BC> for LGolFan
             }
         }
 
-        (delta, rss)
+        let hn = LGolHashNode {
+            bg_coord: bg_coord,
+            rs: rss,
+        };
+
+        (delta, hn)
     }
 
     fn wrap_in_print(&self) -> bool {

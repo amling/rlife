@@ -403,16 +403,13 @@ pub struct LGolGraph<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAx
 }
 
 impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, E: LGolEnds<BS, BC>> LGolGraph<BS, BC, UA, VA, E> {
-    fn recenter(&self, bg_coord: BC, rs: BS) -> (isize, isize, BC, BS) {
-        let (su, rs) = self.params.u_axis.recenter(&self.lat2.u_shift_data, bg_coord, rs);
-        let bg_coord = bg_coord.add(self.lat2.u_shift_data.bg_period.mul(su));
-
-        let (sv, rs) = self.params.v_axis.recenter(&self.lat2.v_shift_data, bg_coord, rs);
-        let bg_coord = bg_coord.add(self.lat2.v_shift_data.bg_period.mul(sv));
+    fn recenter(&self, hn: LGolHashNode<BS, BC>) -> (isize, isize, LGolHashNode<BS, BC>) {
+        let (su, hn) = self.params.u_axis.recenter(&self.lat2.u_shift_data, hn);
+        let (sv, hn) = self.params.v_axis.recenter(&self.lat2.v_shift_data, hn);
 
         let du = su * self.lat2.u_shift_data.period;
         let dv = sv * self.lat2.v_shift_data.period;
-        (du, dv, bg_coord, rs)
+        (du, dv, hn)
     }
 
     fn expand_srch(&self, n1: &LGolNode<BS, BC, UA::S, VA::S>, n2s: &mut Vec<LGolNode<BS, BC, UA::S, VA::S>>) {
@@ -425,7 +422,11 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, E: LGolE
             r0s.as_slice_mut()[0] = n1.r1;
             let bg_coord = n1.bg_coord.add(self.lat2.w_bg_coord);
 
-            let (du, dv, bg_coord, r0s) = self.recenter(bg_coord, r0s);
+            let hn = LGolHashNode {
+                bg_coord: bg_coord,
+                rs: r0s,
+            };
+            let (du, dv, hn) = self.recenter(hn);
 
             if n1.r0s == BS::default() && (du, dv) != (0, 0) {
                 // reject stupid first row shifts
@@ -433,10 +434,10 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, E: LGolE
             }
 
             n2s.push(LGolNode {
-                bg_coord: bg_coord,
+                bg_coord: hn.bg_coord,
                 du: n1.du + (du as i16),
                 dv: n1.dv + (dv as i16),
-                r0s: r0s,
+                r0s: hn.rs,
                 r1: BS::Item::zero(),
                 r1_us: self.params.u_axis.zero_stat(&self.lat2.u_shift_data),
                 r1_vs: self.params.v_axis.zero_stat(&self.lat2.v_shift_data),
@@ -593,10 +594,13 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, E: LGolE
     }
 
     pub fn recenter_xyt(&self, xyt: Vec3, rs: BS) -> (Vec3, BS) {
-        let bg_coord = BC::from_xyt(xyt);
-        let (du, dv, _bg_coord, rs) = self.recenter(bg_coord, rs);
+        let hn = LGolHashNode {
+            bg_coord: BC::from_xyt(xyt),
+            rs: rs,
+        };
+        let (du, dv, hn) = self.recenter(hn);
         let xyt = self.lat1.uvw_to_xyt((du, dv, 0));
-        (xyt, rs)
+        (xyt, hn.rs)
     }
 
     pub fn regular_node(&self, xyt: Vec3, r0s: BS) -> LGolNode<BS, BC, UA::S, VA::S> {
@@ -677,6 +681,6 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, E: LGolE
     }
 
     fn end(&self, n: &LGolKeyNode<BS, BC>) -> Option<&str> {
-        self.ends.end(n)
+        self.ends.end(&n.lgol_hash_node())
     }
 }
