@@ -9,6 +9,10 @@ use lgol::graph::LGolHashNode;
 use lgol::graph::RowTuple;
 
 pub trait LGolEnds<BS: RowTuple, BC> {
+    fn want_justify(&self) -> bool {
+        false
+    }
+
     fn end(&self, n: &LGolHashNode<BS, BC>) -> Option<&str>;
 }
 

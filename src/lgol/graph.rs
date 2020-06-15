@@ -22,6 +22,9 @@ use dfs::graph::DfsNode;
 use gol::printbag::PrintBag;
 use lgol::axis::LGolAxis;
 use lgol::axis::LGolEdgeRead;
+use lgol::axis::LGolRecenter;
+use lgol::axis::LGolRecenterCentered;
+use lgol::axis::LGolRecenterJustify;
 use lgol::bg::LGolBgCoord;
 use lgol::ends::LGolEnds;
 use lgol::lat1::LGolLat1;
@@ -403,13 +406,21 @@ pub struct LGolGraph<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAx
 }
 
 impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, E: LGolEnds<BS, BC>> LGolGraph<BS, BC, UA, VA, E> {
-    fn recenter(&self, hn: LGolHashNode<BS, BC>) -> (isize, isize, LGolHashNode<BS, BC>) {
-        let (su, hn) = self.params.u_axis.recenter(&self.lat2.u_shift_data, hn);
-        let (sv, hn) = self.params.v_axis.recenter(&self.lat2.v_shift_data, hn);
+    fn recenter_common(&self, ty: impl LGolRecenter, hn: LGolHashNode<BS, BC>) -> (isize, isize, LGolHashNode<BS, BC>) {
+        let (su, hn) = ty.apply(&self.params.u_axis, &self.lat2.u_shift_data, hn);
+        let (sv, hn) = ty.apply(&self.params.v_axis, &self.lat2.v_shift_data, hn);
 
         let du = su * self.lat2.u_shift_data.period;
         let dv = sv * self.lat2.v_shift_data.period;
         (du, dv, hn)
+    }
+
+    fn recenter(&self, hn: LGolHashNode<BS, BC>) -> (isize, isize, LGolHashNode<BS, BC>) {
+        self.recenter_common(LGolRecenterCentered(), hn)
+    }
+
+    fn justify(&self, hn: LGolHashNode<BS, BC>) -> (isize, isize, LGolHashNode<BS, BC>) {
+        self.recenter_common(LGolRecenterJustify(), hn)
     }
 
     fn expand_srch(&self, n1: &LGolNode<BS, BC, UA::S, VA::S>, n2s: &mut Vec<LGolNode<BS, BC, UA::S, VA::S>>) {
@@ -681,6 +692,10 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, E: LGolE
     }
 
     fn end(&self, n: &LGolKeyNode<BS, BC>) -> Option<&str> {
-        self.ends.end(&n.lgol_hash_node())
+        let mut hn = n.lgol_hash_node();
+        if self.ends.want_justify() {
+            hn = self.justify(hn).2;
+        }
+        self.ends.end(&hn)
     }
 }

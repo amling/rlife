@@ -23,6 +23,26 @@ pub enum LGolEdgeRead {
     Unknown,
 }
 
+pub trait LGolRecenter {
+    fn apply<BS: RowTuple, BC: LGolBgCoord, A: LGolAxis<BC>>(&self, a: &A, shift_data: &LGolShiftData<BC>, hn: LGolHashNode<BS, BC>) -> (isize, LGolHashNode<BS, BC>);
+}
+
+pub struct LGolRecenterCentered();
+
+impl LGolRecenter for LGolRecenterCentered {
+    fn apply<BS: RowTuple, BC: LGolBgCoord, A: LGolAxis<BC>>(&self, a: &A, shift_data: &LGolShiftData<BC>, hn: LGolHashNode<BS, BC>) -> (isize, LGolHashNode<BS, BC>) {
+        a.recenter(shift_data, hn)
+    }
+}
+
+pub struct LGolRecenterJustify();
+
+impl LGolRecenter for LGolRecenterJustify {
+    fn apply<BS: RowTuple, BC: LGolBgCoord, A: LGolAxis<BC>>(&self, a: &A, shift_data: &LGolShiftData<BC>, hn: LGolHashNode<BS, BC>) -> (isize, LGolHashNode<BS, BC>) {
+        a.justify(shift_data, hn)
+    }
+}
+
 pub trait LGolAxis<BC: LGolBgCoord>: Copy {
     type S: Nice;
 
@@ -33,6 +53,7 @@ pub trait LGolAxis<BC: LGolBgCoord>: Copy {
     fn add_stat(&self, shift_data: &LGolShiftData<BC>, s0: Self::S, bg_coord: BC, c: isize, v: bool) -> Option<Self::S>;
 
     fn recenter<BS: RowTuple>(&self, shift_data: &LGolShiftData<BC>, hn: LGolHashNode<BS, BC>) -> (isize, LGolHashNode<BS, BC>);
+    fn justify<BS: RowTuple>(&self, shift_data: &LGolShiftData<BC>, hn: LGolHashNode<BS, BC>) -> (isize, LGolHashNode<BS, BC>);
 
     fn wrap_in_print(&self) -> bool;
 }
@@ -56,6 +77,11 @@ impl<BC: LGolBgCoord> LGolAxis<BC> for (LGolEdgeRead, LGolEdgeRead) {
     }
 
     fn recenter<BS: RowTuple>(&self, _shift_data: &LGolShiftData<BC>, hn: LGolHashNode<BS, BC>) -> (isize, LGolHashNode<BS, BC>) {
+        (0, hn)
+    }
+
+    fn justify<BS: RowTuple>(&self, _shift_data: &LGolShiftData<BC>, hn: LGolHashNode<BS, BC>) -> (isize, LGolHashNode<BS, BC>) {
+        // TODO: maybe for this type of axis we should justify?
         (0, hn)
     }
 
@@ -123,6 +149,11 @@ impl<BC: LGolBgCoord, LE: LGolEdge<BC>, RE: LGolEdge<BC>> LGolAxis<BC> for LGolS
     }
 
     fn recenter<BS: RowTuple>(&self, _shift_data: &LGolShiftData<BC>, hn: LGolHashNode<BS, BC>) -> (isize, LGolHashNode<BS, BC>) {
+        (0, hn)
+    }
+
+    fn justify<BS: RowTuple>(&self, _shift_data: &LGolShiftData<BC>, hn: LGolHashNode<BS, BC>) -> (isize, LGolHashNode<BS, BC>) {
+        // TODO: maybe for this type of axis we should justify?
         (0, hn)
     }
 
@@ -264,6 +295,17 @@ impl<BC: LGolBgCoord, LBG: LGolBg<BC>, RBG: LGolBg<BC>> LGolAxis<BC> for LGolFan
 
         let delta = our_sum - def_sum;
         let delta = (delta + shift_data.period).div_euclid(2 * shift_data.period);
+
+        (delta, self.shift(shift_data, hn, delta))
+    }
+
+    fn justify<BS: RowTuple>(&self, shift_data: &LGolShiftData<BC>, hn: LGolHashNode<BS, BC>) -> (isize, LGolHashNode<BS, BC>) {
+        let min = self.find_bs_min(shift_data, &hn);
+
+        let def_min = shift_data.min_coord;
+
+        let delta = min - def_min;
+        let delta = delta.div_euclid(shift_data.period);
 
         (delta, self.shift(shift_data, hn, delta))
     }
