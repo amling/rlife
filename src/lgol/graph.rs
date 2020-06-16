@@ -446,6 +446,7 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, E: LGolE
             };
             let (du, dv, hn) = self.recenter(hn);
 
+            // TODO: this check is wrong for double BG
             if n1.r0s == BS::default() && (du, dv) != (0, 0) {
                 // reject stupid first row shifts
                 return;
