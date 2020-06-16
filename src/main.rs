@@ -30,6 +30,7 @@ use bfs::bfs2::Bfs2CustomSerializer;
 use bfs::bfs2::Bfs2State;
 use chunk_store::AnonMmapChunkFactory;
 use chunk_store::VecChunkFactory;
+use dfs::graph::DfsNode;
 use dfs::lifecycle::DfsLifecycle;
 use dfs::lifecycle::LogLevel;
 use gol::graph::GolEdge;
@@ -53,6 +54,7 @@ use lgol::constraints::LGolConstraintUWindow;
 use lgol::constraints::LGolConstraintVPeriodDividing;
 use lgol::ends::LGolNoEnds;
 use lgol::graph::LGolGraphParams;
+use lgol::graph::LGolHashNode;
 use lgol::lat1::Vec3;
 use sal::DeserializerFor;
 
@@ -66,62 +68,73 @@ fn main() {
 
     ars_rctl_main::spawn(ep.clone());
 
-    main1::<u16>(ep).unwrap();
+    main1::<u8>(ep).unwrap();
 }
 
 fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
     let mut args = env_args();
 
+    let jx = args.parse();
     let wx = args.parse();
     let mx = args.parse();
 
     let ge = LGolGraphParams {
         vu: (mx, 0, 0),
-        vv: (0, -2, 3),
-        vw: (0, -1, 2),
+        vv: (0, -2, 5),
+        vw: (0, -1, 3),
 
-        bg_coord: PhantomData::<()>,
+        bg_coord: PhantomData::<LGolBgY2>,
 
         u_axis: LGolRecenteringAxis {
-            left_bg: LGolBgEmpty(),
+            left_bg: LGolBgHorizStripes(),
             right_bg: LGolBgEmpty(),
         },
         v_axis: (LGolEdgeRead::Wrap, LGolEdgeRead::Wrap),
         constraints: (
             LGolConstraintUWindow {
                 w: (wx, mx),
-                left_bg: LGolBgEmpty(),
+                left_bg: LGolBgHorizStripes(),
                 right_bg: LGolBgEmpty(),
             },
         ),
     };
-    let mut ge = ge.derived::<[B; 6], _>(HashSet::new());
+    let mut ge = ge.derived::<[B; 10], _>(HashSet::new());
+
+    let mut hns = HashSet::new();
+    for dy in 0..=1 {
+        for bits in 0..(1u64 << (10 * jx)) {
+            let mut rs = [B::zero(); 10];
+            for i in 0..10 {
+                for x in 0..jx {
+                    if bits & (1 << (jx * i + x)) != 0 {
+                        rs[i].set_bit(x, true);
+                    }
+                }
+            }
+
+            let hn = LGolHashNode {
+                bg_coord: LGolBgY2(dy),
+                rs: rs,
+            };
+            let (_, _, hn) = ge.recenter(hn);
+
+            hns.insert(hn);
+        }
+    }
 
     let cf = AnonMmapChunkFactory();
     let st = args.read_state_or(Bfs2CustomSerializer(cf), || {
-        let rs = ge.parse_bs2(&[
-            "   |   |...",
-            ".*.|.*.|*.*",
-            "*.*|.*.|   ",
-            "z",
-        ]);
-        let (xyt, rs) = ge.recenter_xyt((0, 0, 0), rs);
-        let n0 = ge.regular_node(xyt, rs);
+        let init = hns.iter().map(|hn| {
+            let y = hn.bg_coord.0 as isize;
+            let n = ge.regular_node((0, y, 0), hn.rs);
+            (vec![n.key_node().unwrap()], n)
+        });
 
-        Bfs2State::new_simple(n0, cf)
+        Bfs2State::new(init, cf)
     });
 
-    {
-        let rs = ge.parse_bs2(&[
-            "    |    |.**.",
-            "***.|..*.|..**",
-            ".*.*|**.*|    ",
-            "z",
-        ]);
-        let (xyt, rs) = ge.recenter_xyt((0, 0, 0), rs);
-        let hn = ge.key_node(xyt, rs).lgol_hash_node();
-
-        ge.ends.insert(hn);
+    for hn in hns.iter() {
+        ge.ends.insert(hn.clone());
     }
 
     assert!(ge.max_r1l <= B::size());

@@ -164,6 +164,8 @@ impl<'a, GE: GolGraphTrait> DfsLifecycle<GE::N> for GolLifecycle<'a, GE> where <
                 }
                 self.log(LogLevel::INFO, "");
             }
+            self.log(LogLevel::DEBUG, format!("Cycle JSON: {}", serde_json::to_string(&(path, cycle, last)).unwrap()));
+            self.log(LogLevel::INFO, "");
         }
 
         for (path, label) in &r.ends {
@@ -171,6 +173,8 @@ impl<'a, GE: GolGraphTrait> DfsLifecycle<GE::N> for GolLifecycle<'a, GE> where <
             for line in self.ge.format_rows(path, None) {
                 self.log(LogLevel::INFO, line);
             }
+            self.log(LogLevel::INFO, "");
+            self.log(LogLevel::DEBUG, format!("End JSON: {}", serde_json::to_string(&path).unwrap()));
             self.log(LogLevel::INFO, "");
         }
 

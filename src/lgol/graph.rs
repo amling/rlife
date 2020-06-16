@@ -441,7 +441,7 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, CS: LGol
         (du, dv, hn)
     }
 
-    fn recenter(&self, hn: LGolHashNode<BS, BC>) -> (isize, isize, LGolHashNode<BS, BC>) {
+    pub fn recenter(&self, hn: LGolHashNode<BS, BC>) -> (isize, isize, LGolHashNode<BS, BC>) {
         self.recenter_common(LGolRecenterCentered(), hn)
     }
 
