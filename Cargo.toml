@@ -19,3 +19,4 @@ ars_rctl_main = { path = "ars/rctl/main" }
 
 [profile.release]
 lto = true
+debug = true
