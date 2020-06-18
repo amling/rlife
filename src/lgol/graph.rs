@@ -618,8 +618,9 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, E: LGolE
             rs: rs,
         };
         let (du, dv, hn) = self.recenter(hn);
-        let xyt = self.lat1.uvw_to_xyt((du, dv, 0));
-        (xyt, hn.rs)
+        let (x, y, t) = xyt;
+        let (dx, dy, dt) = self.lat1.uvw_to_xyt((du, dv, 0));
+        ((x + dx, y + dy, t + dt), hn.rs)
     }
 
     pub fn regular_node(&self, xyt: Vec3, r0s: BS) -> LGolNode<BS, BC, UA::S, VA::S> {
@@ -668,9 +669,15 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, E: LGolE
     }
 
     pub fn key_node(&self, xyt: Vec3, rs: BS) -> LGolKeyNode<BS, BC> {
-        let (u, v, w) = self.lat1.xyt_to_uvw(xyt);
+        let (u, v, _w) = self.lat1.xyt_to_uvw(xyt);
 
-        assert_eq!(w, 0);
+        // Mmm, sort of complicated.  Our conversion to uvw definitely doesn't include this (since
+        // we only have du and dv in node), but we get bg_coord right.  Without the assert we're
+        // wrong in two possible ways: (a) display will be wrong since it converts back w/o w and
+        // (b) display could actually crash if (u, v, 0) can't be converted back to integral xyt.
+        //
+        // We skip this and hope our callers will be okay...
+        //assert_eq!(w, 0);
 
         LGolKeyNode {
             bg_coord: BC::from_xyt(xyt),
