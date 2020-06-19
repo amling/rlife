@@ -375,6 +375,11 @@ impl<I: Iterator<Item=String>> ArgsHelper<I> {
         self.0.next().unwrap().parse().unwrap()
     }
 
+    #[allow(dead_code)]
+    fn parse_or<F: FromStr>(&mut self, def: F) -> F where F::Err: Debug {
+        self.0.next().map(|s| s.parse().unwrap()).unwrap_or(def)
+    }
+
     fn read_state_or<S: DeserializeOwned>(&mut self, s: SerdeFormat, f: impl FnOnce() -> S) -> S {
         match self.0.next() {
             Some(path) => {
