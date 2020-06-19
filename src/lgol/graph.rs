@@ -526,10 +526,12 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, E: LGolE
 
         let mut wraps = vec![];
         if self.params.u_axis.wrap_in_print() {
-            wraps.push(self.params.vu);
+            let (ux, uy, ut) = self.params.vu;
+            wraps.push((uy, ux, ut));
         }
         if self.params.v_axis.wrap_in_print() {
-            wraps.push(self.params.vv);
+            let (vx, vy, vt) = self.params.vv;
+            wraps.push((vy, vx, vt));
         }
         let wraps = Vec3::canonicalize(wraps);
 
@@ -547,7 +549,7 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, E: LGolE
                     c = '?';
                 }
             }
-            let (x, y, t) = wraps.canonicalize((x, y, t));
+            let (y, x, t) = wraps.canonicalize((y, x, t));
             pr.insert(x, y, t, c);
         }
     }
