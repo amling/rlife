@@ -112,9 +112,12 @@ impl<N: Default> KnPile<N> {
             rebuilt_idx += 1;
         }
 
-        let (rebuilt_outer, rebuilt_inner) = self.split_index(rebuilt_idx);
-        self.pile.truncate(rebuilt_outer + 1);
-        self.pile[rebuilt_outer].truncate(rebuilt_inner);
+        {
+            let (outer, inner) = self.split_index(rebuilt_idx - 1);
+            self.pile.truncate(outer + 1);
+            self.pile[outer].truncate(inner + 1);
+        }
+
         debug_assert_eq!(self.len(), rebuilt_idx);
 
         log(format!("Rebuilt kns from {} to {} ({} roots) in {:?}", size, rebuilt_idx, root_ct, t0.elapsed()));
