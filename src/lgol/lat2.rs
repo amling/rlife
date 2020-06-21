@@ -34,9 +34,15 @@ impl<BC: LGolBgCoord> LGolLat2<BC> {
                 for y in 0..lat1.my {
                     // this (x, y, t) is some equivalence class, but we want to shift it to be in
                     // [0, 1)x[0, 1)x[0, 1) in uvw space
-                    let (xyt, _) = lat1.canonicalize_xyt((x, y, t));
 
-                    let uvw = lat1.xyt_to_uvw(xyt);
+                    let (u, v, w) = lat1.xyt_to_uvw((x, y, t));
+
+                    // adjust into [0, 1)x[0, 1)x[0, 1)
+                    let u = u.rem_euclid(lat1.adet);
+                    let v = v.rem_euclid(lat1.adet);
+                    let w = w.rem_euclid(lat1.adet);
+                    let uvw = (u, v, w);
+                    let xyt = lat1.uvw_to_xyt(uvw);
 
                     spots.push((xyt, uvw, BC::from_xyt(xyt)));
                 }

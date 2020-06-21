@@ -111,41 +111,4 @@ impl LGolLat1 {
 
         (x, y, t)
     }
-
-    pub fn canonicalize_xyt(&self, (x, y, t): Vec3) -> (Vec3, Vec3) {
-        let (mut u, mut v, mut w) = self.xyt_to_uvw((x, y, t));
-        let mut lu = 0;
-        let mut lv = 0;
-        let mut lw = 0;
-
-        // adjust into [0, 1)x[0, 1)x[0, 1)
-        while u < 0 {
-            u += self.adet;
-            lu -= 1;
-        }
-        while u >= self.adet {
-            u -= self.adet;
-            lu += 1;
-        }
-        while v < 0 {
-            v += self.adet;
-            lv -= 1;
-        }
-        while v >= self.adet {
-            v -= self.adet;
-            lv += 1;
-        }
-        while w < 0 {
-            w += self.adet;
-            lw -= 1;
-        }
-        while w >= self.adet {
-            w -= self.adet;
-            lw += 1;
-        }
-
-        let (x, y, t) = self.uvw_to_xyt((u, v, w));
-
-        ((x, y, t), (lu, lv, lw))
-    }
 }

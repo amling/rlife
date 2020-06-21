@@ -214,6 +214,34 @@ enum PartialRowRead {
     Read(usize, usize),
 }
 
+fn update_for_axis<BC: LGolBgCoord>(adet: isize, bg_coord: BC, a: &impl LGolAxis<BC>, c: &mut isize) -> Option<PartialRowRead> {
+    let e;
+    if *c < 0 {
+        e = a.left_edge(bg_coord, *c);
+    }
+    else if *c >= adet {
+        e = a.right_edge(bg_coord, *c);
+    }
+    else {
+        return None;
+    }
+    match e {
+        LGolEdgeRead::Known(b) => {
+            return Some(PartialRowRead::Known(b));
+        }
+        LGolEdgeRead::Update(new_c) => {
+            *c = new_c;
+        }
+        LGolEdgeRead::Wrap => {
+            *c = (*c).rem_euclid(adet);
+        }
+        LGolEdgeRead::Unknown => {
+            return Some(PartialRowRead::Unknown);
+        }
+    }
+    None
+}
+
 impl<BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>> LGolGraphParams<BC, UA, VA> {
     pub fn derived<BS: RowTuple, E: LGolEnds<BS, BC>>(&self, ends: E) -> LGolGraph<BS, BC, UA, VA, E> {
         let lat1 = LGolLat1::new(self.vu, self.vv, self.vw);
@@ -223,62 +251,36 @@ impl<BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>> LGolGraphParams<BC, UA
 
         let compute_prow_read = |bg_coord: BC, rl, xyt| {
             let bg_coord = bg_coord.add(BC::from_xyt(xyt));
-            let (xyt, (lu, lv, lw)) = lat1.canonicalize_xyt(xyt);
+            let (mut u, mut v, w) = lat1.xyt_to_uvw(xyt);
 
-            let u_edge;
-            if lu < 0 {
-                u_edge = self.u_axis.left_edge(bg_coord);
+            if let Some(r) = update_for_axis(lat1.adet, bg_coord, &self.v_axis, &mut v) {
+                return r;
             }
-            else if lu > 0 {
-                u_edge = self.u_axis.right_edge(bg_coord);
+            if let Some(r) = update_for_axis(lat1.adet, bg_coord, &self.u_axis, &mut u) {
+                return r;
+            }
+
+            let lw = w.div_euclid(lat1.adet);
+            let w = w.rem_euclid(lat1.adet);
+
+            let xyt = lat1.uvw_to_xyt((u, v, w));
+            let idx = *xyt_idx.get(&xyt).unwrap();
+
+            if lw > 0 {
+                // not yet building
+                return PartialRowRead::Unknown
+            }
+            if lw < 0 {
+                // already built, will necessarily be able to read
+                return PartialRowRead::Read((-lw) as usize, idx)
+            }
+
+            // in the current row, see if it will already be set
+            if idx < rl {
+                return PartialRowRead::Read(0, idx);
             }
             else {
-                u_edge = LGolEdgeRead::Wrap;
-            }
-
-            let v_edge;
-            if lv < 0 {
-                v_edge = self.v_axis.left_edge(bg_coord);
-            }
-            else if lv > 0 {
-                v_edge = self.v_axis.right_edge(bg_coord);
-            }
-            else {
-                v_edge = LGolEdgeRead::Wrap;
-            }
-
-            let edge = match u_edge {
-                LGolEdgeRead::Wrap => v_edge,
-                _ => match v_edge {
-                    LGolEdgeRead::Wrap => u_edge,
-                    _ => panic!("Edge conflict at {:?}, u_edge {:?}, v_edge {:?}", xyt, u_edge, v_edge),
-                }
-            };
-
-            match edge {
-                LGolEdgeRead::Known(b) => PartialRowRead::Known(b),
-                LGolEdgeRead::Wrap => {
-                    let idx = *xyt_idx.get(&xyt).unwrap();
-
-                    if lw > 0 {
-                        // not yet building
-                        PartialRowRead::Unknown
-                    }
-                    else if lw < 0 {
-                        // already built, will necessarily be able to read
-                        PartialRowRead::Read((-lw) as usize, idx)
-                    }
-                    else {
-                        // in the current row, see if it will already be set
-                        if idx < rl {
-                            PartialRowRead::Read(0, idx)
-                        }
-                        else {
-                            PartialRowRead::Unknown
-                        }
-                    }
-                }
-                LGolEdgeRead::Unknown => PartialRowRead::Unknown,
+                return PartialRowRead::Unknown;
             }
         };
 
@@ -414,8 +416,8 @@ pub struct LGolGraph<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAx
 
 impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, E: LGolEnds<BS, BC>> LGolGraph<BS, BC, UA, VA, E> {
     fn recenter_common(&self, ty: impl LGolRecenter, hn: LGolHashNode<BS, BC>) -> (isize, isize, LGolHashNode<BS, BC>) {
-        let (su, hn) = ty.apply(&self.params.u_axis, &self.lat2.u_shift_data, hn);
         let (sv, hn) = ty.apply(&self.params.v_axis, &self.lat2.v_shift_data, hn);
+        let (su, hn) = ty.apply(&self.params.u_axis, &self.lat2.u_shift_data, hn);
 
         let du = su * self.lat2.u_shift_data.period;
         let dv = sv * self.lat2.v_shift_data.period;
