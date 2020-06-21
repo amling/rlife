@@ -55,7 +55,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
     let mx = args.parse();
 
     let ge = GolGraphParams {
-        mt: 8,
+        mt: 3,
         mx: mx,
         wx: wx,
 
@@ -63,18 +63,14 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
         right_edge: GolEdge::Empty,
 
         ox: 0,
-        oy: 3,
+        oy: 1,
 
         recenter: GolRecenter::BiasRight,
     };
     assert!(ge.mt * ge.mx <= B::size());
 
     let st = args.read_state_or(SerdeFormat::Bincode, || {
-        let (r0, r1) = ge.parse_and_recenter_pair(
-            "*..*. ..**. ..*.* .**.. *.*.. *.*.. ..**. .***.",
-            "*...* ...** ..... .**.. .*... .*.*. *.... .*.*.",
-        );
-        let n0 = ge.regular_node::<B, ()>(r0, r1);
+        let n0 = ge.zero_node::<B, ()>();
 
         Bfs2State::new_simple(n0)
     });
