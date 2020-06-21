@@ -47,8 +47,8 @@ impl LGolRecenter for LGolRecenterJustify {
 pub trait LGolAxis<BC: LGolBgCoord>: Copy {
     type S: Nice;
 
-    fn left_edge(&self, bg_coord: BC, c: isize) -> LGolEdgeRead;
-    fn right_edge(&self, bg_coord: BC, c: isize) -> LGolEdgeRead;
+    fn left_edge(&self, shift_data: &LGolShiftData<BC>, bg_coord: BC, c: isize) -> LGolEdgeRead;
+    fn right_edge(&self, shift_data: &LGolShiftData<BC>, bg_coord: BC, c: isize) -> LGolEdgeRead;
 
     fn zero_stat(&self, shift_data: &LGolShiftData<BC>) -> Self::S;
     fn add_stat(&self, shift_data: &LGolShiftData<BC>, s0: Self::S, bg_coord: BC, c: isize, v: bool) -> Option<Self::S>;
@@ -62,11 +62,11 @@ pub trait LGolAxis<BC: LGolBgCoord>: Copy {
 impl<BC: LGolBgCoord> LGolAxis<BC> for (LGolEdgeRead, LGolEdgeRead) {
     type S = ();
 
-    fn left_edge(&self, _bg_coord: BC, _c: isize) -> LGolEdgeRead {
+    fn left_edge(&self, _shift_data: &LGolShiftData<BC>, _bg_coord: BC, _c: isize) -> LGolEdgeRead {
         self.0
     }
 
-    fn right_edge(&self, _bg_coord: BC, _c: isize) -> LGolEdgeRead {
+    fn right_edge(&self, _shift_data: &LGolShiftData<BC>, _bg_coord: BC, _c: isize) -> LGolEdgeRead {
         self.1
     }
 
@@ -92,7 +92,7 @@ impl<BC: LGolBgCoord> LGolAxis<BC> for (LGolEdgeRead, LGolEdgeRead) {
 }
 
 pub trait LGolEdge<BC>: Copy {
-    fn edge(&self, bg_coord: BC) -> LGolEdgeRead;
+    fn edge(&self, shift_data: &LGolShiftData<BC>, bg_coord: BC) -> LGolEdgeRead;
     fn is_wrap(&self) -> bool;
 }
 
@@ -101,7 +101,7 @@ pub trait LGolEdge<BC>: Copy {
 pub struct LGolSimpleEdge(pub LGolEdgeRead);
 
 impl<BC> LGolEdge<BC> for LGolSimpleEdge {
-    fn edge(&self, _bg_coord: BC) -> LGolEdgeRead {
+    fn edge(&self, _shift_data: &LGolShiftData<BC>, _bg_coord: BC) -> LGolEdgeRead {
         self.0
     }
 
@@ -115,7 +115,7 @@ impl<BC> LGolEdge<BC> for LGolSimpleEdge {
 pub struct LGolBgEdge<BG>(pub BG);
 
 impl<BC: LGolBgCoord, BG: LGolBg<BC>> LGolEdge<BC> for LGolBgEdge<BG> {
-    fn edge(&self, bg_coord: BC) -> LGolEdgeRead {
+    fn edge(&self, _shift_data: &LGolShiftData<BC>, bg_coord: BC) -> LGolEdgeRead {
         LGolEdgeRead::Known(self.0.bg_cell(bg_coord))
     }
 
@@ -134,12 +134,12 @@ pub struct LGolSimpleAxis<LE, RE> {
 impl<BC: LGolBgCoord, LE: LGolEdge<BC>, RE: LGolEdge<BC>> LGolAxis<BC> for LGolSimpleAxis<LE, RE> {
     type S = ();
 
-    fn left_edge(&self, bg_coord: BC, _c: isize) -> LGolEdgeRead {
-        self.left_edge.edge(bg_coord)
+    fn left_edge(&self, shift_data: &LGolShiftData<BC>, bg_coord: BC, _c: isize) -> LGolEdgeRead {
+        self.left_edge.edge(shift_data, bg_coord)
     }
 
-    fn right_edge(&self, bg_coord: BC, _c: isize) -> LGolEdgeRead {
-        self.right_edge.edge(bg_coord)
+    fn right_edge(&self, shift_data: &LGolShiftData<BC>, bg_coord: BC, _c: isize) -> LGolEdgeRead {
+        self.right_edge.edge(shift_data, bg_coord)
     }
 
     fn zero_stat(&self, _shift_data: &LGolShiftData<BC>) {
@@ -257,11 +257,11 @@ impl<LBG, RBG> LGolFancyAxis<LBG, RBG> {
 impl<BC: LGolBgCoord, LBG: LGolBg<BC>, RBG: LGolBg<BC>> LGolAxis<BC> for LGolFancyAxis<LBG, RBG> {
     type S = (isize, isize);
 
-    fn left_edge(&self, bg_coord: BC, _c: isize) -> LGolEdgeRead {
+    fn left_edge(&self, _shift_data: &LGolShiftData<BC>, bg_coord: BC, _c: isize) -> LGolEdgeRead {
         LGolEdgeRead::Known(self.left_bg.bg_cell(bg_coord))
     }
 
-    fn right_edge(&self, bg_coord: BC, _c: isize) -> LGolEdgeRead {
+    fn right_edge(&self, _shift_data: &LGolShiftData<BC>, bg_coord: BC, _c: isize) -> LGolEdgeRead {
         LGolEdgeRead::Known(self.right_bg.bg_cell(bg_coord))
     }
 

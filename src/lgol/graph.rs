@@ -30,6 +30,7 @@ use lgol::ends::LGolEnds;
 use lgol::lat1::LGolLat1;
 use lgol::lat1::Vec3;
 use lgol::lat2::LGolLat2;
+use lgol::lat2::LGolShiftData;
 
 pub trait RowTuple: Copy + Debug + Default + Eq + Hash + Send + Sync {
     type Item: UScalar;
@@ -214,13 +215,13 @@ enum PartialRowRead {
     Read(usize, usize),
 }
 
-fn update_for_axis<BC: LGolBgCoord>(adet: isize, bg_coord: BC, a: &impl LGolAxis<BC>, c: &mut isize) -> Option<PartialRowRead> {
+fn update_for_axis<BC: LGolBgCoord>(adet: isize, bg_coord: BC, a: &impl LGolAxis<BC>, shift_data: &LGolShiftData<BC>, c: &mut isize) -> Option<PartialRowRead> {
     let e;
     if *c < 0 {
-        e = a.left_edge(bg_coord, *c);
+        e = a.left_edge(shift_data, bg_coord, *c);
     }
     else if *c >= adet {
-        e = a.right_edge(bg_coord, *c);
+        e = a.right_edge(shift_data, bg_coord, *c);
     }
     else {
         return None;
@@ -253,10 +254,10 @@ impl<BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>> LGolGraphParams<BC, UA
             let bg_coord = bg_coord.add(BC::from_xyt(xyt));
             let (mut u, mut v, w) = lat1.xyt_to_uvw(xyt);
 
-            if let Some(r) = update_for_axis(lat1.adet, bg_coord, &self.v_axis, &mut v) {
+            if let Some(r) = update_for_axis(lat1.adet, bg_coord, &self.v_axis, &lat2.v_shift_data, &mut v) {
                 return r;
             }
-            if let Some(r) = update_for_axis(lat1.adet, bg_coord, &self.u_axis, &mut u) {
+            if let Some(r) = update_for_axis(lat1.adet, bg_coord, &self.u_axis, &lat2.u_shift_data, &mut u) {
                 return r;
             }
 
