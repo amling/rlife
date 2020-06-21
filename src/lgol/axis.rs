@@ -92,8 +92,8 @@ impl<BC: LGolBgCoord> LGolAxis<BC> for (LGolEdgeRead, LGolEdgeRead) {
 }
 
 pub trait LGolEdge<BC>: Copy {
-    fn left_edge(&self, shift_data: &LGolShiftData<BC>, bg_coord: BC) -> LGolEdgeRead;
-    fn right_edge(&self, shift_data: &LGolShiftData<BC>, bg_coord: BC) -> LGolEdgeRead;
+    fn left_edge(&self, shift_data: &LGolShiftData<BC>, bg_coord: BC, c: isize) -> LGolEdgeRead;
+    fn right_edge(&self, shift_data: &LGolShiftData<BC>, bg_coord: BC, c: isize) -> LGolEdgeRead;
     fn is_wrap(&self) -> bool;
 }
 
@@ -102,11 +102,11 @@ pub trait LGolEdge<BC>: Copy {
 pub struct LGolSimpleEdge(pub LGolEdgeRead);
 
 impl<BC> LGolEdge<BC> for LGolSimpleEdge {
-    fn left_edge(&self, _shift_data: &LGolShiftData<BC>, _bg_coord: BC) -> LGolEdgeRead {
+    fn left_edge(&self, _shift_data: &LGolShiftData<BC>, _bg_coord: BC, _c: isize) -> LGolEdgeRead {
         self.0
     }
 
-    fn right_edge(&self, _shift_data: &LGolShiftData<BC>, _bg_coord: BC) -> LGolEdgeRead {
+    fn right_edge(&self, _shift_data: &LGolShiftData<BC>, _bg_coord: BC, _c: isize) -> LGolEdgeRead {
         self.0
     }
 
@@ -120,11 +120,11 @@ impl<BC> LGolEdge<BC> for LGolSimpleEdge {
 pub struct LGolBgEdge<BG>(pub BG);
 
 impl<BC: LGolBgCoord, BG: LGolBg<BC>> LGolEdge<BC> for LGolBgEdge<BG> {
-    fn left_edge(&self, _shift_data: &LGolShiftData<BC>, bg_coord: BC) -> LGolEdgeRead {
+    fn left_edge(&self, _shift_data: &LGolShiftData<BC>, bg_coord: BC, _c: isize) -> LGolEdgeRead {
         LGolEdgeRead::Known(self.0.bg_cell(bg_coord))
     }
 
-    fn right_edge(&self, _shift_data: &LGolShiftData<BC>, bg_coord: BC) -> LGolEdgeRead {
+    fn right_edge(&self, _shift_data: &LGolShiftData<BC>, bg_coord: BC, _c: isize) -> LGolEdgeRead {
         LGolEdgeRead::Known(self.0.bg_cell(bg_coord))
     }
 
@@ -143,12 +143,12 @@ pub struct LGolSimpleAxis<LE, RE> {
 impl<BC: LGolBgCoord, LE: LGolEdge<BC>, RE: LGolEdge<BC>> LGolAxis<BC> for LGolSimpleAxis<LE, RE> {
     type S = ();
 
-    fn left_edge(&self, shift_data: &LGolShiftData<BC>, bg_coord: BC, _c: isize) -> LGolEdgeRead {
-        self.left_edge.left_edge(shift_data, bg_coord)
+    fn left_edge(&self, shift_data: &LGolShiftData<BC>, bg_coord: BC, c: isize) -> LGolEdgeRead {
+        self.left_edge.left_edge(shift_data, bg_coord, c)
     }
 
-    fn right_edge(&self, shift_data: &LGolShiftData<BC>, bg_coord: BC, _c: isize) -> LGolEdgeRead {
-        self.right_edge.right_edge(shift_data, bg_coord)
+    fn right_edge(&self, shift_data: &LGolShiftData<BC>, bg_coord: BC, c: isize) -> LGolEdgeRead {
+        self.right_edge.right_edge(shift_data, bg_coord, c)
     }
 
     fn zero_stat(&self, _shift_data: &LGolShiftData<BC>) {
