@@ -49,44 +49,7 @@ fn main() {
 }
 
 fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError> {
-    let mut args = env_args();
-
-    let wx = args.parse();
-    let mx = args.parse();
-
-    let ge = GolGraphParams {
-        mt: 3,
-        mx: mx,
-        wx: wx,
-
-        left_edge: GolEdge::Empty,
-        right_edge: GolEdge::Empty,
-
-        ox: 0,
-        oy: 1,
-
-        recenter: GolRecenter::BiasRight,
-    };
-    assert!(ge.mt * ge.mx <= B::size());
-
-    let st = args.read_state_or(SerdeFormat::Bincode, || {
-        let n0 = ge.zero_node::<B, ()>();
-
-        Bfs2State::new_simple(n0)
-    });
-
-    let ge = ge.derived((), ());
-
-    let mut le = GolLifecycle {
-        ge: &ge,
-        ep: rctl_spawn(),
-    };
-
-    bfs::bfs2(st, &ge, &mut le);
-
-    le.log(LogLevel::INFO, "Done");
-
-    Ok(())
+    demo___lgol___main1::<B>()
 }
 
 #[allow(dead_code)]
