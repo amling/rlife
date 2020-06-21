@@ -135,6 +135,51 @@ impl<BC: LGolBgCoord, BG: LGolBg<BC>> LGolEdge<BC> for LGolBgEdge<BG> {
 
 #[derive(Clone)]
 #[derive(Copy)]
+pub struct LGolReflectEdge(pub isize);
+
+impl<BC> LGolEdge<BC> for LGolReflectEdge {
+    fn left_edge(&self, shift_data: &LGolShiftData<BC>, _bg_coord: BC, c: isize) -> LGolEdgeRead {
+        let mut c = c;
+
+        // First, flip if appropriate
+        // condition in rationals is: c < shift_data.min_coord - self.0 / 2
+        let double_crit = 2 * shift_data.min_coord - self.0;
+        if 2 * c < double_crit {
+            c = double_crit - c;
+        }
+
+        // Now if c is still OOB we're in the gutter
+        if c < shift_data.min_coord {
+            // "read the background"
+            return LGolEdgeRead::Known(false);
+        }
+
+        LGolEdgeRead::Update(c)
+    }
+
+    fn right_edge(&self, shift_data: &LGolShiftData<BC>, _bg_coord: BC, c: isize) -> LGolEdgeRead {
+        let mut c = c;
+
+        // condition is: c > shift_data.max_coord + self.0 / 2
+        let double_crit = 2 * shift_data.max_coord + self.0;
+        if 2 * c > double_crit {
+            c = double_crit - c;
+        }
+
+        if c > shift_data.max_coord {
+            return LGolEdgeRead::Known(false);
+        }
+
+        LGolEdgeRead::Update(c)
+    }
+
+    fn is_wrap(&self) -> bool {
+        false
+    }
+}
+
+#[derive(Clone)]
+#[derive(Copy)]
 pub struct LGolSimpleAxis<LE, RE> {
     pub left_edge: LE,
     pub right_edge: RE,

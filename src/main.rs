@@ -35,8 +35,11 @@ use gol::graph::GolRecenter;
 use gol::lifecycle::GolLifecycle;
 use gol::lifecycle::GolRctlEp;
 use gol::patlib::GolPatterns;
+use lgol::axis::LGolBgEdge;
 use lgol::axis::LGolEdgeRead;
 use lgol::axis::LGolFancyAxis;
+use lgol::axis::LGolReflectEdge;
+use lgol::axis::LGolSimpleAxis;
 use lgol::bg::LGolBgEmpty;
 use lgol::bg::LGolBgVertStripes;
 use lgol::bg::LGolBgX2;
@@ -309,6 +312,47 @@ fn demo___lgol___periodic_edge___main1<B: UScalar + DeserializeOwned + Serialize
         let n0 = ge.cb_node((0, 0, 0), |(x, _y, _t)| {
             x.rem_euclid(2) == 0
         });
+
+        Bfs2State::new_simple(n0)
+    });
+
+    assert!(ge.max_r1l <= B::size());
+
+    let mut le = GolLifecycle {
+        ge: &ge,
+        ep: rctl_spawn(),
+    };
+
+    bfs::bfs2(st, &ge, &mut le);
+
+    le.log(LogLevel::INFO, "Done");
+
+    Ok(())
+}
+
+#[allow(dead_code)]
+fn demo___lgol___reflect___main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError> {
+    let mut args = env_args();
+
+    let mx = args.parse();
+
+    let ge = LGolGraphParams {
+        vu: (mx, 0, 0),
+        vv: (0, -1, 3),
+        vw: (0, 0, 1),
+
+        bg_coord: PhantomData::<()>,
+
+        u_axis: LGolSimpleAxis {
+            left_edge: LGolBgEdge(LGolBgEmpty()),
+            right_edge: LGolReflectEdge(0),
+        },
+        v_axis: (LGolEdgeRead::Wrap, LGolEdgeRead::Wrap),
+    };
+    let ge = ge.derived::<[B; 6], _>(());
+
+    let st = args.read_state_or(SerdeFormat::Bincode, || {
+        let n0 = ge.zero_node();
 
         Bfs2State::new_simple(n0)
     });
