@@ -133,6 +133,7 @@ impl<BC: LGolBgCoord, BG: LGolBg<BC>> LGolEdge<BC> for LGolBgEdge<BG> {
     }
 }
 
+// self.0 is reflection axis in half units over the edge (0 is odd, 1 is even, 2 is gutter)
 #[derive(Clone)]
 #[derive(Copy)]
 pub struct LGolReflectEdge(pub isize);
