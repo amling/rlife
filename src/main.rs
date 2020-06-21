@@ -218,7 +218,7 @@ fn demo___lgol___main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<()
         vv: (0, -1, 3),
         vw: (0, 0, 1),
 
-        bg_coord: PhantomData::<LGolBgX2>,
+        bg_coord: PhantomData::<()>,
 
         u_axis: LGolFancyAxis {
             w: (wx, mx),
