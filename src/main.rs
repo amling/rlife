@@ -45,7 +45,8 @@ use lgol::bg::LGolBgVertStripes;
 use lgol::bg::LGolBgX2;
 use lgol::graph::LGolGraphParams;
 use lgol::lat1::Vec3;
-use sal::SerdeFormat;
+use sal::BincodeSerializer;
+use sal::DeserializerFor;
 
 fn main() {
     main1::<u64>().unwrap();
@@ -72,7 +73,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
     };
     assert!(ge.mt * ge.mx <= B::size());
 
-    let st = args.read_state_or(SerdeFormat::Bincode, || {
+    let st = args.read_state_or(BincodeSerializer(), || {
         let (r0, r1) = ge.parse_and_recenter_pair(
             "*..*. ..**. ..*.* .**.. *.*.. *.*.. ..**. .***.",
             "*...* ...** ..... .**.. .*... .*.*. *.... .*.*.",
@@ -118,7 +119,7 @@ fn demo___bfs2___main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<()
     };
     assert!(ge.mt * ge.mx <= B::size());
 
-    let st = args.read_state_or(SerdeFormat::Bincode, || {
+    let st = args.read_state_or(BincodeSerializer(), || {
         let (r0, r1) = ge.parse_and_recenter_pair(
             "*..*. ..**. ..*.* .**.. *.*.. *.*.. ..**. .***.",
             "*...* ...** ..... .**.. .*... .*.*. *.... .*.*.",
@@ -164,7 +165,7 @@ fn demo___bfs2___ends_db___main1<B: UScalar + DeserializeOwned + Serialize>() ->
     };
     assert!(ge.mt * ge.mx <= B::size());
 
-    let st = args.read_state_or(SerdeFormat::Bincode, || {
+    let st = args.read_state_or(BincodeSerializer(), || {
         let (r0, r1) = ge.parse_and_recenter_pair(
             "*..*. ..**. ..*.* .**.. *.*.. *.*.. ..**. .***.",
             "*...* ...** ..... .**.. .*... .*.*. *.... .*.*.",
@@ -236,7 +237,7 @@ fn demo___lgol___main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<()
     };
     let ge = ge.derived::<[B; 6], _>(());
 
-    let st = args.read_state_or(SerdeFormat::Bincode, || {
+    let st = args.read_state_or(BincodeSerializer(), || {
         let n0 = ge.zero_node();
 
         Bfs2State::new_simple(n0)
@@ -279,7 +280,7 @@ fn demo___lgol___oob_agar___main1<B: UScalar + DeserializeOwned + Serialize>() -
     };
     let mut ge = ge.derived::<[B; 10], _>(HashSet::new());
 
-    let st = args.read_state_or(SerdeFormat::Bincode, || {
+    let st = args.read_state_or(BincodeSerializer(), || {
         let rs = ge.parse_bs(&[
             "*...", "*...", "*...", "*...", "*...",
             "*...", "*...", "*...", "*...", "*...",
@@ -349,7 +350,7 @@ fn demo___lgol___periodic_edge___main1<B: UScalar + DeserializeOwned + Serialize
     };
     let ge = ge.derived::<[B; 2], _>(());
 
-    let st = args.read_state_or(SerdeFormat::Bincode, || {
+    let st = args.read_state_or(BincodeSerializer(), || {
         let n0 = ge.cb_node((0, 0, 0), |(x, _y, _t)| {
             x.rem_euclid(2) == 0
         });
@@ -392,7 +393,7 @@ fn demo___lgol___reflect___main1<B: UScalar + DeserializeOwned + Serialize>() ->
     };
     let ge = ge.derived::<[B; 6], _>(());
 
-    let st = args.read_state_or(SerdeFormat::Bincode, || {
+    let st = args.read_state_or(BincodeSerializer(), || {
         let n0 = ge.zero_node();
 
         Bfs2State::new_simple(n0)
@@ -424,10 +425,10 @@ impl<I: Iterator<Item=String>> ArgsHelper<I> {
         self.0.next().map(|s| s.parse().unwrap()).unwrap_or(def)
     }
 
-    fn read_state_or<S: DeserializeOwned>(&mut self, s: SerdeFormat, f: impl FnOnce() -> S) -> S {
+    fn read_state_or<T>(&mut self, s: impl DeserializerFor<T>, f: impl FnOnce() -> T) -> T {
         match self.0.next() {
             Some(path) => {
-                s.read(path).unwrap()
+                s.from_file(path).unwrap()
             }
             None => {
                 f()

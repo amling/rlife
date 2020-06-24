@@ -29,7 +29,9 @@ use gol::graph::GolGraph;
 use gol::graph::GolKeyNode;
 use gol::graph::GolNode;
 use gol::graph::GolNodeSerdeProxy;
-use sal::SerdeFormat;
+use sal::BincodeSerializer;
+use sal::JsonSerializer;
+use sal::SerializerFor;
 
 pub struct GolRctlEp {
     pub threads: AtomicUsize,
@@ -185,7 +187,7 @@ impl<'a, GE: GolGraphTrait> DfsLifecycle<GE::N> for GolLifecycle<'a, GE> where <
             let t0 = std::time::Instant::now();
             let tree = tree.as_ref().map(&mut |n| self.ge.freeze_dfs_node(n));
             let tree = tree.to_serde_proxy();
-            SerdeFormat::JSON.write(&path, &tree).unwrap();
+            JsonSerializer().to_file(&path, &tree).unwrap();
 
             w.output(format!("Checkpointed DFS state to {} in {:?}", path, t0.elapsed()));
 
@@ -215,7 +217,7 @@ impl<'a, GE: GolGraphTrait> DfsLifecycle<GE::N> for GolLifecycle<'a, GE> where <
                 maybe_get_state.take().unwrap()()
             });
 
-            SerdeFormat::Bincode.write(&path, state).unwrap();
+            BincodeSerializer().to_file(&path, state).unwrap();
 
             w.output(format!("Checkpointed BFS state to {} in {:?}", path, t0.elapsed()));
 
