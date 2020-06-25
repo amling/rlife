@@ -186,17 +186,7 @@ pub fn bfs2<N: DfsNode + Copy, CF: Bfs2ChunkFactory<N>, GE: DfsGraph<N> + Sync, 
             let kns = &mut state.kns;
             let q = &mut state.q;
 
-            let live_remap = kns.rebuild(&mut *q, |msg| le.log(LogLevel::INFO, msg));
-
-            {
-                let t0 = std::time::Instant::now();
-                cq_par(threads, shards, q, |q| {
-                    for (idx, _) in q.iter_mut() {
-                        *idx = *live_remap.get(idx).unwrap();
-                    }
-                });
-                le.log(LogLevel::INFO, format!("Reindexed q in {:?}", t0.elapsed()));
-            }
+            kns.rebuild(q, |msg| le.log(LogLevel::INFO, msg));
 
             &state
         });
@@ -353,27 +343,7 @@ pub fn bfs2<N: DfsNode + Copy, CF: Bfs2ChunkFactory<N>, GE: DfsGraph<N> + Sync, 
                     le.log(LogLevel::INFO, format!("Defragmented ws.q2 in {:?}", t0.elapsed()));
                 }
 
-                let live_remap = kns.rebuild(&mut ws, |msg| le.log(LogLevel::INFO, msg));
-
-                {
-                    let t0 = std::time::Instant::now();
-                    singleton_par(threads, &mut ws, |w| {
-                        for (idx, _) in w.q.iter_mut() {
-                            *idx = *live_remap.get(idx).unwrap();
-                        }
-                    });
-                    le.log(LogLevel::INFO, format!("Reindexed ws.q in {:?}", t0.elapsed()));
-                }
-
-                {
-                    let t0 = std::time::Instant::now();
-                    singleton_par(threads, &mut ws, |w| {
-                        for (idx, _) in w.q2.iter_mut() {
-                            *idx = *live_remap.get(idx).unwrap();
-                        }
-                    });
-                    le.log(LogLevel::INFO, format!("Reindexed ws.q2 in {:?}", t0.elapsed()));
-                }
+                kns.rebuild(&mut ws, |msg| le.log(LogLevel::INFO, msg));
 
                 {
                     let qm = ws.iter().map(|w| q_mem(&w.q)).sum::<usize>();
@@ -470,27 +440,7 @@ pub fn bfs2<N: DfsNode + Copy, CF: Bfs2ChunkFactory<N>, GE: DfsGraph<N> + Sync, 
                     le.log(LogLevel::INFO, format!("Defragmented q4 in {:?}", t0.elapsed()));
                 }
 
-                let live_remap = kns.rebuild((&mut q3, &mut q4), |msg| le.log(LogLevel::INFO, msg));
-
-                {
-                    let t0 = std::time::Instant::now();
-                    cq_par(threads, shards, &mut q3, |q3| {
-                        for (idx, _) in q3.iter_mut() {
-                            *idx = *live_remap.get(idx).unwrap();
-                        }
-                    });
-                    le.log(LogLevel::INFO, format!("Reindexed q3 in {:?}", t0.elapsed()));
-                }
-
-                {
-                    let t0 = std::time::Instant::now();
-                    cq_par(threads, shards, &mut q4, |q4| {
-                        for (idx, _) in q4.iter_mut() {
-                            *idx = *live_remap.get(idx).unwrap();
-                        }
-                    });
-                    le.log(LogLevel::INFO, format!("Reindexed q4 in {:?}", t0.elapsed()));
-                }
+                kns.rebuild((&mut q3, &mut q4), |msg| le.log(LogLevel::INFO, msg));
 
                 {
                     let q3m = q_mem(&q3);

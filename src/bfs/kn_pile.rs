@@ -79,7 +79,7 @@ impl<N: Default, CF: ChunkFactory<(usize, N, usize)>> KnPile<N, CF> {
         }
     }
 
-    pub fn rebuild(&mut self, mut living: impl KnsRebuildable, log: impl FnOnce(String)) -> HashMap<usize, usize> {
+    pub fn rebuild(&mut self, mut living: impl KnsRebuildable, log: impl FnOnce(String)) {
         let t0 = std::time::Instant::now();
         let size = self.len();
 
@@ -138,9 +138,9 @@ impl<N: Default, CF: ChunkFactory<(usize, N, usize)>> KnPile<N, CF> {
 
         debug_assert_eq!(self.len(), rebuilt_idx);
 
-        log(format!("Rebuilt kns from {} to {} ({} roots) in {:?}", size, rebuilt_idx, root_ct, t0.elapsed()));
+        living.walk(|idx| *idx = *live_remap.get(idx).unwrap());
 
-        live_remap
+        log(format!("Rebuilt kns from {} to {} ({} roots) in {:?}", size, rebuilt_idx, root_ct, t0.elapsed()));
     }
 
     pub fn materialize<T>(&self, idx: usize, mut f: impl FnMut(&N) -> T) -> Vec<T> {
