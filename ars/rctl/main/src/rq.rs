@@ -26,8 +26,8 @@ impl<R> RctlDeferredRead<R> {
 pub struct RctlDeferredWrite<R>(WaitNotifyState<RctlDeferredBackend<R>>);
 
 impl<R> RctlDeferredWrite<R> {
-    pub fn output(&mut self, line: String) {
-        self.0.write(|be| be.outputs.push_back(line));
+    pub fn output(&mut self, line: impl Into<String>) {
+        self.0.write(|be| be.outputs.push_back(line.into()));
     }
 
     pub fn ret(self, ret: R) {
