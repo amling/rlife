@@ -189,7 +189,9 @@ impl<'a, GE: GolGraphTrait> DfsLifecycle<GE::N> for GolLifecycle<'a, GE> where <
             let tree = tree.to_serde_proxy();
             JsonSerializer().to_file(&path, &tree).unwrap();
 
-            w.output(format!("Checkpointed DFS state to {} in {:?}", path, t0.elapsed()));
+            let msg = format!("Checkpointed DFS state to {} in {:?}", path, t0.elapsed());
+            w.output(&msg);
+            self.log(LogLevel::INFO, &msg);
 
             w.ret(())
         });
@@ -220,7 +222,9 @@ impl<'a, GE: GolGraphTrait> DfsLifecycle<GE::N> for GolLifecycle<'a, GE> where <
 
             BincodeSerializer().to_file(&path, state).unwrap();
 
-            w.output(format!("Checkpointed BFS state to {} in {:?}", path, t0.elapsed()));
+            let msg = format!("Checkpointed BFS state to {} in {:?}", path, t0.elapsed());
+            w.output(&msg);
+            self.log(LogLevel::INFO, &msg);
 
             w.ret(())
         });
