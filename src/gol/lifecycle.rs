@@ -200,7 +200,7 @@ impl<'a, GE: GolGraphTrait> DfsLifecycle<GE::N> for GolLifecycle<'a, GE> where <
         let ep = self.ep.clone();
 
         let mut maybe_state = None;
-        let mut maybe_get_state = Some(|| get_state(self));
+        let mut maybe_get_state = Some(get_state);
 
         ep.checkpt_rq.service(&mut |(path, mut w)| {
             let path = match path {
@@ -214,7 +214,8 @@ impl<'a, GE: GolGraphTrait> DfsLifecycle<GE::N> for GolLifecycle<'a, GE> where <
             // (still have to "take" it to call it, etc.).
             let state = maybe_state.get_or_insert_with(|| {
                 // no state yet, better still have the getter
-                maybe_get_state.take().unwrap()()
+                let get_state = maybe_get_state.take().unwrap();
+                get_state(self)
             });
 
             BincodeSerializer().to_file(&path, state).unwrap();
