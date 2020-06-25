@@ -49,10 +49,19 @@ use sal::BincodeSerializer;
 use sal::DeserializerFor;
 
 fn main() {
-    main1::<u64>().unwrap();
+    let ep = Arc::new(GolRctlEp {
+        threads: AtomicUsize::new(8),
+        recollect_ms: AtomicU64::new(5000),
+        max_mem: AtomicUsize::new(2 << 30),
+        checkpt_rq: RctlRunQueue::new(),
+    });
+
+    ars_rctl_main::spawn(ep.clone());
+
+    main1::<u64>(ep).unwrap();
 }
 
-fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError> {
+fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
     let mut args = env_args();
 
     let wx = args.parse();
@@ -87,7 +96,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
 
     let mut le = GolLifecycle {
         ge: &ge,
-        ep: rctl_spawn(),
+        ep: ep,
     };
 
     bfs::bfs2(st, &ge, &mut le);
@@ -98,7 +107,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError>
 }
 
 #[allow(dead_code)]
-fn demo___bfs2___main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError> {
+fn demo___bfs2___main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
     let mut args = env_args();
 
     let wx = args.parse();
@@ -133,7 +142,7 @@ fn demo___bfs2___main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<()
 
     let mut le = GolLifecycle {
         ge: &ge,
-        ep: rctl_spawn(),
+        ep: ep,
     };
 
     bfs::bfs2(st, &ge, &mut le);
@@ -144,7 +153,7 @@ fn demo___bfs2___main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<()
 }
 
 #[allow(dead_code)]
-fn demo___bfs2___ends_db___main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError> {
+fn demo___bfs2___ends_db___main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
     let mut args = env_args();
 
     let wx = args.parse();
@@ -202,7 +211,7 @@ fn demo___bfs2___ends_db___main1<B: UScalar + DeserializeOwned + Serialize>() ->
 
     let mut le = GolLifecycle {
         ge: &ge,
-        ep: rctl_spawn(),
+        ep: ep,
     };
 
     le.log(LogLevel::INFO, format!("Loaded {} ends", ge.ends.len()));
@@ -215,7 +224,7 @@ fn demo___bfs2___ends_db___main1<B: UScalar + DeserializeOwned + Serialize>() ->
 }
 
 #[allow(dead_code)]
-fn demo___lgol___main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError> {
+fn demo___lgol___main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
     let mut args = env_args();
 
     let wx = args.parse();
@@ -247,7 +256,7 @@ fn demo___lgol___main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<()
 
     let mut le = GolLifecycle {
         ge: &ge,
-        ep: rctl_spawn(),
+        ep: ep,
     };
 
     bfs::bfs2(st, &ge, &mut le);
@@ -258,7 +267,7 @@ fn demo___lgol___main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<()
 }
 
 #[allow(dead_code)]
-fn demo___lgol___oob_agar___main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError> {
+fn demo___lgol___oob_agar___main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
     let mut args = env_args();
 
     let wx = args.parse();
@@ -313,7 +322,7 @@ fn demo___lgol___oob_agar___main1<B: UScalar + DeserializeOwned + Serialize>() -
 
     let mut le = GolLifecycle {
         ge: &ge,
-        ep: rctl_spawn(),
+        ep: ep,
     };
 
     bfs::bfs2(st, &ge, &mut le);
@@ -324,7 +333,7 @@ fn demo___lgol___oob_agar___main1<B: UScalar + DeserializeOwned + Serialize>() -
 }
 
 #[allow(dead_code)]
-fn demo___lgol___periodic_edge___main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError> {
+fn demo___lgol___periodic_edge___main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
     let mut args = env_args();
 
     let mt = args.parse();
@@ -362,7 +371,7 @@ fn demo___lgol___periodic_edge___main1<B: UScalar + DeserializeOwned + Serialize
 
     let mut le = GolLifecycle {
         ge: &ge,
-        ep: rctl_spawn(),
+        ep: ep,
     };
 
     bfs::bfs2(st, &ge, &mut le);
@@ -373,7 +382,7 @@ fn demo___lgol___periodic_edge___main1<B: UScalar + DeserializeOwned + Serialize
 }
 
 #[allow(dead_code)]
-fn demo___lgol___reflect___main1<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError> {
+fn demo___lgol___reflect___main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
     let mut args = env_args();
 
     let mx = args.parse();
@@ -403,7 +412,7 @@ fn demo___lgol___reflect___main1<B: UScalar + DeserializeOwned + Serialize>() ->
 
     let mut le = GolLifecycle {
         ge: &ge,
-        ep: rctl_spawn(),
+        ep: ep,
     };
 
     bfs::bfs2(st, &ge, &mut le);
@@ -439,17 +448,4 @@ impl<I: Iterator<Item=String>> ArgsHelper<I> {
 
 fn env_args() -> ArgsHelper<impl Iterator<Item=String>> {
     ArgsHelper(std::env::args().skip(1))
-}
-
-fn rctl_spawn() -> Arc<GolRctlEp> {
-    let ep = Arc::new(GolRctlEp {
-        threads: AtomicUsize::new(8),
-        recollect_ms: AtomicU64::new(5000),
-        max_mem: AtomicUsize::new(2 << 30),
-        checkpt_rq: RctlRunQueue::new(),
-    });
-
-    ars_rctl_main::spawn(ep.clone());
-
-    ep
 }
