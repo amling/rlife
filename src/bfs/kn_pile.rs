@@ -177,10 +177,8 @@ impl<N: Default> KnPile<N> {
     pub fn esize(&self) -> usize {
         std::mem::size_of::<(usize, N)>()
     }
-}
 
-impl<N: Default + Clone> KnPile<N> {
-    pub fn materialize_cloned(&self, idx: usize) -> Vec<N> {
+    pub fn materialize_cloned(&self, idx: usize) -> Vec<N> where N: Clone {
         self.materialize(idx, |n| n.clone())
     }
 }
