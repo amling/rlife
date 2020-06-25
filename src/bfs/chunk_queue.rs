@@ -1,41 +1,42 @@
 #![allow(unused_parens)]
 
-use serde::Deserialize;
-use serde::Serialize;
 use std::collections::VecDeque;
 
-#[derive(Deserialize)]
-#[derive(Serialize)]
-pub struct ChunkQueue<N> {
+use crate::chunk_store;
+
+use chunk_store::ChunkFactory;
+use chunk_store::ChunkVecDeque;
+
+pub struct ChunkQueue<N, CF: ChunkFactory<N>> {
+    pub cf: CF,
     len: usize,
-    q: VecDeque<VecDeque<N>>,
+    q: VecDeque<ChunkVecDeque<N, CF::Output>>,
 }
 
-impl<N> ChunkQueue<N> {
+impl<N, CF: ChunkFactory<N>> ChunkQueue<N, CF> {
     fn chunk_size(&self) -> usize {
         let d = std::mem::size_of::<N>();
-        ((1 << 20) + d) / d
+        (1 << 20) / d
     }
 
-    pub fn new() -> Self {
+    pub fn new(cf: CF) -> Self {
         ChunkQueue {
+            cf: cf,
             len: 0,
             q: VecDeque::new(),
         }
     }
 
-    pub fn push_back(&mut self, n: N) {
+    pub fn push_back(&mut self, n: N) where N: Copy {
         self.len += 1;
 
-        let chunk_size = self.chunk_size();
         if let Some(last) = self.q.back_mut() {
-            if last.len() < last.capacity() {
-                last.push_back(n);
+            if last.offer(n) {
                 return;
             }
         }
-        self.q.push_back(VecDeque::with_capacity(chunk_size));
-        self.q.back_mut().unwrap().push_back(n);
+        self.q.push_back(self.cf.new_chunk_vec_deque(self.chunk_size()));
+        assert!(self.q.back_mut().unwrap().offer(n));
     }
 
     pub fn len(&self) -> usize {
@@ -43,7 +44,7 @@ impl<N> ChunkQueue<N> {
         self.len
     }
 
-    pub fn pop_front(&mut self) -> Option<N> {
+    pub fn pop_front(&mut self) -> Option<N> where N: Copy {
         loop {
             match self.q.front_mut() {
                 Some(q) => {
@@ -82,12 +83,13 @@ impl<N> ChunkQueue<N> {
         self.q.iter_mut().map(|q| q.iter_mut()).flatten()
     }
 
-    pub fn drain_partition(&mut self, shards: usize) -> Vec<ChunkQueue<N>> {
+    pub fn drain_partition(&mut self, shards: usize) -> Vec<ChunkQueue<N, CF>> {
         let len = self.q.len();
         let ret = (0..shards).map(|i| {
             let ct = ((i + 1) * len / shards - i * len / shards);
             let q: VecDeque<_> = self.q.drain(0..ct).collect();
             ChunkQueue {
+                cf: self.cf,
                 len: q.iter().map(|q| q.len()).sum(),
                 q: q,
             }
@@ -97,7 +99,7 @@ impl<N> ChunkQueue<N> {
         ret
     }
 
-    pub fn retain(&mut self, mut f: impl FnMut(&N) -> bool) {
+    pub fn retain(&mut self, mut f: impl FnMut(&N) -> bool) where N: Copy {
         let mut len = 0;
         for q in self.q.iter_mut() {
             q.retain(&mut f);
@@ -106,7 +108,7 @@ impl<N> ChunkQueue<N> {
         self.len = len;
     }
 
-    fn get_two_mut(&mut self, i: usize, j: usize) -> (&mut VecDeque<N>, &mut VecDeque<N>) {
+    fn get_two_mut(&mut self, i: usize, j: usize) -> (&mut ChunkVecDeque<N, CF::Output>, &mut ChunkVecDeque<N, CF::Output>) {
         let (s1, s2) = self.q.as_mut_slices();
 
         let s1l = s1.len();
@@ -135,7 +137,7 @@ impl<N> ChunkQueue<N> {
     }
 
 
-    pub fn defragment(&mut self) {
+    pub fn defragment(&mut self) where N: Copy {
         let mut i = 0;
         let mut j = 0;
 
@@ -149,33 +151,24 @@ impl<N> ChunkQueue<N> {
 
             let (p1, p2) = self.get_two_mut(i, j);
 
-            let space = p1.capacity() - p1.len();
-            if space >= p2.len() {
-                p1.append(p2);
+            p1.shift_left(p2);
+            if p2.len() == 0 {
                 j += 1;
             }
             else {
-                let mut q1 = std::mem::replace(p2, VecDeque::with_capacity(0));
-                let q2 = q1.split_off(space);
-                *p2 = q2;
-                p1.append(&mut q1);
                 i += 1;
             }
         }
 
-        loop {
-            if let Some(last) = self.q.back_mut() {
-                if last.len() == 0 {
-                    self.q.pop_back();
-                    continue;
-                }
-            }
-
-            break;
+        // We are/were pushing into i, but i could be empty or off the end of the vec, so be
+        // careful...
+        if i < self.q.len() && self.q[i].len() > 0 {
+            i += 1;
         }
+        self.q.truncate(i);
     }
 
-    pub fn append(&mut self, other: &mut ChunkQueue<N>) {
+    pub fn append(&mut self, other: &mut ChunkQueue<N, CF>) {
         self.q.append(&mut other.q);
         self.len += other.len;
         other.len = 0;

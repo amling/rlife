@@ -16,6 +16,7 @@ use crate::dfs;
 use crate::gol;
 use crate::sal;
 
+use bfs::bfs2::Bfs2ChunkFactory;
 use bfs::bfs2::Bfs2State;
 use dfs::Tree;
 use dfs::graph::DfsNode;
@@ -29,7 +30,6 @@ use gol::graph::GolGraph;
 use gol::graph::GolKeyNode;
 use gol::graph::GolNode;
 use gol::graph::GolNodeSerdeProxy;
-use sal::BincodeSerializer;
 use sal::JsonSerializer;
 use sal::SerializerFor;
 
@@ -197,7 +197,7 @@ impl<'a, GE: GolGraphTrait> DfsLifecycle<GE::N> for GolLifecycle<'a, GE> where <
         });
     }
 
-    fn debug_bfs2_checkpoint<'b>(&mut self, get_state: impl FnOnce(&mut Self) -> &'b Bfs2State<GE::N, <GE::N as DfsNode>::KN>) where GE::N: 'b {
+    fn debug_bfs2_checkpoint<'b, CF: Bfs2ChunkFactory<GE::N> + 'b>(&mut self, get_state: impl FnOnce(&mut Self) -> &'b Bfs2State<GE::N, CF>) where GE::N: 'b {
         // clone ep so self is still available for closure to take
         let ep = self.ep.clone();
 
@@ -220,7 +220,7 @@ impl<'a, GE: GolGraphTrait> DfsLifecycle<GE::N> for GolLifecycle<'a, GE> where <
                 get_state(self)
             });
 
-            BincodeSerializer().to_file(&path, state).unwrap();
+            state.serializer().to_file(&path, state).unwrap();
 
             let msg = format!("Checkpointed BFS state to {} in {:?}", path, t0.elapsed());
             w.output(&msg);

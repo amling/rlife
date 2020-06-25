@@ -12,10 +12,12 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::marker::PhantomData;
 
+use crate::chunk_store;
 use crate::dfs;
 use crate::gol;
 use crate::lgol;
 
+use chunk_store::MmapChunkSafe;
 use dfs::graph::DfsGraph;
 use dfs::graph::DfsKeyNode;
 use dfs::graph::DfsNode;
@@ -109,6 +111,7 @@ impl_row_tuple!(31);
 impl_row_tuple!(32);
 
 #[derive(Clone)]
+#[derive(Copy)]
 #[derive(Debug)]
 #[derive(Default)]
 #[derive(Deserialize)]
@@ -125,6 +128,10 @@ pub struct LGolNode<BS: RowTuple, BC, US, VS> {
     pub r1l: u8,
     pub r1_us: US,
     pub r1_vs: VS,
+}
+
+impl<BS: RowTuple, BC: Nice + Default, US: Nice + Default, VS: Nice + Default> MmapChunkSafe for LGolNode<BS, BC, US, VS> {
+    // :X
 }
 
 impl<BS: RowTuple, BC: Nice, US: Nice, VS: Nice> DfsNode for LGolNode<BS, BC, US, VS> {
@@ -155,6 +162,7 @@ impl<BS: RowTuple, BC: Nice, US: Nice, VS: Nice> LGolNode<BS, BC, US, VS> {
 }
 
 #[derive(Clone)]
+#[derive(Copy)]
 #[derive(Debug)]
 #[derive(Default)]
 #[derive(Deserialize)]
@@ -167,6 +175,10 @@ pub struct LGolKeyNode<BS: RowTuple, BC> {
     pub du: i16,
     pub dv: i16,
     pub rs: BS,
+}
+
+impl<BS: RowTuple, BC: Nice + Copy> MmapChunkSafe for LGolKeyNode<BS, BC> {
+    // :X
 }
 
 impl<BS: RowTuple, BC: Nice> LGolKeyNode<BS, BC> {

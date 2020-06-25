@@ -20,12 +20,15 @@ use std::sync::atomic::AtomicU64;
 use std::sync::atomic::AtomicUsize;
 
 mod bfs;
+mod chunk_store;
 mod dfs;
 mod gol;
 mod lgol;
 mod sal;
 
+use bfs::bfs2::Bfs2CustomSerializer;
 use bfs::bfs2::Bfs2State;
+use chunk_store::VecChunkFactory;
 use dfs::lifecycle::DfsLifecycle;
 use dfs::lifecycle::LogLevel;
 use gol::graph::GolEdge;
@@ -45,7 +48,6 @@ use lgol::bg::LGolBgVertStripes;
 use lgol::bg::LGolBgX2;
 use lgol::graph::LGolGraphParams;
 use lgol::lat1::Vec3;
-use sal::BincodeSerializer;
 use sal::DeserializerFor;
 
 fn main() {
@@ -82,14 +84,15 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Resul
     };
     assert!(ge.mt * ge.mx <= B::size());
 
-    let st = args.read_state_or(BincodeSerializer(), || {
+    let cf = VecChunkFactory();
+    let st = args.read_state_or(Bfs2CustomSerializer(cf), || {
         let (r0, r1) = ge.parse_and_recenter_pair(
             "*..*. ..**. ..*.* .**.. *.*.. *.*.. ..**. .***.",
             "*...* ...** ..... .**.. .*... .*.*. *.... .*.*.",
         );
         let n0 = ge.regular_node::<B, ()>(r0, r1);
 
-        Bfs2State::new_simple(n0)
+        Bfs2State::new_simple(n0, cf)
     });
 
     let ge = ge.derived((), ());
@@ -128,14 +131,15 @@ fn demo___bfs2___main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRct
     };
     assert!(ge.mt * ge.mx <= B::size());
 
-    let st = args.read_state_or(BincodeSerializer(), || {
+    let cf = VecChunkFactory();
+    let st = args.read_state_or(Bfs2CustomSerializer(cf), || {
         let (r0, r1) = ge.parse_and_recenter_pair(
             "*..*. ..**. ..*.* .**.. *.*.. *.*.. ..**. .***.",
             "*...* ...** ..... .**.. .*... .*.*. *.... .*.*.",
         );
         let n0 = ge.regular_node::<B, ()>(r0, r1);
 
-        Bfs2State::new_simple(n0)
+        Bfs2State::new_simple(n0, cf)
     });
 
     let ge = ge.derived((), ());
@@ -174,14 +178,15 @@ fn demo___bfs2___ends_db___main1<B: UScalar + DeserializeOwned + Serialize>(ep: 
     };
     assert!(ge.mt * ge.mx <= B::size());
 
-    let st = args.read_state_or(BincodeSerializer(), || {
+    let cf = VecChunkFactory();
+    let st = args.read_state_or(Bfs2CustomSerializer(cf), || {
         let (r0, r1) = ge.parse_and_recenter_pair(
             "*..*. ..**. ..*.* .**.. *.*.. *.*.. ..**. .***.",
             "*...* ...** ..... .**.. .*... .*.*. *.... .*.*.",
         );
         let n0 = ge.regular_node::<B, ()>(r0, r1);
 
-        Bfs2State::new_simple(n0)
+        Bfs2State::new_simple(n0, cf)
     });
 
     let ends = {
@@ -246,10 +251,11 @@ fn demo___lgol___main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRct
     };
     let ge = ge.derived::<[B; 6], _>(());
 
-    let st = args.read_state_or(BincodeSerializer(), || {
+    let cf = VecChunkFactory();
+    let st = args.read_state_or(Bfs2CustomSerializer(cf), || {
         let n0 = ge.zero_node();
 
-        Bfs2State::new_simple(n0)
+        Bfs2State::new_simple(n0, cf)
     });
 
     assert!(ge.max_r1l <= B::size());
@@ -289,7 +295,8 @@ fn demo___lgol___oob_agar___main1<B: UScalar + DeserializeOwned + Serialize>(ep:
     };
     let mut ge = ge.derived::<[B; 10], _>(HashSet::new());
 
-    let st = args.read_state_or(BincodeSerializer(), || {
+    let cf = VecChunkFactory();
+    let st = args.read_state_or(Bfs2CustomSerializer(cf), || {
         let rs = ge.parse_bs(&[
             "*...", "*...", "*...", "*...", "*...",
             "*...", "*...", "*...", "*...", "*...",
@@ -297,7 +304,7 @@ fn demo___lgol___oob_agar___main1<B: UScalar + DeserializeOwned + Serialize>(ep:
         let (xyt, rs) = ge.recenter_xyt((0, 0, 0), rs);
         let n0 = ge.regular_node(xyt, rs);
 
-        Bfs2State::new_simple(n0)
+        Bfs2State::new_simple(n0, cf)
     });
 
     {
@@ -359,12 +366,13 @@ fn demo___lgol___periodic_edge___main1<B: UScalar + DeserializeOwned + Serialize
     };
     let ge = ge.derived::<[B; 2], _>(());
 
-    let st = args.read_state_or(BincodeSerializer(), || {
+    let cf = VecChunkFactory();
+    let st = args.read_state_or(Bfs2CustomSerializer(cf), || {
         let n0 = ge.cb_node((0, 0, 0), |(x, _y, _t)| {
             x.rem_euclid(2) == 0
         });
 
-        Bfs2State::new_simple(n0)
+        Bfs2State::new_simple(n0, cf)
     });
 
     assert!(ge.max_r1l <= B::size());
@@ -402,10 +410,11 @@ fn demo___lgol___reflect___main1<B: UScalar + DeserializeOwned + Serialize>(ep: 
     };
     let ge = ge.derived::<[B; 6], _>(());
 
-    let st = args.read_state_or(BincodeSerializer(), || {
+    let cf = VecChunkFactory();
+    let st = args.read_state_or(Bfs2CustomSerializer(cf), || {
         let n0 = ge.zero_node();
 
-        Bfs2State::new_simple(n0)
+        Bfs2State::new_simple(n0, cf)
     });
 
     assert!(ge.max_r1l <= B::size());

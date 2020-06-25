@@ -1,17 +1,27 @@
-use serde::Deserialize;
-use serde::Serialize;
 use std::collections::HashMap;
 
-#[derive(Deserialize)]
-#[derive(Serialize)]
-pub struct KnPile<N: Default> {
-    pile: Vec<Vec<(usize, N)>>,
+use crate::chunk_store;
+
+use chunk_store::ChunkFactory;
+use chunk_store::ChunkVec;
+
+pub struct KnPile<N: Default, CF: ChunkFactory<(usize, N)>> {
+    cf: CF,
+    pile: Vec<ChunkVec<(usize, N), CF::Output>>,
 }
 
-impl<N: Default> KnPile<N> {
+fn esize<N>() -> usize {
+    std::mem::size_of::<(usize, N)>()
+}
+
+fn shard_size<N>() -> usize {
+    let d = esize::<N>();
+    (1 << 20) / d
+}
+
+impl<N: Default, CF: ChunkFactory<(usize, N)>> KnPile<N, CF> {
     fn shard_size(&self) -> usize {
-        let d = self.esize();
-        ((1 << 20) + d) / d
+        shard_size::<N>()
     }
 
     fn split_index(&self, idx: usize) -> (usize, usize) {
@@ -23,9 +33,12 @@ impl<N: Default> KnPile<N> {
         outer * self.shard_size() + inner
     }
 
-    pub fn new() -> Self {
+    pub fn new(cf: CF) -> Self {
+        let mut v = cf.new_chunk_vec(shard_size::<N>());
+        assert!(v.offer((0, N::default())));
         KnPile {
-            pile: vec![vec![(0, N::default())]],
+            cf: cf,
+            pile: vec![v],
         }
     }
 
@@ -156,12 +169,12 @@ impl<N: Default> KnPile<N> {
             if last.len() < shard_size {
                 let outer = len - 1;
                 let inner = last.len();
-                last.push((idx, n));
+                assert!(last.offer((idx, n)));
                 return self.join_index(outer, inner);
             }
         }
-        self.pile.push(Vec::with_capacity(shard_size));
-        self.pile.last_mut().unwrap().push((idx, n));
+        self.pile.push(self.cf.new_chunk_vec(shard_size));
+        assert!(self.pile.last_mut().unwrap().offer((idx, n)));
         self.join_index(len, 0)
     }
 
@@ -175,10 +188,14 @@ impl<N: Default> KnPile<N> {
     }
 
     pub fn esize(&self) -> usize {
-        std::mem::size_of::<(usize, N)>()
+        esize::<N>()
     }
 
     pub fn materialize_cloned(&self, idx: usize) -> Vec<N> where N: Clone {
         self.materialize(idx, |n| n.clone())
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item=&(usize, N)> {
+        self.pile.iter().map(|c| c.iter()).flatten()
     }
 }

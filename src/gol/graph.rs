@@ -64,6 +64,7 @@ pub struct GolNodeSerdeProxy<B: UScalar, Y: GolDy> {
 }
 
 #[derive(Clone)]
+#[derive(Copy)]
 #[derive(Debug)]
 #[derive(Default)]
 #[derive(Deserialize)]

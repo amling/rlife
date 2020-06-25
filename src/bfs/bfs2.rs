@@ -1,58 +1,129 @@
 #![allow(unused_parens)]
 
+use ars_ds::err::StringError;
+use byteorder::BigEndian;
+use byteorder::ReadBytesExt;
+use byteorder::WriteBytesExt;
 use crossbeam::queue::PopError;
 use crossbeam::queue::SegQueue;
-use serde::Deserialize;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
+use std::io::Read;
+use std::io::Write;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
 use crate::bfs;
+use crate::chunk_store;
 use crate::dfs;
+use crate::sal;
 
 use bfs::chunk_queue::ChunkQueue;
 use bfs::kn_pile::KnPile;
+use chunk_store::ChunkFactory;
 use dfs::graph::DfsGraph;
 use dfs::graph::DfsKeyNode;
 use dfs::graph::DfsNode;
 use dfs::lifecycle::DfsLifecycle;
 use dfs::lifecycle::LogLevel;
 use dfs::res::DfsRes;
+use sal::DeserializerFor;
+use sal::SerializerFor;
 
-struct WorkUnit<N: DfsNode> {
-    q: ChunkQueue<(usize, N)>,
-    q2: ChunkQueue<(usize, N)>,
+pub trait Bfs2ChunkFactory<N: DfsNode>: ChunkFactory<(usize, N)> + ChunkFactory<(usize, N::KN)> {
+}
+
+impl<N: DfsNode, T: ChunkFactory<(usize, N)> + ChunkFactory<(usize, N::KN)>> Bfs2ChunkFactory<N> for T {
+}
+
+struct WorkUnit<N: DfsNode, CF: Bfs2ChunkFactory<N>> {
+    q: ChunkQueue<(usize, N), CF>,
+    q2: ChunkQueue<(usize, N), CF>,
     r: DfsRes<N::KN>,
 }
 
-impl<N: DfsNode> WorkUnit<N> {
-    fn new(q: ChunkQueue<(usize, N)>) -> Self {
+impl<N: DfsNode, CF: Bfs2ChunkFactory<N>> WorkUnit<N, CF> {
+    fn new(q: ChunkQueue<(usize, N), CF>) -> Self {
+        let cf = q.cf;
         WorkUnit {
             q: q,
-            q2: ChunkQueue::new(),
+            q2: ChunkQueue::new(cf),
             r: DfsRes::new(),
         }
     }
 }
 
-#[derive(Deserialize)]
-#[derive(Serialize)]
-pub struct Bfs2State<N, KN: Default> {
-    kns: KnPile<KN>,
-    q: ChunkQueue<(usize, N)>,
+pub struct Bfs2State<N: DfsNode, CF: Bfs2ChunkFactory<N>> {
+    kns: KnPile<N::KN, CF>,
+    q: ChunkQueue<(usize, N), CF>,
     foresight: usize,
     depth: usize,
 }
 
-impl<N: DfsNode> Bfs2State<N, N::KN> {
-    pub fn new_simple(n0: N) -> Bfs2State<N, N::KN> {
-        Self::new(vec![(vec![n0.key_node().unwrap()], n0)])
+pub struct Bfs2CustomSerializer<CF>(pub CF);
+
+impl<N: DfsNode, CF: Bfs2ChunkFactory<N>> SerializerFor<Bfs2State<N, CF>> for Bfs2CustomSerializer<CF> where N: Serialize, N::KN: Serialize {
+    fn to_writer(&self, mut w: impl Write, s: &Bfs2State<N, CF>) -> Result<(), StringError> {
+        w.write_u64::<BigEndian>(s.kns.len() as u64)?;
+        for e in s.kns.iter().skip(1) {
+            let e: &(usize, N::KN) = e;
+            bincode::serialize_into(w.by_ref(), e)?;
+        }
+
+        w.write_u64::<BigEndian>(s.q.len() as u64)?;
+        for e in s.q.iter() {
+            let e: &(usize, N) = e;
+            bincode::serialize_into(w.by_ref(), e)?;
+        }
+
+        w.write_u64::<BigEndian>(s.foresight as u64)?;
+        w.write_u64::<BigEndian>(s.depth as u64)?;
+        Ok(())
+    }
+}
+
+impl<N: DfsNode, CF: Bfs2ChunkFactory<N>> DeserializerFor<Bfs2State<N, CF>> for Bfs2CustomSerializer<CF> where N: DeserializeOwned + Copy, N::KN: DeserializeOwned {
+    fn from_reader(&self, mut r: impl Read) -> Result<Bfs2State<N, CF>, StringError> {
+        let kns = {
+            let len = r.read_u64::<BigEndian>()? as usize;
+            let mut kns = KnPile::new(self.0);
+            for _ in 1..len {
+                let e: (usize, N::KN) = bincode::deserialize_from(r.by_ref())?;
+                kns.push(e.0, e.1);
+            }
+            kns
+        };
+
+        let q = {
+            let len = r.read_u64::<BigEndian>()? as usize;
+            let mut q = ChunkQueue::new(self.0);
+            for _ in 0..len {
+                let e: (usize, N) = bincode::deserialize_from(r.by_ref())?;
+                q.push_back(e);
+            }
+            q
+        };
+
+        let foresight = r.read_u64::<BigEndian>()? as usize;
+        let depth = r.read_u64::<BigEndian>()? as usize;
+        Ok(Bfs2State {
+            kns: kns,
+            q: q,
+            foresight: foresight,
+            depth: depth,
+        })
+    }
+}
+
+impl<N: DfsNode, CF: Bfs2ChunkFactory<N>> Bfs2State<N, CF> {
+    pub fn new_simple(n0: N, cf: CF) -> Bfs2State<N, CF> where N: Copy {
+        Self::new(vec![(vec![n0.key_node().unwrap()], n0)], cf)
     }
 
-    pub fn new(init: impl IntoIterator<Item=(Vec<N::KN>, N)>) -> Bfs2State<N, N::KN> {
-        let mut kns = KnPile::new();
-        let mut q = ChunkQueue::new();
+    pub fn new(init: impl IntoIterator<Item=(Vec<N::KN>, N)>, cf: CF) -> Bfs2State<N, CF> where N: Copy {
+        let mut kns = KnPile::new(cf);
+        let mut q = ChunkQueue::new(cf);
 
         for (kn0s, n0) in init.into_iter() {
             let mut idx = 0;
@@ -69,10 +140,16 @@ impl<N: DfsNode> Bfs2State<N, N::KN> {
             depth: 0,
         }
     }
+
+    pub fn serializer(&self) -> impl SerializerFor<Bfs2State<N, CF>> where N: Serialize, N::KN: Serialize {
+        Bfs2CustomSerializer(self.q.cf)
+    }
 }
 
-pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(mut state: Bfs2State<N, N::KN>, ge: &GE, le: &mut LE) {
+pub fn bfs2<N: DfsNode + Copy, CF: Bfs2ChunkFactory<N>, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(mut state: Bfs2State<N, CF>, ge: &GE, le: &mut LE) {
     loop {
+        let cf = state.q.cf;
+
         let threads = le.threads();
         let shards = threads * 100;
 
@@ -289,7 +366,7 @@ pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(mut 
         }
 
         // step3a: fold work unit results together
-        let mut q3 = ChunkQueue::new();
+        let mut q3 = ChunkQueue::new(cf);
         let mut r = DfsRes::new();
         for mut w in ws {
             assert_eq!(0, w.q.len());
@@ -300,7 +377,7 @@ pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(mut 
 
         // step3b: fold results into kns
         let mut mem_max = le.max_mem();
-        let mut q4 = ChunkQueue::new();
+        let mut q4 = ChunkQueue::new(cf);
         while let Some((prev_idx, n)) = q3.pop_front() {
             let mut prev_idx = prev_idx;
             if let Some(kn) = n.key_node() {
@@ -424,12 +501,12 @@ pub fn bfs2<N: DfsNode, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(mut 
     }
 }
 
-fn kns_mem<N: Default>(kns: &KnPile<N>) -> usize {
+fn kns_mem<N: Default, CF: ChunkFactory<(usize, N)>>(kns: &KnPile<N, CF>) -> usize {
     // whatever kns thinks plus (usize, usize) for space during recompaction
     kns.len() * (kns.esize() + std::mem::size_of::<(usize, usize)>())
 }
 
-fn q_mem<T>(q: &ChunkQueue<T>) -> usize {
+fn q_mem<T, CF: ChunkFactory<T>>(q: &ChunkQueue<T, CF>) -> usize {
     q.len() * std::mem::size_of::<T>()
 }
 
@@ -496,7 +573,7 @@ fn singleton_par<T: Send>(threads: usize, ts: &mut Vec<T>, f: impl Fn(&mut T) + 
     }).unwrap();
 }
 
-fn cq_par<T: Send>(threads: usize, shards: usize, ts: &mut ChunkQueue<T>, f: impl Fn(&mut ChunkQueue<T>) + Sync) {
+fn cq_par<T: Send, CF: ChunkFactory<T>>(threads: usize, shards: usize, ts: &mut ChunkQueue<T, CF>, f: impl Fn(&mut ChunkQueue<T, CF>) + Sync) {
     let mut tss = ts.drain_partition(shards);
 
     singleton_par(threads, &mut tss, f);

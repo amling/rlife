@@ -10,7 +10,7 @@ use crate::lgol;
 
 use lgol::lat1::Vec3;
 
-pub trait LGolBgCoord: Nice {
+pub trait LGolBgCoord: Nice + Default {
     fn mul(&self, n: isize) -> Self;
     fn add(&self, other: Self) -> Self;
     fn from_xyt(xyt: Vec3) -> Self;
