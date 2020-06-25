@@ -177,34 +177,6 @@ impl<N: Default> KnPile<N> {
     pub fn esize(&self) -> usize {
         std::mem::size_of::<(usize, N)>()
     }
-
-    #[allow(dead_code)]
-    pub fn path_iter<'a>(&'a self, idx: usize) -> impl Iterator<Item=&'a N> {
-        PathIter {
-            kns: self,
-            idx: idx,
-        }
-    }
-}
-
-struct PathIter<'a, N: Default> {
-    kns: &'a KnPile<N>,
-    idx: usize,
-}
-
-impl<'a, N: Default> Iterator for PathIter<'a, N> {
-    type Item = &'a N;
-
-    fn next(&mut self) -> Option<&'a N> {
-        match self.idx {
-            0 => None,
-            idx @ _ => {
-                let r = self.kns.get(idx);
-                self.idx = r.0;
-                Some(&r.1)
-            }
-        }
-    }
 }
 
 impl<N: Default + Clone> KnPile<N> {
