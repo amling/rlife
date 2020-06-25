@@ -163,7 +163,7 @@ impl<'a, GE: GolGraphTrait> DfsLifecycle<GE::N> for GolLifecycle<'a, GE> where <
         return true;
     }
 
-    fn log(&mut self, level: LogLevel, msg: impl AsRef<str>) {
+    fn log(&self, level: LogLevel, msg: impl AsRef<str>) {
         let msg = msg.as_ref();
         let msg = format!("{} [{}] {}", Local::now().format("%Y%m%d %H:%M:%S"), level.name(), msg);
         println!("{}", msg);
