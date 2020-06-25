@@ -31,10 +31,10 @@ use dfs::res::DfsRes;
 use sal::DeserializerFor;
 use sal::SerializerFor;
 
-pub trait Bfs2ChunkFactory<N: DfsNode>: ChunkFactory<(usize, N)> + ChunkFactory<(usize, N::KN)> {
+pub trait Bfs2ChunkFactory<N: DfsNode>: ChunkFactory<(usize, N)> + ChunkFactory<(usize, N::KN, usize)> {
 }
 
-impl<N: DfsNode, T: ChunkFactory<(usize, N)> + ChunkFactory<(usize, N::KN)>> Bfs2ChunkFactory<N> for T {
+impl<N: DfsNode, T: ChunkFactory<(usize, N)> + ChunkFactory<(usize, N::KN, usize)>> Bfs2ChunkFactory<N> for T {
 }
 
 struct WorkUnit<N: DfsNode, CF: Bfs2ChunkFactory<N>> {
@@ -67,8 +67,8 @@ impl<N: DfsNode, CF: Bfs2ChunkFactory<N>> SerializerFor<Bfs2State<N, CF>> for Bf
     fn to_writer(&self, mut w: impl Write, s: &Bfs2State<N, CF>) -> Result<(), StringError> {
         w.write_u64::<BigEndian>(s.kns.len() as u64)?;
         for e in s.kns.iter().skip(1) {
-            let e: &(usize, N::KN) = e;
-            bincode::serialize_into(w.by_ref(), e)?;
+            let e: (usize, &N::KN) = e;
+            bincode::serialize_into(w.by_ref(), &e)?;
         }
 
         w.write_u64::<BigEndian>(s.q.len() as u64)?;
@@ -501,7 +501,7 @@ pub fn bfs2<N: DfsNode + Copy, CF: Bfs2ChunkFactory<N>, GE: DfsGraph<N> + Sync, 
     }
 }
 
-fn kns_mem<N: Default, CF: ChunkFactory<(usize, N)>>(kns: &KnPile<N, CF>) -> usize {
+fn kns_mem<N: Default, CF: ChunkFactory<(usize, N, usize)>>(kns: &KnPile<N, CF>) -> usize {
     // whatever kns thinks plus (usize, usize) for space during recompaction
     kns.len() * (kns.esize() + std::mem::size_of::<(usize, usize)>())
 }

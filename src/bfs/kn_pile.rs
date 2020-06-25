@@ -5,13 +5,13 @@ use crate::chunk_store;
 use chunk_store::ChunkFactory;
 use chunk_store::ChunkVec;
 
-pub struct KnPile<N: Default, CF: ChunkFactory<(usize, N)>> {
+pub struct KnPile<N: Default, CF: ChunkFactory<(usize, N, usize)>> {
     cf: CF,
-    pile: Vec<ChunkVec<(usize, N), CF::Output>>,
+    pile: Vec<ChunkVec<(usize, N, usize), CF::Output>>,
 }
 
 fn esize<N>() -> usize {
-    std::mem::size_of::<(usize, N)>()
+    std::mem::size_of::<(usize, N, usize)>()
 }
 
 fn shard_size<N>() -> usize {
@@ -19,7 +19,7 @@ fn shard_size<N>() -> usize {
     (1 << 20) / d
 }
 
-impl<N: Default, CF: ChunkFactory<(usize, N)>> KnPile<N, CF> {
+impl<N: Default, CF: ChunkFactory<(usize, N, usize)>> KnPile<N, CF> {
     fn shard_size(&self) -> usize {
         shard_size::<N>()
     }
@@ -35,19 +35,19 @@ impl<N: Default, CF: ChunkFactory<(usize, N)>> KnPile<N, CF> {
 
     pub fn new(cf: CF) -> Self {
         let mut v = cf.new_chunk_vec(shard_size::<N>());
-        assert!(v.offer((0, N::default())));
+        assert!(v.offer((0, N::default(), 0)));
         KnPile {
             cf: cf,
             pile: vec![v],
         }
     }
 
-    fn get(&self, idx: usize) -> &(usize, N) {
+    fn get(&self, idx: usize) -> &(usize, N, usize) {
         let (outer, inner) = self.split_index(idx);
         &self.pile[outer][inner]
     }
 
-    fn get_mut(&mut self, idx: usize) -> &mut (usize, N) {
+    fn get_mut(&mut self, idx: usize) -> &mut (usize, N, usize) {
         debug_assert!(idx != 0);
 
         let (outer, inner) = self.split_index(idx);
@@ -169,12 +169,12 @@ impl<N: Default, CF: ChunkFactory<(usize, N)>> KnPile<N, CF> {
             if last.len() < shard_size {
                 let outer = len - 1;
                 let inner = last.len();
-                assert!(last.offer((idx, n)));
+                assert!(last.offer((idx, n, 0)));
                 return self.join_index(outer, inner);
             }
         }
         self.pile.push(self.cf.new_chunk_vec(shard_size));
-        assert!(self.pile.last_mut().unwrap().offer((idx, n)));
+        assert!(self.pile.last_mut().unwrap().offer((idx, n, 0)));
         self.join_index(len, 0)
     }
 
@@ -195,7 +195,7 @@ impl<N: Default, CF: ChunkFactory<(usize, N)>> KnPile<N, CF> {
         self.materialize(idx, |n| n.clone())
     }
 
-    pub fn iter(&self) -> impl Iterator<Item=&(usize, N)> {
-        self.pile.iter().map(|c| c.iter()).flatten()
+    pub fn iter(&self) -> impl Iterator<Item=(usize, &N)> {
+        self.pile.iter().map(|c| c.iter().map(|&(idx, ref n, _)| (idx, n))).flatten()
     }
 }
