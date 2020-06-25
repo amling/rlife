@@ -10,6 +10,10 @@ pub struct KnPile<N: Default, CF: ChunkFactory<(usize, N, usize)>> {
     pile: Vec<ChunkVec<(usize, N, usize), CF::Output>>,
 }
 
+pub trait KnsRebuildable {
+    fn walk(&mut self, f: impl FnMut(&mut usize));
+}
+
 fn esize<N>() -> usize {
     std::mem::size_of::<(usize, N, usize)>()
 }
@@ -75,11 +79,12 @@ impl<N: Default, CF: ChunkFactory<(usize, N, usize)>> KnPile<N, CF> {
         }
     }
 
-    pub fn rebuild(&mut self, live: impl Iterator<Item=usize>, log: impl FnOnce(String)) -> HashMap<usize, usize> {
+    pub fn rebuild(&mut self, mut living: impl KnsRebuildable, log: impl FnOnce(String)) -> HashMap<usize, usize> {
         let t0 = std::time::Instant::now();
         let size = self.len();
 
-        let mut live: Vec<_> = live.collect();
+        let mut live = vec![];
+        living.walk(|&mut idx| live.push(idx));
         live.sort();
         live.dedup();
         live.reverse();

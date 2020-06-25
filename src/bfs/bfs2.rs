@@ -21,6 +21,7 @@ use crate::sal;
 
 use bfs::chunk_queue::ChunkQueue;
 use bfs::kn_pile::KnPile;
+use bfs::kn_pile::KnsRebuildable;
 use chunk_store::ChunkFactory;
 use dfs::graph::DfsGraph;
 use dfs::graph::DfsKeyNode;
@@ -146,6 +147,34 @@ impl<N: DfsNode, CF: Bfs2ChunkFactory<N>> Bfs2State<N, CF> {
     }
 }
 
+impl<'a, N, CF: ChunkFactory<(usize, N)>> KnsRebuildable for &'a mut ChunkQueue<(usize, N), CF> {
+    fn walk(&mut self, mut f: impl FnMut(&mut usize)) {
+        for (idx, _) in self.iter_mut() {
+            f(idx);
+        }
+    }
+}
+
+impl<'a, N: DfsNode, CF: Bfs2ChunkFactory<N>> KnsRebuildable for &'a mut Vec<WorkUnit<N, CF>> {
+    fn walk(&mut self, mut f: impl FnMut(&mut usize)) {
+        for w in self.iter_mut() {
+            for (idx, _) in w.q.iter_mut() {
+                f(idx);
+            }
+            for (idx, _) in w.q2.iter_mut() {
+                f(idx);
+            }
+        }
+    }
+}
+
+impl<A: KnsRebuildable, B: KnsRebuildable> KnsRebuildable for (A, B) {
+    fn walk(&mut self, mut f: impl FnMut(&mut usize)) {
+        self.0.walk(&mut f);
+        self.1.walk(&mut f);
+    }
+}
+
 pub fn bfs2<N: DfsNode + Copy, CF: Bfs2ChunkFactory<N>, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(mut state: Bfs2State<N, CF>, ge: &GE, le: &mut LE) {
     loop {
         let cf = state.q.cf;
@@ -157,9 +186,7 @@ pub fn bfs2<N: DfsNode + Copy, CF: Bfs2ChunkFactory<N>, GE: DfsGraph<N> + Sync, 
             let kns = &mut state.kns;
             let q = &mut state.q;
 
-            let living = vec![].into_iter();
-            let living = living.chain(q.iter().map(|&(idx, _)| idx));
-            let live_remap = kns.rebuild(living, |msg| le.log(LogLevel::INFO, msg));
+            let live_remap = kns.rebuild(&mut *q, |msg| le.log(LogLevel::INFO, msg));
 
             {
                 let t0 = std::time::Instant::now();
@@ -326,10 +353,7 @@ pub fn bfs2<N: DfsNode + Copy, CF: Bfs2ChunkFactory<N>, GE: DfsGraph<N> + Sync, 
                     le.log(LogLevel::INFO, format!("Defragmented ws.q2 in {:?}", t0.elapsed()));
                 }
 
-                let living = vec![].into_iter();
-                let living = living.chain(ws.iter().map(|w| w.q.iter().map(|&(idx, _)| idx)).flatten());
-                let living = living.chain(ws.iter().map(|w| w.q2.iter().map(|&(idx, _)| idx)).flatten());
-                let live_remap = kns.rebuild(living, |msg| le.log(LogLevel::INFO, msg));
+                let live_remap = kns.rebuild(&mut ws, |msg| le.log(LogLevel::INFO, msg));
 
                 {
                     let t0 = std::time::Instant::now();
@@ -446,10 +470,7 @@ pub fn bfs2<N: DfsNode + Copy, CF: Bfs2ChunkFactory<N>, GE: DfsGraph<N> + Sync, 
                     le.log(LogLevel::INFO, format!("Defragmented q4 in {:?}", t0.elapsed()));
                 }
 
-                let living = vec![].into_iter();
-                let living = living.chain(q3.iter().map(|&(idx, _)| idx));
-                let living = living.chain(q4.iter().map(|&(idx, _)| idx));
-                let live_remap = kns.rebuild(living, |msg| le.log(LogLevel::INFO, msg));
+                let live_remap = kns.rebuild((&mut q3, &mut q4), |msg| le.log(LogLevel::INFO, msg));
 
                 {
                     let t0 = std::time::Instant::now();
