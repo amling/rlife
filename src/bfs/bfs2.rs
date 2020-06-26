@@ -473,8 +473,7 @@ pub fn bfs2<N: DfsNode + Copy, CF: Bfs2ChunkFactory<N>, GE: DfsGraph<N> + Sync, 
 }
 
 fn kns_mem<N: Default, CF: ChunkFactory<(usize, N, usize)>>(kns: &KnPile<N, CF>) -> usize {
-    // whatever kns thinks plus (usize, usize) for space during recompaction
-    kns.len() * (kns.esize() + std::mem::size_of::<(usize, usize)>())
+    kns.len() * kns.esize()
 }
 
 fn q_mem<T, CF: ChunkFactory<T>>(q: &ChunkQueue<T, CF>) -> usize {

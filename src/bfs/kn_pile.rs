@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::chunk_store;
 
 use chunk_store::ChunkFactory;
@@ -58,89 +56,106 @@ impl<N: Default, CF: ChunkFactory<(usize, N, usize)>> KnPile<N, CF> {
         &mut self.pile[outer][inner]
     }
 
-    fn swap(&mut self, idxa: usize, idxb: usize) {
-        debug_assert!(idxa != 0);
-        debug_assert!(idxb != 0);
-
-        let idx1 = idxa.min(idxb);
-        let idx2 = idxa.max(idxb);
-
-        let (outer1, inner1) = self.split_index(idx1);
-        let (outer2, inner2) = self.split_index(idx2);
-
-        if outer1 == outer2 {
-            self.pile[outer1].swap(inner1, inner2);
-        }
-        else {
-            let (s1, s2) = self.pile.split_at_mut(outer2);
-            let r1 = &mut s1[outer1][inner1];
-            let r2 = &mut s2[0][inner2];
-            std::mem::swap(r1, r2);
-        }
-    }
-
-    pub fn rebuild(&mut self, mut living: impl KnsRebuildable, log: impl FnOnce(String)) {
+    pub fn rebuild(&mut self, mut pins: impl KnsRebuildable, log: impl FnOnce(String)) {
         let t0 = std::time::Instant::now();
         let size = self.len();
 
-        let mut live = vec![];
-        living.walk(|&mut idx| live.push(idx));
-        live.sort();
-        live.dedup();
-        live.reverse();
-        let mut i = 0;
-        while i < live.len() {
-            let idx = live[i];
-            if idx != 0 {
-                let prev_idx = self.get(idx).0;
-                let last = *live.last().unwrap();
+        // mark living
+        pins.walk(|&mut idx| self.get_mut(idx).2 = 1);
+
+        // walk right-to-left propagating living
+        let len = self.len();
+        for idx in (1..len).rev() {
+            let &(prev_idx, _, live) = self.get(idx);
+            if live == 0 {
+                // we're not gonna live ourselves so we don't retain parent
+                continue;
+            }
+            if prev_idx == 0 {
+                // we're a first-level, don't worry about zero root
+                continue;
+            }
+            debug_assert!(prev_idx < idx);
+            self.get_mut(prev_idx).2 = 1;
+        }
+
+        // walk left-to-right deciding new positions
+        let mut new_idx = 1;
+        for idx in 1..len {
+            let (_, _, live) = self.get_mut(idx);
+            if *live == 0 {
+                // we're not gonna live, we don't get a number
+                continue;
+            }
+            *live = new_idx;
+            new_idx += 1;
+        }
+
+        // reindex ourselves
+        for idx in 1..len {
+            let (prev_idx, _, new_idx) = self.get(idx);
+            if *new_idx == 0 {
+                // we're not gonna live, don't worry about reindexing ourselves
+                continue;
+            }
+            if *prev_idx == 0 {
+                // our parent is zero root, no need to reindex
+                continue;
+            }
+            let &(_, _, new_prev_idx) = self.get(*prev_idx);
+            debug_assert!(new_prev_idx != 0);
+            self.get_mut(idx).0 = new_prev_idx;
+        }
+
+        // reindex our callers
+        pins.walk(|idx| {
+            if *idx == 0 {
+                return;
+            }
+            let &(_, _, new_idx) = self.get(*idx);
+            debug_assert!(new_idx != 0);
+            *idx = new_idx;
+        });
+
+        // compact left-to-right
+        let (rebuilt_len, root_ct) = {
+            let mut i = 1;
+            let mut j = 1;
+            let mut root_ct = 0;
+            loop {
+                if j >= len {
+                    break;
+                }
+
+                let &mut (prev_idx, ref mut n, new_idx) = self.get_mut(j);
+                if new_idx == 0 {
+                    j += 1;
+                    continue;
+                }
+
                 if prev_idx == 0 {
-                    // root, fine
+                    root_ct += 1;
                 }
-                else if prev_idx < last {
-                    live.push(prev_idx);
-                }
-                else if prev_idx == last {
-                }
-                else {
-                    panic!();
-                }
+
+                debug_assert!(i == new_idx);
+                *self.get_mut(i) = (prev_idx, std::mem::take(n), 0);
+
+                i += 1;
+                j += 1;
             }
-            i += 1;
-        }
+            (i, root_ct)
+        };
 
-        let mut live_remap = HashMap::new();
-        live_remap.insert(0, 0);
-        let mut rebuilt_idx = 1;
-        let mut root_ct = 0;
-        while let Some(idx) = live.pop() {
-            assert!(rebuilt_idx <= idx, "{} <= {}?", rebuilt_idx, idx);
-            self.swap(rebuilt_idx, idx);
-
-            let parent_idx = self.get(rebuilt_idx).0;
-            let parent_idx = *live_remap.get(&parent_idx).unwrap();
-            if parent_idx == 0 {
-                root_ct += 1;
-            }
-            self.get_mut(rebuilt_idx).0 = parent_idx;
-
-            assert!(!live_remap.contains_key(&idx));
-            live_remap.insert(idx, rebuilt_idx);
-
-            rebuilt_idx += 1;
-        }
-
+        // truncate
         {
-            let (outer, inner) = self.split_index(rebuilt_idx - 1);
+            let (outer, inner) = self.split_index(rebuilt_len - 1);
             self.pile.truncate(outer + 1);
             self.pile[outer].truncate(inner + 1);
         }
 
-        debug_assert_eq!(self.len(), rebuilt_idx);
+        debug_assert_eq!(self.len(), rebuilt_len);
 
-        living.walk(|idx| *idx = *live_remap.get(idx).unwrap());
-
-        log(format!("Rebuilt kns from {} to {} ({} roots) in {:?}", size, rebuilt_idx, root_ct, t0.elapsed()));
+        log(format!("Rebuilt kns from {} to {} ({} roots) in {:?}", size, rebuilt_len, root_ct, t0.elapsed()));
     }
 
     pub fn materialize<T>(&self, idx: usize, mut f: impl FnMut(&N) -> T) -> Vec<T> {
