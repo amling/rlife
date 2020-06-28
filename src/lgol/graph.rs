@@ -629,6 +629,75 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, E: LGolE
         BS::from_slice(&rs)
     }
 
+    #[allow(dead_code)]
+    pub fn parse_bs2<S: AsRef<str>>(&self, rs: impl IntoIterator<Item=S>) -> BS {
+        let mut wraps = vec![];
+        if self.params.u_axis.wrap_in_print() {
+            wraps.push(self.params.vu);
+        }
+        if self.params.v_axis.wrap_in_print() {
+            wraps.push(self.params.vv);
+        }
+        let wraps = Vec3::canonicalize(wraps);
+
+        let mut bag = HashMap::new();
+        for (y, line) in rs.into_iter().enumerate() {
+            let line = line.as_ref();
+
+            let mut t = 0;
+            let mut x = 0;
+            for c in line.chars() {
+                match c {
+                    '|' => {
+                        t += 1;
+                        x = 0;
+                    },
+                    ' ' => {
+                        x += 1;
+                    },
+                    _ => {
+                        let xyt = (x, y as isize, t);
+                        let xyt = wraps.canonicalize(xyt);
+                        let already = bag.insert(xyt, c);
+                        assert_eq!(already, None, "collision at {:?}", xyt);
+                        x += 1;
+                    },
+                }
+            }
+        }
+        let (&base, _) = bag.iter().filter(|&(_, &c)| c == 'z').next().unwrap();
+        bag.remove(&base);
+
+        let mut r0s = BS::default();
+
+        let (ix, iy, it) = base;
+        let (wx, wy, wt) = self.lat1.w_to_xyt;
+
+        for (idx, &((sx, sy, st), _uvw, _bg_coord)) in self.lat2.spots.iter().enumerate() {
+            for (j, r0) in r0s.as_slice_mut().iter_mut().enumerate() {
+                let x = ix + sx - ((j as isize) + 1) * wx;
+                let y = iy + sy - ((j as isize) + 1) * wy;
+                let t = it + st - ((j as isize) + 1) * wt;
+
+                let xyt = (x, y, t);
+                let xyt = wraps.canonicalize(xyt);
+
+                match bag.remove(&xyt) {
+                    Some('*') => r0.set_bit(idx, true),
+                    Some('.') => {
+                    },
+                    None => {
+                    }
+                    _ => panic!(),
+                }
+            }
+        }
+
+        assert_eq!(bag, HashMap::new());
+
+        r0s
+    }
+
     pub fn recenter_xyt(&self, xyt: Vec3, rs: BS) -> (Vec3, BS) {
         let hn = LGolHashNode {
             bg_coord: BC::from_xyt(xyt),
