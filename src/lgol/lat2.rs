@@ -1,5 +1,7 @@
 use ars_aa::lattice::LatticeCanonicalizable;
+use ars_aa::lattice::LatticeCanonicalizer;
 use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 use crate::lgol;
 
@@ -16,6 +18,7 @@ pub struct LGolShiftData<BC> {
     pub checks: Vec<(isize, usize, BC)>,
     pub min_coord: isize,
     pub max_coord: isize,
+    pub division_walks: Vec<Option<Vec<usize>>>,
 }
 
 pub struct LGolLat2<BC: LGolBgCoord> {
@@ -59,7 +62,7 @@ impl<BC: LGolBgCoord> LGolLat2<BC> {
         // immutable
         let spots = spots;
 
-        let compute_shift_data = |mangle: &dyn Fn(Vec3) -> Vec3| {
+        let compute_shift_data = |v_us: Vec3, mangle: &dyn Fn(Vec3) -> Vec3| {
             let period = {
                 let v1 = mangle(lat1.xyt_to_uvw((1, 0, 0)));
                 let v2 = mangle(lat1.xyt_to_uvw((0, 1, 0)));
@@ -100,6 +103,46 @@ impl<BC: LGolBgCoord> LGolLat2<BC> {
                 BC::from_xyt(xyt)
             };
 
+            let (x_us, y_us, t_us) = v_us;
+            let max_divison_walk = x_us.abs().max(y_us.abs()).max(t_us.abs());
+            let division_walks = (0..=max_divison_walk).map(|division| {
+                if division < 2 {
+                    return None;
+                }
+                if x_us.rem_euclid(division) != 0 {
+                    return None
+                }
+                if y_us.rem_euclid(division) != 0 {
+                    return None
+                }
+                if t_us.rem_euclid(division) != 0 {
+                    return None
+                }
+
+                let step = (x_us / division, y_us / division, t_us / division);
+                let l_step = Vec3::canonicalize(vec![step]);
+                let mut buckets = HashMap::new();
+                for (idx, &(xyt, _, _)) in spots.iter().enumerate() {
+                    let xytc = l_step.canonicalize(xyt);
+                    buckets.entry(xytc).or_insert_with(|| Vec::new()).push(idx);
+                }
+                let mut prev_map = HashMap::new();
+                for (_, mut idxs) in buckets.into_iter() {
+                    idxs.sort();
+                    for (i, &idx) in idxs.iter().enumerate() {
+                        let idx_prev = match i {
+                            0 => idxs[idxs.len() - 1],
+                            _ => idxs[i - 1],
+                        };
+                        assert!(prev_map.insert(idx, idx_prev).is_none());
+                    }
+                }
+
+                let prevs = (0..spots.len()).map(|idx| prev_map[&idx]).collect();
+
+                Some(prevs)
+            }).collect();
+
             LGolShiftData {
                 adet: lat1.adet,
                 w_bg_coord: BC::from_xyt(lat1.w_to_xyt),
@@ -109,11 +152,12 @@ impl<BC: LGolBgCoord> LGolLat2<BC> {
                 checks: checks,
                 min_coord: min_coord,
                 max_coord: max_coord,
+                division_walks: division_walks,
             }
         };
 
-        let u_shift_data = compute_shift_data(&|uvw| uvw);
-        let v_shift_data = compute_shift_data(&|(u, v, w)| (v, u, w));
+        let u_shift_data = compute_shift_data(lat1.u_to_xyt, &|uvw| uvw);
+        let v_shift_data = compute_shift_data(lat1.v_to_xyt, &|(u, v, w)| (v, u, w));
 
         LGolLat2 {
             spots: spots,
