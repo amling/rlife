@@ -484,28 +484,29 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, E: LGolE
         let v_bg_coord = n1.bg_coord.add(idx_bg_coord);
 
         'v: for &v in &[false, true] {
-            let mut n2 = LGolNode {
+            let mut r1 = n1.r1;
+            r1.set_bit(idx, v);
+
+            let n2 = LGolNode {
                 bg_coord: n1.bg_coord,
                 du: n1.du,
                 dv: n1.dv,
                 r0s: n1.r0s,
-                r1: n1.r1,
+                r1: r1,
                 r1l: n1.r1l + 1,
-                r1_us: match self.params.u_axis.add_stat(&self.lat2.u_shift_data, n1.r1_us, v_bg_coord, idx_u, v) {
+                r1_us: match self.params.u_axis.add_stat(&self.lat2.u_shift_data, n1.r1_us, v_bg_coord, r1, idx, idx_u, v) {
                     Some(us) => us,
                     None => {
                         continue 'v;
                     }
                 },
-                r1_vs: match self.params.v_axis.add_stat(&self.lat2.v_shift_data, n1.r1_vs, v_bg_coord, idx_v, v) {
+                r1_vs: match self.params.v_axis.add_stat(&self.lat2.v_shift_data, n1.r1_vs, v_bg_coord, r1, idx, idx_v, v) {
                     Some(us) => us,
                     None => {
                         continue 'v;
                     }
                 },
             };
-
-            n2.r1.set_bit(idx, v);
 
             let checks = self.checks.get(&n2.bg_coord).unwrap();
             let checks = &checks[idx];

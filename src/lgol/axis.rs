@@ -2,6 +2,7 @@
 
 use ars_ds::nice::Nice;
 use ars_ds::scalar::Scalar;
+use ars_ds::scalar::UScalar;
 
 use crate::lgol;
 
@@ -51,7 +52,7 @@ pub trait LGolAxis<BC: LGolBgCoord>: Copy {
     fn right_edge(&self, shift_data: &LGolShiftData<BC>, bg_coord: BC, c: isize) -> LGolEdgeRead;
 
     fn zero_stat(&self, shift_data: &LGolShiftData<BC>) -> Self::S;
-    fn add_stat(&self, shift_data: &LGolShiftData<BC>, s0: Self::S, bg_coord: BC, c: isize, v: bool) -> Option<Self::S>;
+    fn add_stat<B: UScalar>(&self, shift_data: &LGolShiftData<BC>, s0: Self::S, bg_coord: BC, r: B, idx: usize, c: isize, v: bool) -> Option<Self::S>;
 
     fn recenter<BS: RowTuple>(&self, shift_data: &LGolShiftData<BC>, hn: LGolHashNode<BS, BC>) -> (isize, LGolHashNode<BS, BC>);
     fn justify<BS: RowTuple>(&self, shift_data: &LGolShiftData<BC>, hn: LGolHashNode<BS, BC>) -> (isize, LGolHashNode<BS, BC>);
@@ -73,7 +74,7 @@ impl<BC: LGolBgCoord> LGolAxis<BC> for (LGolEdgeRead, LGolEdgeRead) {
     fn zero_stat(&self, _shift_data: &LGolShiftData<BC>) {
     }
 
-    fn add_stat(&self, _shift_data: &LGolShiftData<BC>, _s0: (), _bg_coord: BC, _c: isize, _v: bool) -> Option<()> {
+    fn add_stat<B: UScalar>(&self, _shift_data: &LGolShiftData<BC>, _s0: (), _bg_coord: BC, _r: B, _idx: usize, _c: isize, _v: bool) -> Option<()> {
         Some(())
     }
 
@@ -200,7 +201,7 @@ impl<BC: LGolBgCoord, LE: LGolEdge<BC>, RE: LGolEdge<BC>> LGolAxis<BC> for LGolS
     fn zero_stat(&self, _shift_data: &LGolShiftData<BC>) {
     }
 
-    fn add_stat(&self, _shift_data: &LGolShiftData<BC>, _s0: (), _bg_coord: BC, _c: isize, _v: bool) -> Option<()> {
+    fn add_stat<B: UScalar>(&self, _shift_data: &LGolShiftData<BC>, _s0: (), _bg_coord: BC, _r: B, _idx: usize, _c: isize, _v: bool) -> Option<()> {
         Some(())
     }
 
@@ -324,7 +325,7 @@ impl<BC: LGolBgCoord, LBG: LGolBg<BC>, RBG: LGolBg<BC>> LGolAxis<BC> for LGolFan
         (shift_data.max_coord, shift_data.min_coord)
     }
 
-    fn add_stat(&self, shift_data: &LGolShiftData<BC>, s0: (isize, isize), bg_coord: BC, c: isize, v: bool) -> Option<(isize, isize)> {
+    fn add_stat<B: UScalar>(&self, shift_data: &LGolShiftData<BC>, s0: (isize, isize), bg_coord: BC, _r: B, _idx: usize, c: isize, v: bool) -> Option<(isize, isize)> {
         let mut min = s0.0;
         let mut max = s0.1;
 
