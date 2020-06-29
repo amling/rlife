@@ -7,9 +7,11 @@ use serde::Serialize;
 use std::fmt::Debug;
 use std::hash::Hash;
 
+use crate::chunk_store;
 use crate::dfs;
 use crate::gol;
 
+use chunk_store::MmapChunkSafe;
 use dfs::graph::DfsGraph;
 use dfs::graph::DfsKeyNode;
 use dfs::graph::DfsNode;
@@ -84,6 +86,10 @@ pub struct GolNode<B: UScalar, Y: GolDy> {
     pub r2l_x: u8,
 }
 
+impl<B: UScalar, Y: GolDy> MmapChunkSafe for GolNode<B, Y> {
+    // :X
+}
+
 impl<B: UScalar, Y: GolDy> DfsNode for GolNode<B, Y> {
     type KN = GolKeyNode<B>;
 
@@ -101,6 +107,7 @@ impl<B: UScalar, Y: GolDy> DfsNode for GolNode<B, Y> {
 }
 
 #[derive(Clone)]
+#[derive(Copy)]
 #[derive(Debug)]
 #[derive(Default)]
 #[derive(Deserialize)]
@@ -112,6 +119,10 @@ pub struct GolKeyNode<B: UScalar> {
     pub dx: i16,
     pub r0: B,
     pub r1: B,
+}
+
+impl<B: UScalar> MmapChunkSafe for GolKeyNode<B> {
+    // :X
 }
 
 impl<B: UScalar> GolKeyNode<B> {
