@@ -28,6 +28,7 @@ mod sal;
 
 use bfs::bfs2::Bfs2CustomSerializer;
 use bfs::bfs2::Bfs2State;
+use chunk_store::AnonMmapChunkFactory;
 use chunk_store::VecChunkFactory;
 use dfs::lifecycle::DfsLifecycle;
 use dfs::lifecycle::LogLevel;
@@ -41,11 +42,15 @@ use gol::patlib::GolPatterns;
 use lgol::axis::LGolBgEdge;
 use lgol::axis::LGolEdgeRead;
 use lgol::axis::LGolFancyAxis;
+use lgol::axis::LGolPeriodDividingAxis;
 use lgol::axis::LGolReflectEdge;
 use lgol::axis::LGolSimpleAxis;
 use lgol::bg::LGolBgEmpty;
+use lgol::bg::LGolBgHorizStripes;
 use lgol::bg::LGolBgVertStripes;
 use lgol::bg::LGolBgX2;
+use lgol::bg::LGolBgY2;
+use lgol::ends::LGolNoEnds;
 use lgol::graph::LGolGraphParams;
 use lgol::lat1::Vec3;
 use sal::DeserializerFor;
@@ -414,6 +419,63 @@ fn demo___lgol___reflect___main1<B: UScalar + DeserializeOwned + Serialize>(ep: 
     let cf = VecChunkFactory();
     let st = args.read_state_or(Bfs2CustomSerializer(cf), || {
         let n0 = ge.zero_node();
+
+        Bfs2State::new_simple(n0, cf)
+    });
+
+    assert!(ge.max_r1l <= B::size());
+
+    let mut le = GolLifecycle {
+        ge: &ge,
+        ep: ep,
+    };
+
+    bfs::bfs2(st, &ge, &mut le);
+
+    le.log(LogLevel::INFO, "Done");
+
+    Ok(())
+}
+
+#[allow(dead_code)]
+fn demo___lgol___period_divison___main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
+    let mut args = env_args();
+
+    let wx = args.parse();
+    let mx = args.parse();
+    let mf = args.parse();
+
+    let ge = LGolGraphParams {
+        vu: (mx, 0, 0),
+        vv: (0, -4, 6),
+        vw: (0, -1, 2),
+
+        bg_coord: PhantomData::<LGolBgY2>,
+
+        u_axis: LGolFancyAxis {
+            w: (wx, mx),
+            left_bg: LGolBgHorizStripes(),
+            right_bg: LGolBgEmpty(),
+        },
+        v_axis: LGolPeriodDividingAxis {
+            division: 2,
+            mf: mf,
+        },
+    };
+    let ge = ge.derived::<[B; 6], _>(LGolNoEnds());
+
+    let cf = AnonMmapChunkFactory();
+    let st = args.read_state_or(Bfs2CustomSerializer(cf), || {
+        let rs = ge.parse_bs2(&[
+            "     |     |     |     |     |..*..",
+            "     |     |     |**...|**...|**...",
+            "     |     |.....|.....|.....|     ",
+            "**...|**...|**...|     |     |     ",
+            "..*..|..*..|     |     |     |     ",
+            "z",
+        ]);
+        let (xyt, rs) = ge.recenter_xyt((0, 0, 0), rs);
+        let n0 = ge.regular_node(xyt, rs);
 
         Bfs2State::new_simple(n0, cf)
     });
