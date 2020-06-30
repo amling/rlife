@@ -371,3 +371,67 @@ impl<BC: LGolBgCoord, LBG: LGolBg<BC>, RBG: LGolBg<BC>> LGolAxis<BC> for LGolFan
         false
     }
 }
+
+#[derive(Clone)]
+#[derive(Copy)]
+pub struct LGolPeriodDividingAxis {
+    pub division: usize,
+    pub mf: u8,
+}
+
+impl<BC: LGolBgCoord> LGolAxis<BC> for LGolPeriodDividingAxis {
+    type S = u8;
+
+    fn left_edge(&self, _shift_data: &LGolShiftData<BC>, _bg_coord: BC, _c: isize) -> LGolEdgeRead {
+        LGolEdgeRead::Wrap
+    }
+
+    fn right_edge(&self, _shift_data: &LGolShiftData<BC>, _bg_coord: BC, _c: isize) -> LGolEdgeRead {
+        LGolEdgeRead::Wrap
+    }
+
+    fn zero_stat(&self, _shift_data: &LGolShiftData<BC>) -> u8 {
+        0
+    }
+
+    fn add_stat<B: UScalar>(&self, shift_data: &LGolShiftData<BC>, s0: u8, _bg_coord: BC, r: B, idx: usize, _c: isize, v: bool) -> Option<u8> {
+        let mut idx1 = idx;
+        let mut first = true;
+        let division_walk = shift_data.division_walks[self.division].as_ref().unwrap();
+        loop {
+            idx1 = division_walk[idx1];
+            if idx1 >= idx {
+                break;
+            }
+            if r.get_bit(idx1) == v {
+                // someone matched us already, we're definitely not charged
+                return Some(s0);
+            }
+            first = false;
+            continue;
+        }
+        if first {
+            // actually we were the first
+            return Some(s0);
+        }
+        // we're not first and everyone before us were all the opposite of us, we get charged
+        let s1 = s0 + 1;
+        if s1 > self.mf {
+            return None;
+        }
+        Some(s1)
+    }
+
+    fn recenter<BS: RowTuple>(&self, _shift_data: &LGolShiftData<BC>, hn: LGolHashNode<BS, BC>) -> (isize, LGolHashNode<BS, BC>) {
+        (0, hn)
+    }
+
+    fn justify<BS: RowTuple>(&self, _shift_data: &LGolShiftData<BC>, hn: LGolHashNode<BS, BC>) -> (isize, LGolHashNode<BS, BC>) {
+        // TODO: maybe for this type of axis we should justify?
+        (0, hn)
+    }
+
+    fn wrap_in_print(&self) -> bool {
+        true
+    }
+}
