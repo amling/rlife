@@ -14,7 +14,10 @@ pub trait LGolBgCoord: Nice + Default {
     fn mul(&self, n: isize) -> Self;
     fn add(&self, other: Self) -> Self;
     fn from_xyt(xyt: Vec3) -> Self;
-    fn all() -> Vec<Self>;
+
+    fn to_idx(&self) -> usize;
+    fn from_idx(idx: usize) -> Self;
+    fn max_idx() -> usize;
 }
 
 impl LGolBgCoord for () {
@@ -27,8 +30,15 @@ impl LGolBgCoord for () {
     fn from_xyt(_xyt: Vec3) {
     }
 
-    fn all() -> Vec<()> {
-        vec![()]
+    fn to_idx(&self) -> usize {
+        0
+    }
+
+    fn from_idx(_idx: usize) {
+    }
+
+    fn max_idx() -> usize {
+        return 1;
     }
 }
 
@@ -58,8 +68,16 @@ impl LGolBgCoord for LGolBgX2 {
         LGolBgX2(x.rem_euclid(2) as i8)
     }
 
-    fn all() -> Vec<LGolBgX2> {
-        vec![LGolBgX2(0), LGolBgX2(1)]
+    fn to_idx(&self) -> usize {
+        self.0 as usize
+    }
+
+    fn from_idx(idx: usize) -> LGolBgX2 {
+        LGolBgX2(idx as i8)
+    }
+
+    fn max_idx() -> usize {
+        2
     }
 }
 
@@ -89,8 +107,16 @@ impl LGolBgCoord for LGolBgY2 {
         LGolBgY2(y.rem_euclid(2) as i8)
     }
 
-    fn all() -> Vec<LGolBgY2> {
-        vec![LGolBgY2(0), LGolBgY2(1)]
+    fn to_idx(&self) -> usize {
+        self.0 as usize
+    }
+
+    fn from_idx(idx: usize) -> LGolBgY2 {
+        LGolBgY2(idx as i8)
+    }
+
+    fn max_idx() -> usize {
+        2
     }
 }
 

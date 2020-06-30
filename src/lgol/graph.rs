@@ -382,13 +382,14 @@ impl<BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>> LGolGraphParams<BC, UA
             checks
         };
 
-        let checks: HashMap<_, _> = BC::all().into_iter().map(|bg_coord| {
+        let checks: Vec<_> = (0..BC::max_idx()).map(|bg_idx| {
+            let bg_coord = BC::from_idx(bg_idx);
             let checks: Vec<_> = lat2.spots.iter().enumerate().map(|(idx, &(xyt, _, _))| compute_checks(bg_coord, idx, xyt)).collect();
 
-            (bg_coord, checks)
+            checks
         }).collect();
 
-        let max_row_idx = checks.iter().map(|(_bg_coord, checks)| {
+        let max_row_idx = checks.iter().map(|checks| {
             checks.iter().map(|checks| {
                 checks.iter().map(|&(ref nh_masks, _, _, _, _)| {
                     nh_masks.iter().map(|&(row_idx, _)| row_idx)
@@ -420,7 +421,7 @@ pub struct LGolGraph<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAx
     pub lat2: LGolLat2<BC>,
 
     pub max_r1l: usize,
-    pub checks: HashMap<BC, Vec<Vec<(Vec<(usize, BS::Item)>, u32, u32, (usize, BS::Item, bool), (usize, BS::Item, bool))>>>,
+    pub checks: Vec<Vec<Vec<(Vec<(usize, BS::Item)>, u32, u32, (usize, BS::Item, bool), (usize, BS::Item, bool))>>>,
 
     pub ends: E,
 
@@ -508,7 +509,7 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, E: LGolE
                 },
             };
 
-            let checks = self.checks.get(&n2.bg_coord).unwrap();
+            let checks = &self.checks[n2.bg_coord.to_idx()];
             let checks = &checks[idx];
             for &(ref nh_masks, nh_live, nh_ct, cur_mask, fut_mask) in checks.iter() {
                 let mut nh = nh_live;
