@@ -311,7 +311,7 @@ impl<LBG, RBG> LGolFancyAxis<LBG, RBG> {
 }
 
 impl<BC: LGolBgCoord, LBG: LGolBg<BC>, RBG: LGolBg<BC>> LGolAxis<BC> for LGolFancyAxis<LBG, RBG> {
-    type S = (isize, isize);
+    type S = (i8, i8);
 
     fn left_edge(&self, _shift_data: &LGolShiftData<BC>, bg_coord: BC, _c: isize) -> LGolEdgeRead {
         LGolEdgeRead::Known(self.left_bg.bg_cell(bg_coord))
@@ -321,13 +321,13 @@ impl<BC: LGolBgCoord, LBG: LGolBg<BC>, RBG: LGolBg<BC>> LGolAxis<BC> for LGolFan
         LGolEdgeRead::Known(self.right_bg.bg_cell(bg_coord))
     }
 
-    fn zero_stat(&self, shift_data: &LGolShiftData<BC>) -> (isize, isize) {
-        (shift_data.max_coord, shift_data.min_coord)
+    fn zero_stat(&self, shift_data: &LGolShiftData<BC>) -> (i8, i8) {
+        (shift_data.max_coord as i8, shift_data.min_coord as i8)
     }
 
-    fn add_stat<B: UScalar>(&self, shift_data: &LGolShiftData<BC>, s0: (isize, isize), bg_coord: BC, _r: B, _idx: usize, c: isize, v: bool) -> Option<(isize, isize)> {
-        let mut min = s0.0;
-        let mut max = s0.1;
+    fn add_stat<B: UScalar>(&self, shift_data: &LGolShiftData<BC>, s0: (i8, i8), bg_coord: BC, _r: B, _idx: usize, c: isize, v: bool) -> Option<(i8, i8)> {
+        let mut min = s0.0 as isize;
+        let mut max = s0.1 as isize;
 
         if v != self.left_bg.bg_cell(bg_coord) {
             min = min.min(c);
@@ -340,7 +340,7 @@ impl<BC: LGolBgCoord, LBG: LGolBg<BC>, RBG: LGolBg<BC>> LGolAxis<BC> for LGolFan
             return None;
         }
 
-        Some((min, max))
+        Some((min as i8, max as i8))
     }
 
     fn recenter<BS: RowTuple>(&self, shift_data: &LGolShiftData<BC>, hn: LGolHashNode<BS, BC>) -> (isize, LGolHashNode<BS, BC>) {
