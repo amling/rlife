@@ -96,3 +96,19 @@ impl<BS: RowTuple, BC: LGolBgCoord, S> LGolMaskEnds<BS, BC, S> {
         m.insert(pat, s);
     }
 }
+
+pub struct LGolVPeriodDividingEnds(pub usize);
+
+impl<BS: RowTuple, BC: LGolBgCoord> LGolEnds<BS, BC> for LGolVPeriodDividingEnds {
+    fn end(&self, lat2: &LGolLat2<BC>, n: &LGolHashNode<BS, BC>) -> Option<&str> {
+        let division_walks = lat2.v_shift_data.division_walks[self.0].as_ref().unwrap();
+        for (idx, &prev_idx) in division_walks.iter().enumerate() {
+            for r in n.rs.as_slice() {
+                if r.get_bit(idx) != r.get_bit(prev_idx) {
+                    return None
+                }
+            }
+        }
+        Some("")
+    }
+}
