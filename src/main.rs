@@ -73,34 +73,44 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Resul
 
     let wx = args.parse();
     let mx = args.parse();
+    let mf = args.parse();
 
-    let ge = GolGraphParams {
-        mt: 8,
-        mx: mx,
-        wx: wx,
+    let ge = LGolGraphParams {
+        vu: (mx, 0, 0),
+        vv: (0, -4, 8),
+        vw: (0, 0, 1),
 
-        left_edge: GolEdge::Empty,
-        right_edge: GolEdge::Empty,
+        bg_coord: PhantomData::<LGolBgY2>,
 
-        ox: 0,
-        oy: 3,
-
-        recenter: GolRecenter::BiasRight,
+        u_axis: LGolFancyAxis {
+            w: (wx, mx),
+            left_bg: LGolBgHorizStripes(),
+            right_bg: LGolBgEmpty(),
+        },
+        v_axis: LGolPeriodDividingAxis {
+            division: 2,
+            mf: mf,
+        },
     };
-    assert!(ge.mt * ge.mx <= B::size());
+    let ge = ge.derived::<[B; 4], _>(LGolNoEnds());
 
-    let cf = VecChunkFactory();
+    let cf = AnonMmapChunkFactory();
     let st = args.read_state_or(Bfs2CustomSerializer(cf), || {
-        let (r0, r1) = ge.parse_and_recenter_pair(
-            "*..*. ..**. ..*.* .**.. *.*.. *.*.. ..**. .***.",
-            "*...* ...** ..... .**.. .*... .*.*. *.... .*.*.",
-        );
-        let n0 = ge.regular_node::<B, ()>(r0, r1);
+        let rs = ge.parse_bs2(&[
+            "  |  |  |  |  |  |*.|*.",
+            "  |  |  |  |..|*.|*.|**",
+            "  |  |*.|*.|.*|.*|  |  ",
+            "..|*.|*.|**|  |  |  |  ",
+            ".*|.*|  |  |  |  |  |  ",
+            "z",
+        ]);
+        let (xyt, rs) = ge.recenter_xyt((0, 0, 0), rs);
+        let n0 = ge.regular_node(xyt, rs);
 
         Bfs2State::new_simple(n0, cf)
     });
 
-    let ge = ge.derived((), ());
+    assert!(ge.max_r1l <= B::size());
 
     let mut le = GolLifecycle {
         ge: &ge,
