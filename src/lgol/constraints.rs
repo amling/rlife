@@ -17,40 +17,36 @@ pub trait LGolConstraint<BC: LGolBgCoord>: Copy {
     fn add_stat<BS: RowTuple>(&self, ge: &LGolGraph<BS, BC, impl LGolAxis<BC>, impl LGolAxis<BC>, impl LGolConstraint<BC>, impl LGolEnds<BS, BC>>, s0: Self::S, bg_coord: BC, r: BS::Item, idx: usize, v: bool) -> Option<Self::S>;
 }
 
-impl<BC: LGolBgCoord> LGolConstraint<BC> for () {
-    type S = ();
+macro_rules! impl_cons {
+    ($([$cs_id:ident / $s_id:ident / $ty:ident])*) => {
+        impl<BC: LGolBgCoord $(, $ty: LGolConstraint<BC>)*> LGolConstraint<BC> for ($($ty,)*) {
+            type S = ($($ty::S,)*);
 
-    fn zero_stat<BS: RowTuple>(&self, _ge: &LGolGraph<BS, BC, impl LGolAxis<BC>, impl LGolAxis<BC>, impl LGolConstraint<BC>, impl LGolEnds<BS, BC>>) {
-    }
+            #[allow(unused_variables)]
+            fn zero_stat<BS: RowTuple>(&self, ge: &LGolGraph<BS, BC, impl LGolAxis<BC>, impl LGolAxis<BC>, impl LGolConstraint<BC>, impl LGolEnds<BS, BC>>) -> Self::S {
+                let ($(ref $cs_id,)*) = self;
+                ($($cs_id.zero_stat(ge),)*)
+            }
 
-    fn add_stat<BS: RowTuple>(&self, _ge: &LGolGraph<BS, BC, impl LGolAxis<BC>, impl LGolAxis<BC>, impl LGolConstraint<BC>, impl LGolEnds<BS, BC>>, _s0: (), _bg_coord: BC, _r: BS::Item, _idx: usize, _v: bool) -> Option<()> {
-        Some(())
-    }
-}
-
-impl<BC: LGolBgCoord, CS1: LGolConstraint<BC>, CS2: LGolConstraint<BC>> LGolConstraint<BC> for (CS1, CS2) {
-    type S = (CS1::S, CS2::S);
-
-    fn zero_stat<BS: RowTuple>(&self, ge: &LGolGraph<BS, BC, impl LGolAxis<BC>, impl LGolAxis<BC>, impl LGolConstraint<BC>, impl LGolEnds<BS, BC>>) -> Self::S {
-        let (ref cs1, ref cs2) = self;
-        (cs1.zero_stat(ge), cs2.zero_stat(ge))
-    }
-
-    fn add_stat<BS: RowTuple>(&self, ge: &LGolGraph<BS, BC, impl LGolAxis<BC>, impl LGolAxis<BC>, impl LGolConstraint<BC>, impl LGolEnds<BS, BC>>, (s1, s2): Self::S, bg_coord: BC, r: BS::Item, idx: usize, v: bool) -> Option<Self::S> {
-        let (ref cs1, ref cs2) = self;
-        Some((
-            match cs1.add_stat(ge, s1, bg_coord, r, idx, v) {
-                Some(s) => s,
-                None => {
-                    return None;
-                },
-            },
-            match cs2.add_stat(ge, s2, bg_coord, r, idx, v) {
-                Some(s) => s,
-                None => {
-                    return None;
-                },
-            },
-        ))
+            #[allow(unused_variables)]
+            fn add_stat<BS: RowTuple>(&self, ge: &LGolGraph<BS, BC, impl LGolAxis<BC>, impl LGolAxis<BC>, impl LGolConstraint<BC>, impl LGolEnds<BS, BC>>, ($($s_id,)*): Self::S, bg_coord: BC, r: BS::Item, idx: usize, v: bool) -> Option<Self::S> {
+                let ($(ref $cs_id,)*) = self;
+                Some((
+                    $(
+                        match $cs_id.add_stat(ge, $s_id, bg_coord, r, idx, v) {
+                            Some(s) => s,
+                            None => {
+                                return None;
+                            },
+                        },
+                    )*
+                ))
+            }
+        }
     }
 }
+
+impl_cons!();
+impl_cons!([cs1 / s1 / CS1]);
+impl_cons!([cs1 / s1 / CS1][cs2 / s2 / CS2]);
+impl_cons!([cs1 / s1 / CS1][cs2 / s2 / CS2][cs3 / s3 / CS3]);
