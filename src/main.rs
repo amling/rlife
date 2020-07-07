@@ -42,7 +42,6 @@ use gol::patlib::GolPatterns;
 use lgol::axis::LGolBgEdge;
 use lgol::axis::LGolEdgeRead;
 use lgol::axis::LGolRecenteringAxis;
-use lgol::axis::LGolPeriodDividingAxis;
 use lgol::axis::LGolReflectEdge;
 use lgol::axis::LGolSimpleAxis;
 use lgol::bg::LGolBgEmpty;
@@ -51,6 +50,7 @@ use lgol::bg::LGolBgVertStripes;
 use lgol::bg::LGolBgX2;
 use lgol::bg::LGolBgY2;
 use lgol::constraints::LGolConstraintUWindow;
+use lgol::constraints::LGolConstraintVPeriodDividing;
 use lgol::ends::LGolNoEnds;
 use lgol::graph::LGolGraphParams;
 use lgol::lat1::Vec3;
@@ -471,15 +471,16 @@ fn demo___lgol___period_divison___main1<B: UScalar + DeserializeOwned + Serializ
             left_bg: LGolBgHorizStripes(),
             right_bg: LGolBgEmpty(),
         },
-        v_axis: LGolPeriodDividingAxis {
-            division: 2,
-            mf: mf,
-        },
+        v_axis: (LGolEdgeRead::Wrap, LGolEdgeRead::Wrap),
         constraints: (
             LGolConstraintUWindow {
                 w: (wx, mx),
                 left_bg: LGolBgHorizStripes(),
                 right_bg: LGolBgEmpty(),
+            },
+            LGolConstraintVPeriodDividing {
+                division: 2,
+                mf: mf,
             },
         ),
     };
