@@ -221,12 +221,12 @@ impl<BC: LGolBgCoord, LE: LGolEdge<BC>, RE: LGolEdge<BC>> LGolAxis<BC> for LGolS
 
 #[derive(Clone)]
 #[derive(Copy)]
-pub struct LGolFancyAxis<LBG, RBG> {
+pub struct LGolRecenteringAxis<LBG, RBG> {
     pub left_bg: LBG,
     pub right_bg: RBG,
 }
 
-impl<LBG, RBG> LGolFancyAxis<LBG, RBG> {
+impl<LBG, RBG> LGolRecenteringAxis<LBG, RBG> {
     fn shift<BS: RowTuple, BC: LGolBgCoord>(&self, shift_data: &LGolShiftData<BC>, hn: LGolHashNode<BS, BC>, delta: isize) -> LGolHashNode<BS, BC> where LBG: LGolBg<BC>, RBG: LGolBg<BC> {
         if delta == 0 {
             return hn;
@@ -278,7 +278,7 @@ impl<LBG, RBG> LGolFancyAxis<LBG, RBG> {
     }
 }
 
-impl<BC: LGolBgCoord, LBG: LGolBg<BC>, RBG: LGolBg<BC>> LGolAxis<BC> for LGolFancyAxis<LBG, RBG> {
+impl<BC: LGolBgCoord, LBG: LGolBg<BC>, RBG: LGolBg<BC>> LGolAxis<BC> for LGolRecenteringAxis<LBG, RBG> {
     type S = ();
 
     fn left_edge(&self, _shift_data: &LGolShiftData<BC>, bg_coord: BC, _c: isize) -> LGolEdgeRead {

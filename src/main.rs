@@ -41,7 +41,7 @@ use gol::lifecycle::GolRctlEp;
 use gol::patlib::GolPatterns;
 use lgol::axis::LGolBgEdge;
 use lgol::axis::LGolEdgeRead;
-use lgol::axis::LGolFancyAxis;
+use lgol::axis::LGolRecenteringAxis;
 use lgol::axis::LGolPeriodDividingAxis;
 use lgol::axis::LGolReflectEdge;
 use lgol::axis::LGolSimpleAxis;
@@ -248,7 +248,7 @@ fn demo___lgol___main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRct
 
         bg_coord: PhantomData::<()>,
 
-        u_axis: LGolFancyAxis {
+        u_axis: LGolRecenteringAxis {
             left_bg: LGolBgEmpty(),
             right_bg: LGolBgEmpty(),
         },
@@ -298,7 +298,7 @@ fn demo___lgol___oob_agar___main1<B: UScalar + DeserializeOwned + Serialize>(ep:
 
         bg_coord: PhantomData::<LGolBgX2>,
 
-        u_axis: LGolFancyAxis {
+        u_axis: LGolRecenteringAxis {
             left_bg: LGolBgVertStripes(),
             right_bg: LGolBgEmpty(),
         },
@@ -467,7 +467,7 @@ fn demo___lgol___period_divison___main1<B: UScalar + DeserializeOwned + Serializ
 
         bg_coord: PhantomData::<LGolBgY2>,
 
-        u_axis: LGolFancyAxis {
+        u_axis: LGolRecenteringAxis {
             left_bg: LGolBgHorizStripes(),
             right_bg: LGolBgEmpty(),
         },
