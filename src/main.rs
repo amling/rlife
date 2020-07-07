@@ -253,6 +253,7 @@ fn demo___lgol___main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRct
             right_bg: LGolBgEmpty(),
         },
         v_axis: (LGolEdgeRead::Wrap, LGolEdgeRead::Wrap),
+        constraints: (),
     };
     let ge = ge.derived::<[B; 6], _>(());
 
@@ -297,6 +298,7 @@ fn demo___lgol___oob_agar___main1<B: UScalar + DeserializeOwned + Serialize>(ep:
             right_bg: LGolBgEmpty(),
         },
         v_axis: (LGolEdgeRead::Wrap, LGolEdgeRead::Wrap),
+        constraints: (),
     };
     let mut ge = ge.derived::<[B; 10], _>(HashSet::new());
 
@@ -369,6 +371,7 @@ fn demo___lgol___periodic_edge___main1<B: UScalar + DeserializeOwned + Serialize
 
         u_axis: (LGolEdgeRead::Wrap, LGolEdgeRead::Wrap),
         v_axis: (LGolEdgeRead::Wrap, LGolEdgeRead::Wrap),
+        constraints: (),
     };
     let ge = ge.derived::<[B; 2], _>(());
 
@@ -413,6 +416,7 @@ fn demo___lgol___reflect___main1<B: UScalar + DeserializeOwned + Serialize>(ep: 
             right_edge: LGolReflectEdge(0),
         },
         v_axis: (LGolEdgeRead::Wrap, LGolEdgeRead::Wrap),
+        constraints: (),
     };
     let ge = ge.derived::<[B; 6], _>(());
 
@@ -461,6 +465,7 @@ fn demo___lgol___period_divison___main1<B: UScalar + DeserializeOwned + Serializ
             division: 2,
             mf: mf,
         },
+        constraints: (),
     };
     let ge = ge.derived::<[B; 6], _>(LGolNoEnds());
 
