@@ -54,7 +54,7 @@ impl_cons!([cs1 / s1 / CS1][cs2 / s2 / CS2][cs3 / s3 / CS3]);
 
 #[derive(Clone)]
 #[derive(Copy)]
-struct LGolConstraintUWindow<LBG, RBG> {
+pub struct LGolConstraintUWindow<LBG, RBG> {
     // (numerator, denominator), a value of 1 is the entire width
     pub w: (isize, isize),
     pub left_bg: LBG,

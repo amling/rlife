@@ -50,6 +50,7 @@ use lgol::bg::LGolBgHorizStripes;
 use lgol::bg::LGolBgVertStripes;
 use lgol::bg::LGolBgX2;
 use lgol::bg::LGolBgY2;
+use lgol::constraints::LGolConstraintUWindow;
 use lgol::ends::LGolNoEnds;
 use lgol::graph::LGolGraphParams;
 use lgol::lat1::Vec3;
@@ -248,12 +249,17 @@ fn demo___lgol___main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRct
         bg_coord: PhantomData::<()>,
 
         u_axis: LGolFancyAxis {
-            w: (wx, mx),
             left_bg: LGolBgEmpty(),
             right_bg: LGolBgEmpty(),
         },
         v_axis: (LGolEdgeRead::Wrap, LGolEdgeRead::Wrap),
-        constraints: (),
+        constraints: (
+            LGolConstraintUWindow {
+                w: (wx, mx),
+                left_bg: LGolBgEmpty(),
+                right_bg: LGolBgEmpty(),
+            },
+        ),
     };
     let ge = ge.derived::<[B; 6], _>(());
 
@@ -293,12 +299,17 @@ fn demo___lgol___oob_agar___main1<B: UScalar + DeserializeOwned + Serialize>(ep:
         bg_coord: PhantomData::<LGolBgX2>,
 
         u_axis: LGolFancyAxis {
-            w: (wx, mx),
             left_bg: LGolBgVertStripes(),
             right_bg: LGolBgEmpty(),
         },
         v_axis: (LGolEdgeRead::Wrap, LGolEdgeRead::Wrap),
-        constraints: (),
+        constraints: (
+            LGolConstraintUWindow {
+                w: (wx, mx),
+                left_bg: LGolBgVertStripes(),
+                right_bg: LGolBgEmpty(),
+            },
+        ),
     };
     let mut ge = ge.derived::<[B; 10], _>(HashSet::new());
 
@@ -457,7 +468,6 @@ fn demo___lgol___period_divison___main1<B: UScalar + DeserializeOwned + Serializ
         bg_coord: PhantomData::<LGolBgY2>,
 
         u_axis: LGolFancyAxis {
-            w: (wx, mx),
             left_bg: LGolBgHorizStripes(),
             right_bg: LGolBgEmpty(),
         },
@@ -465,7 +475,13 @@ fn demo___lgol___period_divison___main1<B: UScalar + DeserializeOwned + Serializ
             division: 2,
             mf: mf,
         },
-        constraints: (),
+        constraints: (
+            LGolConstraintUWindow {
+                w: (wx, mx),
+                left_bg: LGolBgHorizStripes(),
+                right_bg: LGolBgEmpty(),
+            },
+        ),
     };
     let ge = ge.derived::<[B; 6], _>(LGolNoEnds());
 
