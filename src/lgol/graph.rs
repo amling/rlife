@@ -805,6 +805,6 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, E: LGolE
         if self.ends.want_justify() {
             hn = self.justify(hn).2;
         }
-        self.ends.end(&hn)
+        self.ends.end(&self.lat2, &hn)
     }
 }

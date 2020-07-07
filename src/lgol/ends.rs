@@ -1,4 +1,3 @@
-use ars_ds::nice::Nice;
 use ars_ds::scalar::Scalar;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -8,17 +7,18 @@ use crate::lgol;
 use lgol::bg::LGolBgCoord;
 use lgol::graph::LGolHashNode;
 use lgol::graph::RowTuple;
+use lgol::lat2::LGolLat2;
 
-pub trait LGolEnds<BS: RowTuple, BC> {
+pub trait LGolEnds<BS: RowTuple, BC: LGolBgCoord> {
     fn want_justify(&self) -> bool {
         false
     }
 
-    fn end(&self, n: &LGolHashNode<BS, BC>) -> Option<&str>;
+    fn end(&self, lat2: &LGolLat2<BC>, n: &LGolHashNode<BS, BC>) -> Option<&str>;
 }
 
-impl<BS: RowTuple, BC> LGolEnds<BS, BC> for () {
-    fn end(&self, n: &LGolHashNode<BS, BC>) -> Option<&str> {
+impl<BS: RowTuple, BC: LGolBgCoord> LGolEnds<BS, BC> for () {
+    fn end(&self, _lat2: &LGolLat2<BC>, n: &LGolHashNode<BS, BC>) -> Option<&str> {
         for &r in n.rs.as_slice() {
             if r != BS::Item::zero() {
                 return None;
@@ -28,8 +28,8 @@ impl<BS: RowTuple, BC> LGolEnds<BS, BC> for () {
     }
 }
 
-impl<BS: RowTuple, BC: Nice> LGolEnds<BS, BC> for HashSet<LGolHashNode<BS, BC>> {
-    fn end(&self, n: &LGolHashNode<BS, BC>) -> Option<&str> {
+impl<BS: RowTuple, BC: LGolBgCoord> LGolEnds<BS, BC> for HashSet<LGolHashNode<BS, BC>> {
+    fn end(&self, _lat2: &LGolLat2<BC>, n: &LGolHashNode<BS, BC>) -> Option<&str> {
         if self.contains(n) {
             Some("")
         }
@@ -39,16 +39,16 @@ impl<BS: RowTuple, BC: Nice> LGolEnds<BS, BC> for HashSet<LGolHashNode<BS, BC>> 
     }
 }
 
-impl<BS: RowTuple, BC: Nice, S: AsRef<str>> LGolEnds<BS, BC> for HashMap<LGolHashNode<BS, BC>, S> {
-    fn end(&self, n: &LGolHashNode<BS, BC>) -> Option<&str> {
+impl<BS: RowTuple, BC: LGolBgCoord, S: AsRef<str>> LGolEnds<BS, BC> for HashMap<LGolHashNode<BS, BC>, S> {
+    fn end(&self, _lat2: &LGolLat2<BC>, n: &LGolHashNode<BS, BC>) -> Option<&str> {
         self.get(n).map(|s| s.as_ref())
     }
 }
 
 pub struct LGolNoEnds();
 
-impl<BS: RowTuple, BC> LGolEnds<BS, BC> for LGolNoEnds {
-    fn end(&self, _n: &LGolHashNode<BS, BC>) -> Option<&str> {
+impl<BS: RowTuple, BC: LGolBgCoord> LGolEnds<BS, BC> for LGolNoEnds {
+    fn end(&self, _lat2: &LGolLat2<BC>, _n: &LGolHashNode<BS, BC>) -> Option<&str> {
         None
     }
 }
@@ -60,7 +60,7 @@ impl<BS: RowTuple, BC: LGolBgCoord, S: AsRef<str>> LGolEnds<BS, BC> for LGolMask
         true
     }
 
-    fn end(&self, n: &LGolHashNode<BS, BC>) -> Option<&str> {
+    fn end(&self, _lat2: &LGolLat2<BC>, n: &LGolHashNode<BS, BC>) -> Option<&str> {
         let bg_coord = n.bg_coord;
         let rs = n.rs;
         if let Some(m) = self.0.get(&bg_coord) {
