@@ -131,3 +131,71 @@ impl<BC: LGolBgCoord> LGolConstraint<BC> for LGolConstraintVPeriodDividing {
         Some(s1)
     }
 }
+
+#[derive(Clone)]
+#[derive(Copy)]
+pub struct LGolConstraintGreyshipMegahack<LBG, RBG> {
+    pub f: (isize, isize),
+    pub w: (isize, isize),
+    pub left_bg: LBG,
+    pub right_bg: RBG,
+    pub division: usize,
+}
+
+impl<BC: LGolBgCoord, LBG: LGolBg<BC>, RBG: LGolBg<BC>> LGolConstraint<BC> for LGolConstraintGreyshipMegahack<LBG, RBG> {
+    type S = Option<(i8, i8)>;
+
+    fn zero_stat<BS: RowTuple>(&self, _ge: &LGolGraph<BS, BC, impl LGolAxis<BC>, impl LGolAxis<BC>, impl LGolConstraint<BC>, impl LGolEnds<BS, BC>>) -> Option<(i8, i8)> {
+        None
+    }
+
+    fn add_stat<BS: RowTuple>(&self, ge: &LGolGraph<BS, BC, impl LGolAxis<BC>, impl LGolAxis<BC>, impl LGolConstraint<BC>, impl LGolEnds<BS, BC>>, s0: Option<(i8, i8)>, bg_coord: BC, r: BS::Item, idx: usize, v: bool) -> Option<Option<(i8, i8)>> {
+        match s0 {
+            None => {
+                // haven't yet seen a non-left cell
+                if v == self.left_bg.bg_cell(bg_coord) {
+                    // still haven't
+                    return Some(None);
+                }
+                // okay, we're the first non-left cell
+                let (_, (min, _, _), _) = ge.lat2.spots[idx];
+
+                let max1 = min + self.f.0 * ge.lat1.adet / self.f.1;
+                let max2 = min + self.w.0 * ge.lat1.adet / self.w.1;
+
+                Some(Some((max1 as i8, max2 as i8)))
+            },
+            Some((max1, max2)) => {
+                // already seen a non-left cell, make sure we don't violate right side of windows
+                let max1 = max1 as isize;
+                let max2 = max2 as isize;
+
+                let (_, (u, _, _), _) = ge.lat2.spots[idx];
+
+                if u >= max1 {
+                    // we're past the limit for full-period cells, check to make sure we're same as
+                    // prior (where applicable)
+                    let division_walk = ge.lat2.v_shift_data.division_walks[self.division].as_ref().unwrap();
+                    let prev_idx = division_walk[idx];
+
+                    if prev_idx < idx {
+                        // we're not first, so check
+                        if r.get_bit(prev_idx) != v {
+                            // nope nope nope
+                            return None;
+                        }
+                    }
+                }
+
+                if u >= max2 {
+                    // we're past the limit for non-right cells
+                    if v != self.right_bg.bg_cell(bg_coord) {
+                        return None;
+                    }
+                }
+
+                Some(s0)
+            },
+        }
+    }
+}
