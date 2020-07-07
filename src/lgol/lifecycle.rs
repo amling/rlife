@@ -16,11 +16,11 @@ use lgol::graph::LGolNode;
 use lgol::graph::RowTuple;
 use lgol::lat1::Vec3;
 
-impl<BS: RowTuple + Serialize, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, CS: LGolConstraint<BC>, E: LGolEnds<BS, BC>> GolGraphTrait for LGolGraph<BS, BC, UA, VA, CS, E> where BS::Item: Serialize, BC: Serialize, UA::S: Serialize, VA::S: Serialize, CS::S: Serialize {
-    type N = LGolNode<BS, BC, UA::S, VA::S, CS::S>;
-    type FN = LGolNode<BS, BC, UA::S, VA::S, CS::S>;
+impl<BS: RowTuple + Serialize, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, CS: LGolConstraint<BC>, E: LGolEnds<BS, BC>> GolGraphTrait for LGolGraph<BS, BC, UA, VA, CS, E> where BS::Item: Serialize, BC: Serialize, CS::S: Serialize {
+    type N = LGolNode<BS, BC, CS::S>;
+    type FN = LGolNode<BS, BC, CS::S>;
 
-    fn format_rows(&self, rows: &Vec<LGolKeyNode<BS, BC>>, last: Option<&LGolNode<BS, BC, UA::S, VA::S, CS::S>>) -> Vec<String> {
+    fn format_rows(&self, rows: &Vec<LGolKeyNode<BS, BC>>, last: Option<&LGolNode<BS, BC, CS::S>>) -> Vec<String> {
         self.format_rows(rows, last)
     }
 
@@ -60,7 +60,7 @@ impl<BS: RowTuple + Serialize, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<B
         format!("path delta {:?} cycle delta {:?}", dpath, dcycle)
     }
 
-    fn freeze_dfs_node(&self, n: &LGolNode<BS, BC, UA::S, VA::S, CS::S>) -> LGolNode<BS, BC, UA::S, VA::S, CS::S> {
+    fn freeze_dfs_node(&self, n: &LGolNode<BS, BC, CS::S>) -> LGolNode<BS, BC, CS::S> {
         n.clone()
     }
 }

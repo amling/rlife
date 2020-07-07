@@ -120,23 +120,21 @@ impl_row_tuple!(32);
 #[derive(Hash)]
 #[derive(PartialEq)]
 #[derive(Serialize)]
-pub struct LGolNode<BS: RowTuple, BC, US, VS, CSS> {
+pub struct LGolNode<BS: RowTuple, BC, CSS> {
     pub bg_coord: BC,
     pub du: i16,
     pub dv: i16,
     pub r0s: BS,
     pub r1: BS::Item,
     pub r1l: u8,
-    pub r1_us: US,
-    pub r1_vs: VS,
     pub r1_css: CSS,
 }
 
-impl<BS: RowTuple, BC: Nice + Default, US: Nice + Default, VS: Nice + Default, CSS: Nice + Default> MmapChunkSafe for LGolNode<BS, BC, US, VS, CSS> {
+impl<BS: RowTuple, BC: Nice + Default, CSS: Nice + Default> MmapChunkSafe for LGolNode<BS, BC, CSS> {
     // :X
 }
 
-impl<BS: RowTuple, BC: Nice, US: Nice, VS: Nice, CSS: Nice> DfsNode for LGolNode<BS, BC, US, VS, CSS> {
+impl<BS: RowTuple, BC: Nice, CSS: Nice> DfsNode for LGolNode<BS, BC, CSS> {
     type KN = LGolKeyNode<BS, BC>;
 
     fn key_node(&self) -> Option<LGolKeyNode<BS, BC>> {
@@ -153,7 +151,7 @@ impl<BS: RowTuple, BC: Nice, US: Nice, VS: Nice, CSS: Nice> DfsNode for LGolNode
     }
 }
 
-impl<BS: RowTuple, BC: Nice, US: Nice, VS: Nice, CSS: Nice> LGolNode<BS, BC, US, VS, CSS> {
+impl<BS: RowTuple, BC: Nice, CSS: Nice> LGolNode<BS, BC, CSS> {
     fn read_mask(&self, (idx, mask): (usize, BS::Item)) -> u32 {
         let r = match idx {
             0 => self.r1,
@@ -449,7 +447,7 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, CS: LGol
         self.recenter_common(LGolRecenterJustify(), hn)
     }
 
-    fn expand_srch(&self, n1: &LGolNode<BS, BC, UA::S, VA::S, CS::S>, n2s: &mut Vec<LGolNode<BS, BC, UA::S, VA::S, CS::S>>) {
+    fn expand_srch(&self, n1: &LGolNode<BS, BC, CS::S>, n2s: &mut Vec<LGolNode<BS, BC, CS::S>>) {
         let idx = n1.r1l as usize;
 
         if idx == self.max_r1l {
@@ -477,15 +475,13 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, CS: LGol
                 dv: n1.dv + (dv as i16),
                 r0s: hn.rs,
                 r1: BS::Item::zero(),
-                r1_us: self.params.u_axis.zero_stat(&self.lat2.u_shift_data),
-                r1_vs: self.params.v_axis.zero_stat(&self.lat2.v_shift_data),
                 r1_css: self.params.constraints.zero_stat(self),
                 r1l: 0,
             });
             return;
         }
 
-        let (_, (idx_u, idx_v, _), idx_bg_coord) = self.lat2.spots[idx];
+        let (_, _, idx_bg_coord) = self.lat2.spots[idx];
         let v_bg_coord = n1.bg_coord.add(idx_bg_coord);
 
         'v: for &v in &[false, true] {
@@ -499,18 +495,6 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, CS: LGol
                 r0s: n1.r0s,
                 r1: r1,
                 r1l: n1.r1l + 1,
-                r1_us: match self.params.u_axis.add_stat(&self.lat2.u_shift_data, n1.r1_us, v_bg_coord, r1, idx, idx_u, v) {
-                    Some(us) => us,
-                    None => {
-                        continue 'v;
-                    }
-                },
-                r1_vs: match self.params.v_axis.add_stat(&self.lat2.v_shift_data, n1.r1_vs, v_bg_coord, r1, idx, idx_v, v) {
-                    Some(us) => us,
-                    None => {
-                        continue 'v;
-                    }
-                },
                 r1_css: match self.params.constraints.add_stat(self, n1.r1_css, v_bg_coord, r1, idx, v) {
                     Some(css) => css,
                     None => {
@@ -581,7 +565,7 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, CS: LGol
         }
     }
 
-    pub fn format_rows(&self, rows: &Vec<LGolKeyNode<BS, BC>>, last: Option<&LGolNode<BS, BC, UA::S, VA::S, CS::S>>) -> Vec<String> {
+    pub fn format_rows(&self, rows: &Vec<LGolKeyNode<BS, BC>>, last: Option<&LGolNode<BS, BC, CS::S>>) -> Vec<String> {
         let mut pr = PrintBag::new();
         let mut w = 0;
         for (n, row) in rows.iter().enumerate() {
@@ -617,7 +601,7 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, CS: LGol
         pr.format()
     }
 
-    pub fn zero_node(&self) -> LGolNode<BS, BC, UA::S, VA::S, CS::S> {
+    pub fn zero_node(&self) -> LGolNode<BS, BC, CS::S> {
         self.regular_node((0, 0, 0), BS::default())
     }
 
@@ -721,7 +705,7 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, CS: LGol
         ((x + dx, y + dy, t + dt), hn.rs)
     }
 
-    pub fn regular_node(&self, xyt: Vec3, r0s: BS) -> LGolNode<BS, BC, UA::S, VA::S, CS::S> {
+    pub fn regular_node(&self, xyt: Vec3, r0s: BS) -> LGolNode<BS, BC, CS::S> {
         let (u, v, _w) = self.lat1.xyt_to_uvw(xyt);
 
         // Mmm, sort of complicated.  Our conversion to uvw definitely doesn't include this (since
@@ -739,14 +723,12 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, CS: LGol
             r0s: r0s,
             r1: BS::Item::zero(),
             r1l: 0,
-            r1_us: self.params.u_axis.zero_stat(&self.lat2.u_shift_data),
-            r1_vs: self.params.v_axis.zero_stat(&self.lat2.v_shift_data),
             r1_css: self.params.constraints.zero_stat(self),
         }
     }
 
     #[allow(dead_code)]
-    pub fn cb_node(&self, xyt0: Vec3, mut f: impl FnMut(Vec3) -> bool) -> LGolNode<BS, BC, UA::S, VA::S, CS::S> {
+    pub fn cb_node(&self, xyt0: Vec3, mut f: impl FnMut(Vec3) -> bool) -> LGolNode<BS, BC, CS::S> {
         let mut r0s = BS::default();
 
         let (ix, iy, it) = xyt0;
@@ -804,8 +786,8 @@ fn check_compat2(living: u32, known: u32, c: bool, f: bool) -> bool {
     }
 }
 
-impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, CS: LGolConstraint<BC>, E: LGolEnds<BS, BC>> DfsGraph<LGolNode<BS, BC, UA::S, VA::S, CS::S>> for LGolGraph<BS, BC, UA, VA, CS, E> {
-    fn expand(&self, n1: &LGolNode<BS, BC, UA::S, VA::S, CS::S>) -> Vec<LGolNode<BS, BC, UA::S, VA::S, CS::S>> {
+impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, CS: LGolConstraint<BC>, E: LGolEnds<BS, BC>> DfsGraph<LGolNode<BS, BC, CS::S>> for LGolGraph<BS, BC, UA, VA, CS, E> {
+    fn expand(&self, n1: &LGolNode<BS, BC, CS::S>) -> Vec<LGolNode<BS, BC, CS::S>> {
         let mut n2s = Vec::new();
         self.expand_srch(n1, &mut n2s);
         n2s
