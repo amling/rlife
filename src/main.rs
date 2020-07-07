@@ -67,7 +67,7 @@ fn main() {
 
     ars_rctl_main::spawn(ep.clone());
 
-    main1::<u32>(ep).unwrap();
+    main1::<u64>(ep).unwrap();
 }
 
 fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
@@ -79,8 +79,8 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Resul
 
     let ge = LGolGraphParams {
         vu: (mx, 0, 0),
-        vv: (0, -4, 6),
-        vw: (0, -1, 2),
+        vv: (0, -4, 8),
+        vw: (0, 0, 1),
 
         bg_coord: PhantomData::<LGolBgY2>,
 
@@ -95,20 +95,20 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Resul
                 w: (wx, mx),
                 left_bg: LGolBgHorizStripes(),
                 right_bg: LGolBgEmpty(),
-                division: 2,
+                division: 4,
             },
         ),
     };
-    let ge = ge.derived::<[B; 6], _>(LGolNoEnds());
+    let ge = ge.derived::<[B; 4], _>(LGolNoEnds());
 
     let cf = AnonMmapChunkFactory();
     let st = args.read_state_or(Bfs2CustomSerializer(cf), || {
         let rs = ge.parse_bs2(&[
-            "  |  |  |  |  |*.",
-            "  |  |  |..|*.|*.",
-            "  |  |*.|*.|.*|  ",
-            "..|*.|*.|  |  |  ",
-            "*.|.*|  |  |  |  ",
+            "  |  |  |  |  |  |*.|*.",
+            "  |  |  |  |..|*.|*.|**",
+            "  |  |*.|*.|.*|.*|  |  ",
+            "..|*.|*.|**|  |  |  |  ",
+            ".*|.*|  |  |  |  |  |  ",
             "z",
         ]);
         let (xyt, rs) = ge.recenter_xyt((0, 0, 0), rs);
