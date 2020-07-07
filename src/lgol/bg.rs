@@ -1,6 +1,7 @@
 #![allow(unused_parens)]
 
 use ars_ds::nice::Nice;
+use ars_ds::scalar::Scalar;
 use serde::Deserialize;
 use serde::Serialize;
 use std::fmt::Debug;
@@ -8,7 +9,10 @@ use std::hash::Hash;
 
 use crate::lgol;
 
+use lgol::graph::LGolHashNode;
+use lgol::graph::RowTuple;
 use lgol::lat1::Vec3;
+use lgol::lat2::LGolShiftData;
 
 pub trait LGolBgCoord: Nice + Default {
     fn mul(&self, n: isize) -> Self;
@@ -122,6 +126,34 @@ impl LGolBgCoord for LGolBgY2 {
 
 pub trait LGolBg<BC: LGolBgCoord>: Copy {
     fn bg_cell(&self, bg_coord: BC) -> bool;
+
+    fn find_min<BS: RowTuple>(&self, shift_data: &LGolShiftData<BC>, hn: &LGolHashNode<BS, BC>) -> isize {
+        for &(c, idx, db) in shift_data.checks.iter() {
+            let bg_coord = db.add(hn.bg_coord);
+            for (j, r) in hn.rs.as_slice().iter().enumerate() {
+                let bg_coord = bg_coord.add(shift_data.w_bg_coord.mul(-((j as isize) + 1)));
+                let bg_cell = self.bg_cell(bg_coord);
+                if r.get_bit(idx) != bg_cell {
+                    return c;
+                }
+            }
+        }
+        shift_data.max_coord
+    }
+
+    fn find_max<BS: RowTuple>(&self, shift_data: &LGolShiftData<BC>, hn: &LGolHashNode<BS, BC>) -> isize {
+        for &(c, idx, db) in shift_data.checks.iter().rev() {
+            let bg_coord = db.add(hn.bg_coord);
+            for (j, r) in hn.rs.as_slice().iter().enumerate() {
+                let bg_coord = bg_coord.add(shift_data.w_bg_coord.mul(-((j as isize) + 1)));
+                let bg_cell = self.bg_cell(bg_coord);
+                if r.get_bit(idx) != bg_cell {
+                    return c;
+                }
+            }
+        }
+        shift_data.min_coord
+    }
 }
 
 #[derive(Clone)]

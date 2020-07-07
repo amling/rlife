@@ -229,36 +229,6 @@ pub struct LGolFancyAxis<LBG, RBG> {
 }
 
 impl<LBG, RBG> LGolFancyAxis<LBG, RBG> {
-    fn find_bs_min<BS: RowTuple, BC: LGolBgCoord>(&self, shift_data: &LGolShiftData<BC>, hn: &LGolHashNode<BS, BC>) -> isize where LBG: LGolBg<BC> {
-        for &(c, idx, db) in shift_data.checks.iter() {
-            let bg_coord = db.add(hn.bg_coord);
-            for (j, r) in hn.rs.as_slice().iter().enumerate() {
-                let bg_coord = bg_coord.add(shift_data.w_bg_coord.mul(-((j as isize) + 1)));
-                let bg_cell = self.left_bg.bg_cell(bg_coord);
-                if r.get_bit(idx) != bg_cell {
-                    return c;
-                }
-            }
-        }
-        shift_data.max_coord
-    }
-
-    fn find_bs_max<BS: RowTuple, BC: LGolBgCoord>(&self, shift_data: &LGolShiftData<BC>, hn: &LGolHashNode<BS, BC>) -> isize where RBG: LGolBg<BC> {
-        for &(c, idx, db) in shift_data.checks.iter().rev() {
-            let bg_coord = db.add(hn.bg_coord);
-            for (j, r) in hn.rs.as_slice().iter().enumerate() {
-                let bg_coord = bg_coord.add(shift_data.w_bg_coord.mul(-((j as isize) + 1)));
-                let bg_cell = self.right_bg.bg_cell(bg_coord);
-                if r.get_bit(idx) != bg_cell {
-                    return c;
-                }
-            }
-        }
-        shift_data.min_coord
-    }
-}
-
-impl<LBG, RBG> LGolFancyAxis<LBG, RBG> {
     fn shift<BS: RowTuple, BC: LGolBgCoord>(&self, shift_data: &LGolShiftData<BC>, hn: LGolHashNode<BS, BC>, delta: isize) -> LGolHashNode<BS, BC> where LBG: LGolBg<BC>, RBG: LGolBg<BC> {
         if delta == 0 {
             return hn;
@@ -344,8 +314,8 @@ impl<BC: LGolBgCoord, LBG: LGolBg<BC>, RBG: LGolBg<BC>> LGolAxis<BC> for LGolFan
     }
 
     fn recenter<BS: RowTuple>(&self, shift_data: &LGolShiftData<BC>, hn: LGolHashNode<BS, BC>) -> (isize, LGolHashNode<BS, BC>) {
-        let min = self.find_bs_min(shift_data, &hn);
-        let max = self.find_bs_max(shift_data, &hn);
+        let min = self.left_bg.find_min(shift_data, &hn);
+        let max = self.right_bg.find_max(shift_data, &hn);
 
         let our_sum = min + max;
         let def_sum = shift_data.min_coord + shift_data.max_coord;
@@ -357,7 +327,7 @@ impl<BC: LGolBgCoord, LBG: LGolBg<BC>, RBG: LGolBg<BC>> LGolAxis<BC> for LGolFan
     }
 
     fn justify<BS: RowTuple>(&self, shift_data: &LGolShiftData<BC>, hn: LGolHashNode<BS, BC>) -> (isize, LGolHashNode<BS, BC>) {
-        let min = self.find_bs_min(shift_data, &hn);
+        let min = self.left_bg.find_min(shift_data, &hn);
 
         let def_min = shift_data.min_coord;
 
