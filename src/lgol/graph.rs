@@ -589,7 +589,43 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, E: LGolE
         if let Some(last) = last {
             self.collect_row(&mut pr, '.', '*', last.r1, Some(last.r1l as usize), (last.du as isize), (last.dv as isize), w);
         }
-        pr.format()
+        let mut acc = pr.format();
+
+        if last.is_none() {
+            let end = rows.last().unwrap();
+            let du = end.du as isize;
+            let dv = end.dv as isize;
+
+            let mut pr = PrintBag::new();
+            let mut w = 0;
+            for &r in end.rs.as_slice().iter() {
+                // easier to conceptually think of would-be b2f extension as happening at w = 0
+                w += 1;
+                self.collect_row(&mut pr, '.', '*', r, None, du, dv, -w);
+            }
+            w += 1;
+            {
+                let (x, y, t) = self.lat1.uvw_to_xyt((du, dv, -w * self.lat1.adet));
+                let mut wraps = vec![];
+                if self.params.u_axis.wrap_in_print() {
+                    let (ux, uy, ut) = self.params.vu;
+                    wraps.push((uy, ux, ut));
+                }
+                if self.params.v_axis.wrap_in_print() {
+                    let (vx, vy, vt) = self.params.vv;
+                    wraps.push((vy, vx, vt));
+                }
+                let wraps = Vec3::canonicalize(wraps);
+                let (y, x, t) = wraps.canonicalize((y, x, t));
+                pr.insert(x, y, t, 'z');
+            }
+
+            let bg_coord = end.bg_coord.add(BC::from_xyt(self.lat1.uvw_to_xyt((0, 0, w * self.lat1.adet))));
+            let joint = (du, dv, bg_coord, pr.format());
+            acc.push(format!("Joint JSON: {}", serde_json::to_string(&joint).unwrap()));
+        }
+
+        acc
     }
 
     pub fn format_cycle_rows(&self, path: &Vec<LGolKeyNode<BS, BC>>, cycle: &Vec<LGolKeyNode<BS, BC>>, _last: &LGolKeyNode<BS, BC>) -> Vec<String> {
