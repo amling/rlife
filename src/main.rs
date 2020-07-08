@@ -101,7 +101,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Resul
                     "z       |..***...|.....*..",
                     "        |        |***.....",
                 ],
-                0,
+                1,
             ),
             (
                 &[
@@ -110,7 +110,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Resul
                     "z       |..**.*..|.*..*...",
                     "        |        |***...*.",
                 ],
-                0,
+                1,
             ),
             (
                 &[
@@ -119,7 +119,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Resul
                     "z       |.***....|....*.*.",
                     "        |        |**......",
                 ],
-                0,
+                1,
             ),
             (
                 &[
@@ -128,7 +128,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Resul
                     "z       |**...*..|***.....",
                     "        |        |...*....",
                 ],
-                1,
+                0,
             ),
             (
                 &[
@@ -137,7 +137,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Resul
                     "z       |*...*...|**......",
                     "        |        |..*..*..",
                 ],
-                1,
+                0,
             ),
         ];
         let init = starts.into_iter().map(|(rows, y)| {
