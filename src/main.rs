@@ -139,6 +139,16 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Resul
                 ],
                 0,
             ),
+            // this does find the cycle :(
+            //(
+            //    &[
+            //        "***|   |   ",
+            //        ".*.|..*|   ",
+            //        "z  |**.|**.",
+            //        "   |   |.*.",
+            //    ],
+            //    0,
+            //),
         ];
         let init = starts.into_iter().map(|(rows, y)| {
             let rs = ge.parse_bs2(rows);
