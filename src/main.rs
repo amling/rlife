@@ -30,6 +30,7 @@ use bfs::bfs2::Bfs2CustomSerializer;
 use bfs::bfs2::Bfs2State;
 use chunk_store::AnonMmapChunkFactory;
 use chunk_store::VecChunkFactory;
+use dfs::graph::DfsNode;
 use dfs::lifecycle::DfsLifecycle;
 use dfs::lifecycle::LogLevel;
 use gol::graph::GolEdge;
@@ -51,7 +52,6 @@ use lgol::bg::LGolBgVertStripes;
 use lgol::bg::LGolBgX2;
 use lgol::bg::LGolBgY2;
 use lgol::ends::LGolNoEnds;
-use lgol::ends::LGolVPeriodDividingEnds;
 use lgol::graph::LGolGraphParams;
 use lgol::lat1::Vec3;
 use sal::DeserializerFor;
@@ -74,11 +74,10 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Resul
 
     let wx = args.parse();
     let mx = args.parse();
-    let mf = args.parse();
 
     let ge = LGolGraphParams {
         vu: (mx, 0, 0),
-        vv: (0, 4, 6),
+        vv: (0, 2, 3),
         vw: (0, -1, -2),
 
         bg_coord: PhantomData::<LGolBgY2>,
@@ -88,27 +87,68 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Resul
             left_bg: LGolBgHorizStripes(),
             right_bg: LGolBgEmpty(),
         },
-        v_axis: LGolPeriodDividingAxis {
-            division: 2,
-            mf: mf,
-        },
+        v_axis: (LGolEdgeRead::Wrap, LGolEdgeRead::Wrap),
     };
-    let ge = ge.derived::<[B; 6], _>(LGolVPeriodDividingEnds(2));
+    let ge = ge.derived::<[B; 6], _>(LGolNoEnds());
 
     let cf = AnonMmapChunkFactory();
     let st = args.read_state_or(Bfs2CustomSerializer(cf), || {
-        let rs = ge.parse_bs2(&[
-            "*| | | | | ",
-            ".|.| | | | ",
-            "z|.|.|.| | ",
-            " | |.|.|.| ",
-            " | | | |*|*",
-            " | | | | |.",
-        ]);
-        let (xyt, rs) = ge.recenter_xyt((0, 1, 0), rs);
-        let n0 = ge.regular_node(xyt, rs);
+        let starts = vec![
+            (
+                &[
+                    "...*....|        |        ",
+                    "*.*.*...|**......|        ",
+                    "z       |..***...|.....*..",
+                    "        |        |***.....",
+                ],
+                0,
+            ),
+            (
+                &[
+                    "....*...|        |        ",
+                    "..**....|**..*...|        ",
+                    "z       |..**.*..|.*..*...",
+                    "        |        |***...*.",
+                ],
+                0,
+            ),
+            (
+                &[
+                    "..*.....|        |        ",
+                    "**.*....|*.......|        ",
+                    "z       |.***....|....*.*.",
+                    "        |        |**......",
+                ],
+                0,
+            ),
+            (
+                &[
+                    "****....|        |        ",
+                    "..*.....|..*.....|        ",
+                    "z       |**...*..|***.....",
+                    "        |        |...*....",
+                ],
+                1,
+            ),
+            (
+                &[
+                    "***.....|        |        ",
+                    ".*......|.*......|        ",
+                    "z       |*...*...|**......",
+                    "        |        |..*..*..",
+                ],
+                1,
+            ),
+        ];
+        let init = starts.into_iter().map(|(rows, y)| {
+            let rs = ge.parse_bs2(rows);
+            let (xyt, rs) = ge.recenter_xyt((0, y, 0), rs);
+            let n0 = ge.regular_node(xyt, rs);
 
-        Bfs2State::new_simple(n0, cf)
+            (vec![n0.key_node().unwrap()], n0)
+        });
+
+        Bfs2State::new(init, cf)
     });
 
     assert!(ge.max_r1l <= B::size());
