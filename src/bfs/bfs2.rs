@@ -8,6 +8,8 @@ use crossbeam::queue::PopError;
 use crossbeam::queue::SegQueue;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
+use std::collections::HashSet;
+use std::hash::Hash;
 use std::io::Read;
 use std::io::Write;
 use std::sync::atomic::AtomicBool;
@@ -175,7 +177,46 @@ impl<A: KnsRebuildable, B: KnsRebuildable> KnsRebuildable for (A, B) {
     }
 }
 
-pub fn bfs2<N: DfsNode + Copy, CF: Bfs2ChunkFactory<N>, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(mut state: Bfs2State<N, CF>, ge: &GE, le: &mut LE) {
+pub trait Bfs2Dedupe<N> {
+    fn check(&mut self, n: &N) -> bool;
+    fn debug(&self) -> Option<String>;
+}
+
+impl<N> Bfs2Dedupe<N> for () {
+    fn check(&mut self, _n: &N) -> bool {
+        true
+    }
+
+    fn debug(&self) -> Option<String> {
+        None
+    }
+}
+
+impl<N: Clone + Eq + Hash, F: Fn(&N) -> bool> Bfs2Dedupe<N> for (HashSet<N>, F) {
+    fn check(&mut self, n: &N) -> bool {
+        if (self.1)(n) {
+            if !self.0.insert(n.clone()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    fn debug(&self) -> Option<String> {
+        Some(format!("size {}", self.0.len()))
+    }
+}
+
+pub fn bfs2<N: DfsNode + Copy, CF: Bfs2ChunkFactory<N>, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(state: Bfs2State<N, CF>, ge: &GE, le: &mut LE) {
+    bfs2_common(state, ge, le, ())
+}
+
+#[allow(dead_code)]
+pub fn bfs2_dedupe<N: DfsNode + Copy, CF: Bfs2ChunkFactory<N>, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(state: Bfs2State<N, CF>, ge: &GE, le: &mut LE, f: impl Fn(&<N::KN as DfsKeyNode>::HN) -> bool) {
+    bfs2_common(state, ge, le, (HashSet::new(), f))
+}
+
+pub fn bfs2_common<N: DfsNode + Copy, CF: Bfs2ChunkFactory<N>, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(mut state: Bfs2State<N, CF>, ge: &GE, le: &mut LE, mut dedupe: impl Bfs2Dedupe<<N::KN as DfsKeyNode>::HN>) {
     loop {
         let cf = state.q.cf;
 
@@ -375,6 +416,11 @@ pub fn bfs2<N: DfsNode + Copy, CF: Bfs2ChunkFactory<N>, GE: DfsGraph<N> + Sync, 
         while let Some((prev_idx, n)) = q3.pop_front() {
             let mut prev_idx = prev_idx;
             if let Some(kn) = n.key_node() {
+                if let Some(hn) = kn.hash_node() {
+                    if !dedupe.check(&hn) {
+                        continue;
+                    }
+                }
                 prev_idx = kns.push(prev_idx, kn);
             }
             q4.push_back((prev_idx, n));
@@ -462,6 +508,9 @@ pub fn bfs2<N: DfsNode + Copy, CF: Bfs2ChunkFactory<N>, GE: DfsGraph<N> + Sync, 
         *depth += 1;
 
         le.log(LogLevel::INFO, format!("Completed BFS step to depth {}", *depth));
+        if let Some(s) = dedupe.debug() {
+            le.log(LogLevel::INFO, format!("Dedupe: {}", s));
+        }
 
         if let Some(&(idx, ref n)) = q.front() {
             le.on_recollect_firstest((kns.materialize_cloned(idx), n.clone()));
