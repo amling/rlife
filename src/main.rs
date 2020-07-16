@@ -66,7 +66,7 @@ fn main() {
 
     ars_rctl_main::spawn(ep.clone());
 
-    main1::<u64>(ep).unwrap();
+    main1::<u16>(ep).unwrap();
 }
 
 fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
@@ -75,33 +75,56 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Resul
     let wx = args.parse();
     let mx = args.parse();
 
-    let ge = GolGraphParams {
-        mt: 8,
-        mx: mx,
-        wx: wx,
+    let ge = LGolGraphParams {
+        vu: (mx, 0, 0),
+        vv: (0, -2, 3),
+        vw: (0, -1, 2),
 
-        left_edge: GolEdge::Empty,
-        right_edge: GolEdge::Empty,
+        bg_coord: PhantomData::<()>,
 
-        ox: 0,
-        oy: 3,
-
-        recenter: GolRecenter::BiasRight,
+        u_axis: LGolRecenteringAxis {
+            left_bg: LGolBgEmpty(),
+            right_bg: LGolBgEmpty(),
+        },
+        v_axis: (LGolEdgeRead::Wrap, LGolEdgeRead::Wrap),
+        constraints: (
+            LGolConstraintUWindow {
+                w: (wx, mx),
+                left_bg: LGolBgEmpty(),
+                right_bg: LGolBgEmpty(),
+            },
+        ),
     };
-    assert!(ge.mt * ge.mx <= B::size());
+    let mut ge = ge.derived::<[B; 6], _>(HashSet::new());
 
-    let cf = VecChunkFactory();
+    let cf = AnonMmapChunkFactory();
     let st = args.read_state_or(Bfs2CustomSerializer(cf), || {
-        let (r0, r1) = ge.parse_and_recenter_pair(
-            "*..*. ..**. ..*.* .**.. *.*.. *.*.. ..**. .***.",
-            "*...* ...** ..... .**.. .*... .*.*. *.... .*.*.",
-        );
-        let n0 = ge.regular_node::<B, ()>(r0, r1);
+        let rs = ge.parse_bs2(&[
+            "   |   |...",
+            ".*.|.*.|*.*",
+            "*.*|.*.|   ",
+            "z",
+        ]);
+        let (xyt, rs) = ge.recenter_xyt((0, 0, 0), rs);
+        let n0 = ge.regular_node(xyt, rs);
 
         Bfs2State::new_simple(n0, cf)
     });
 
-    let ge = ge.derived((), ());
+    {
+        let rs = ge.parse_bs2(&[
+            "    |    |.**.",
+            "***.|..*.|..**",
+            ".*.*|**.*|    ",
+            "z",
+        ]);
+        let (xyt, rs) = ge.recenter_xyt((0, 0, 0), rs);
+        let hn = ge.key_node(xyt, rs).lgol_hash_node();
+
+        ge.ends.insert(hn);
+    }
+
+    assert!(ge.max_r1l <= B::size());
 
     let mut le = GolLifecycle {
         ge: &ge,
