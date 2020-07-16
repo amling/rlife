@@ -9,7 +9,6 @@ use crossbeam::queue::SegQueue;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use std::collections::HashSet;
-use std::hash::Hash;
 use std::io::Read;
 use std::io::Write;
 use std::sync::atomic::AtomicBool;
@@ -60,13 +59,14 @@ impl<N: DfsNode, CF: Bfs2ChunkFactory<N>> WorkUnit<N, CF> {
 pub struct Bfs2State<N: DfsNode, CF: Bfs2ChunkFactory<N>> {
     kns: KnPile<N::KN, CF>,
     q: ChunkQueue<(usize, N), CF>,
+    dedupe: HashSet<<N::KN as DfsKeyNode>::HN>,
     foresight: usize,
     depth: usize,
 }
 
 pub struct Bfs2CustomSerializer<CF>(pub CF);
 
-impl<N: DfsNode, CF: Bfs2ChunkFactory<N>> SerializerFor<Bfs2State<N, CF>> for Bfs2CustomSerializer<CF> where N: Serialize, N::KN: Serialize {
+impl<N: DfsNode, CF: Bfs2ChunkFactory<N>> SerializerFor<Bfs2State<N, CF>> for Bfs2CustomSerializer<CF> where N: Serialize, N::KN: Serialize, <N::KN as DfsKeyNode>::HN: Serialize {
     fn to_writer(&self, mut w: impl Write, s: &Bfs2State<N, CF>) -> Result<(), StringError> {
         w.write_u64::<BigEndian>(s.kns.len() as u64)?;
         for e in s.kns.iter().skip(1) {
@@ -80,13 +80,19 @@ impl<N: DfsNode, CF: Bfs2ChunkFactory<N>> SerializerFor<Bfs2State<N, CF>> for Bf
             bincode::serialize_into(w.by_ref(), e)?;
         }
 
+        w.write_u64::<BigEndian>(s.dedupe.len() as u64)?;
+        for e in s.dedupe.iter() {
+            let e: &<N::KN as DfsKeyNode>::HN = e;
+            bincode::serialize_into(w.by_ref(), e)?;
+        }
+
         w.write_u64::<BigEndian>(s.foresight as u64)?;
         w.write_u64::<BigEndian>(s.depth as u64)?;
         Ok(())
     }
 }
 
-impl<N: DfsNode, CF: Bfs2ChunkFactory<N>> DeserializerFor<Bfs2State<N, CF>> for Bfs2CustomSerializer<CF> where N: DeserializeOwned + Copy, N::KN: DeserializeOwned {
+impl<N: DfsNode, CF: Bfs2ChunkFactory<N>> DeserializerFor<Bfs2State<N, CF>> for Bfs2CustomSerializer<CF> where N: DeserializeOwned + Copy, N::KN: DeserializeOwned, <N::KN as DfsKeyNode>::HN: DeserializeOwned {
     fn from_reader(&self, mut r: impl Read) -> Result<Bfs2State<N, CF>, StringError> {
         let kns = {
             let len = r.read_u64::<BigEndian>()? as usize;
@@ -108,11 +114,22 @@ impl<N: DfsNode, CF: Bfs2ChunkFactory<N>> DeserializerFor<Bfs2State<N, CF>> for 
             q
         };
 
+        let dedupe = {
+            let len = r.read_u64::<BigEndian>()? as usize;
+            let mut dedupe = HashSet::new();
+            for _ in 0..len {
+                let e: <N::KN as DfsKeyNode>::HN = bincode::deserialize_from(r.by_ref())?;
+                dedupe.insert(e);
+            }
+            dedupe
+        };
+
         let foresight = r.read_u64::<BigEndian>()? as usize;
         let depth = r.read_u64::<BigEndian>()? as usize;
         Ok(Bfs2State {
             kns: kns,
             q: q,
+            dedupe: dedupe,
             foresight: foresight,
             depth: depth,
         })
@@ -139,12 +156,15 @@ impl<N: DfsNode, CF: Bfs2ChunkFactory<N>> Bfs2State<N, CF> {
         Bfs2State {
             kns: kns,
             q: q,
+            // Dubious that we miss the initial states?  Unfortunately there's no way to get access
+            // to dedupe predicate here.
+            dedupe: HashSet::new(),
             foresight: 0,
             depth: 0,
         }
     }
 
-    pub fn serializer(&self) -> impl SerializerFor<Bfs2State<N, CF>> where N: Serialize, N::KN: Serialize {
+    pub fn serializer(&self) -> impl SerializerFor<Bfs2State<N, CF>> where N: Serialize, N::KN: Serialize, <N::KN as DfsKeyNode>::HN: Serialize {
         Bfs2CustomSerializer(self.q.cf)
     }
 }
@@ -177,46 +197,11 @@ impl<A: KnsRebuildable, B: KnsRebuildable> KnsRebuildable for (A, B) {
     }
 }
 
-pub trait Bfs2Dedupe<N> {
-    fn check(&mut self, n: &N) -> bool;
-    fn debug(&self) -> Option<String>;
-}
-
-impl<N> Bfs2Dedupe<N> for () {
-    fn check(&mut self, _n: &N) -> bool {
-        true
-    }
-
-    fn debug(&self) -> Option<String> {
-        None
-    }
-}
-
-impl<N: Clone + Eq + Hash, F: Fn(&N) -> bool> Bfs2Dedupe<N> for (HashSet<N>, F) {
-    fn check(&mut self, n: &N) -> bool {
-        if (self.1)(n) {
-            if !self.0.insert(n.clone()) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    fn debug(&self) -> Option<String> {
-        Some(format!("size {}", self.0.len()))
-    }
-}
-
 pub fn bfs2<N: DfsNode + Copy, CF: Bfs2ChunkFactory<N>, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(state: Bfs2State<N, CF>, ge: &GE, le: &mut LE) {
-    bfs2_common(state, ge, le, ())
+    bfs2_dedupe(state, ge, le, |_| false)
 }
 
-#[allow(dead_code)]
-pub fn bfs2_dedupe<N: DfsNode + Copy, CF: Bfs2ChunkFactory<N>, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(state: Bfs2State<N, CF>, ge: &GE, le: &mut LE, f: impl Fn(&<N::KN as DfsKeyNode>::HN) -> bool) {
-    bfs2_common(state, ge, le, (HashSet::new(), f))
-}
-
-pub fn bfs2_common<N: DfsNode + Copy, CF: Bfs2ChunkFactory<N>, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(mut state: Bfs2State<N, CF>, ge: &GE, le: &mut LE, mut dedupe: impl Bfs2Dedupe<<N::KN as DfsKeyNode>::HN>) {
+pub fn bfs2_dedupe<N: DfsNode + Copy, CF: Bfs2ChunkFactory<N>, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(mut state: Bfs2State<N, CF>, ge: &GE, le: &mut LE, should_dedupe: impl Fn(&<N::KN as DfsKeyNode>::HN) -> bool) {
     loop {
         let cf = state.q.cf;
 
@@ -234,6 +219,7 @@ pub fn bfs2_common<N: DfsNode + Copy, CF: Bfs2ChunkFactory<N>, GE: DfsGraph<N> +
 
         let kns = &mut state.kns;
         let q = &mut state.q;
+        let dedupe = &mut state.dedupe;
         let foresight = &mut state.foresight;
         let depth = &mut state.depth;
 
@@ -417,8 +403,10 @@ pub fn bfs2_common<N: DfsNode + Copy, CF: Bfs2ChunkFactory<N>, GE: DfsGraph<N> +
             let mut prev_idx = prev_idx;
             if let Some(kn) = n.key_node() {
                 if let Some(hn) = kn.hash_node() {
-                    if !dedupe.check(&hn) {
-                        continue;
+                    if should_dedupe(&hn) {
+                        if !dedupe.insert(hn) {
+                            continue;
+                        }
                     }
                 }
                 prev_idx = kns.push(prev_idx, kn);
@@ -508,8 +496,8 @@ pub fn bfs2_common<N: DfsNode + Copy, CF: Bfs2ChunkFactory<N>, GE: DfsGraph<N> +
         *depth += 1;
 
         le.log(LogLevel::INFO, format!("Completed BFS step to depth {}", *depth));
-        if let Some(s) = dedupe.debug() {
-            le.log(LogLevel::INFO, format!("Dedupe: {}", s));
+        if dedupe.len() > 0 {
+            le.log(LogLevel::INFO, format!("Dedupe size: {}", dedupe.len()));
         }
 
         if let Some(&(idx, ref n)) = q.front() {

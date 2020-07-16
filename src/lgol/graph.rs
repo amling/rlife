@@ -201,9 +201,11 @@ impl<BS: RowTuple, BC: Nice> DfsKeyNode for LGolKeyNode<BS, BC> {
 #[derive(Clone)]
 #[derive(Debug)]
 #[derive(Default)]
+#[derive(Deserialize)]
 #[derive(Eq)]
 #[derive(Hash)]
 #[derive(PartialEq)]
+#[derive(Serialize)]
 pub struct LGolHashNode<BS: RowTuple, BC> {
     pub bg_coord: BC,
     pub rs: BS,

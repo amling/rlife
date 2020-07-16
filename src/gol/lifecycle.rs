@@ -19,6 +19,7 @@ use crate::sal;
 use bfs::bfs2::Bfs2ChunkFactory;
 use bfs::bfs2::Bfs2State;
 use dfs::Tree;
+use dfs::graph::DfsKeyNode;
 use dfs::graph::DfsNode;
 use dfs::lifecycle::DfsLifecycle;
 use dfs::lifecycle::LogLevel;
@@ -123,7 +124,7 @@ pub struct GolLifecycle<'a, GE> {
     pub ep: Arc<GolRctlEp>,
 }
 
-impl<'a, GE: GolGraphTrait> DfsLifecycle<GE::N> for GolLifecycle<'a, GE> where <GE::N as DfsNode>::KN: Serialize {
+impl<'a, GE: GolGraphTrait> DfsLifecycle<GE::N> for GolLifecycle<'a, GE> where <GE::N as DfsNode>::KN: Serialize, <<GE::N as DfsNode>::KN as DfsKeyNode>::HN: Serialize {
     fn threads(&self) -> usize {
         self.ep.threads.load(Ordering::Relaxed)
     }

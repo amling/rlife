@@ -145,9 +145,11 @@ impl<B: UScalar> DfsKeyNode for GolKeyNode<B> {
 #[derive(Clone)]
 #[derive(Debug)]
 #[derive(Default)]
+#[derive(Deserialize)]
 #[derive(Eq)]
 #[derive(Hash)]
 #[derive(PartialEq)]
+#[derive(Serialize)]
 pub struct GolHashNode<B: UScalar> {
     pub r0: B,
     pub r1: B,
