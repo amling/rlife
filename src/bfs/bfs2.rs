@@ -272,7 +272,7 @@ pub fn bfs2_dedupe<N: DfsNode + Copy, CF: Bfs2ChunkFactory<N>, GE: DfsGraph<N> +
                                 path.push(kn2.clone());
                                 le.debug_end(&path, label);
                                 w.r.add_end(path, label);
-                                continue;
+                                // continue;
                             }
 
                             let hn2 = kn2.hash_node();
