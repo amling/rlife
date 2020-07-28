@@ -95,7 +95,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Resul
             },
         ),
     };
-    let mut ge = ge.derived::<[B; 10], _>(HashSet::new());
+    let ge = ge.derived::<[B; 10], _>(LGolNoEnds());
 
     let cf = AnonMmapChunkFactory();
     let st = args.read_state_or(Bfs2CustomSerializer(cf), || {
@@ -110,19 +110,6 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Resul
 
         Bfs2State::new_simple(n0, cf)
     });
-
-    {
-        let rs = ge.parse_bs2(&[
-            "    |    |    |*.**|*.**",
-            "*...|**..|**..|*...|*...",
-            "*...|*...|*...|    |    ",
-            "z",
-        ]);
-        let (xyt, rs) = ge.recenter_xyt((0, 0, 0), rs);
-        let hn = ge.key_node(xyt, rs).lgol_hash_node();
-
-        ge.ends.insert(hn);
-    }
 
     assert!(ge.max_r1l <= B::size());
 
