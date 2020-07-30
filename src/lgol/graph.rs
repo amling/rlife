@@ -603,6 +603,17 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, CS: LGol
         pr.format()
     }
 
+    pub fn format_cycle_rows_hack(&self, cycle: &Vec<LGolKeyNode<BS, BC>>) -> Vec<String> {
+        let mut pr = PrintBag::new();
+        let mut w = 0;
+        let last = BS::len() - 1;
+        for row in cycle.iter() {
+            self.collect_row(&mut pr, '.', '*', row.rs.as_slice()[last], None, (row.du as isize), (row.dv as isize), w);
+            w += 1;
+        }
+        pr.format()
+    }
+
     pub fn zero_node(&self) -> LGolNode<BS, BC, CS::S> {
         self.regular_node((0, 0, 0), BS::default())
     }
