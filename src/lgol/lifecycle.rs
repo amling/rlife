@@ -28,6 +28,10 @@ impl<BS: RowTuple + Serialize, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<B
         self.format_cycle_rows(path, cycle, last)
     }
 
+    fn format_cycle_rows_hack(&self, cycle: &Vec<LGolKeyNode<BS, BC>>) -> Option<Vec<String>> {
+        Some(self.format_cycle_rows_hack(cycle))
+    }
+
     fn format_cycle_shape(&self, path: &Vec<LGolKeyNode<BS, BC>>, cycle: &Vec<LGolKeyNode<BS, BC>>, last: &LGolKeyNode<BS, BC>) -> String {
         let dpath = {
             let du = cycle[0].du as isize;
