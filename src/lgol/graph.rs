@@ -640,15 +640,6 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, CS: LGol
 
     #[allow(dead_code)]
     pub fn parse_bs2<S: AsRef<str>>(&self, rs: impl IntoIterator<Item=S>) -> BS {
-        let mut wraps = vec![];
-        if self.params.u_axis.wrap_in_print() {
-            wraps.push(self.params.vu);
-        }
-        if self.params.v_axis.wrap_in_print() {
-            wraps.push(self.params.vv);
-        }
-        let wraps = Vec3::canonicalize(wraps);
-
         let mut bag = HashMap::new();
         for (y, line) in rs.into_iter().enumerate() {
             let line = line.as_ref();
@@ -666,13 +657,31 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, CS: LGol
                     },
                     _ => {
                         let xyt = (x, y as isize, t);
-                        let xyt = wraps.canonicalize(xyt);
                         let already = bag.insert(xyt, c);
                         assert_eq!(already, None, "collision at {:?}", xyt);
                         x += 1;
                     },
                 }
             }
+        }
+        self.parse_bs2_bag(&bag)
+    }
+
+    pub fn parse_bs2_bag(&self, bag0: &HashMap<Vec3, char>) -> BS {
+        let mut wraps = vec![];
+        if self.params.u_axis.wrap_in_print() {
+            wraps.push(self.params.vu);
+        }
+        if self.params.v_axis.wrap_in_print() {
+            wraps.push(self.params.vv);
+        }
+        let wraps = Vec3::canonicalize(wraps);
+
+        let mut bag = HashMap::new();
+        for (&xyt, &c) in bag0.iter() {
+            let xyt = wraps.canonicalize(xyt);
+            let already = bag.insert(xyt, c);
+            assert_eq!(already, None, "collision at {:?}", xyt);
         }
         let (&base, _) = bag.iter().filter(|&(_, &c)| c == 'z').next().unwrap();
         bag.remove(&base);
