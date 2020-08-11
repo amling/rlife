@@ -95,7 +95,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Resul
             },
         ),
     };
-    let mut ge = ge.derived::<[B; 10], _>(HashSet::new());
+    let mut ge = ge.derived::<[B; 10], _>(HashMap::new());
 
     let cf = AnonMmapChunkFactory();
     let st = args.read_state_or(Bfs2CustomSerializer(cf), || {
@@ -117,6 +117,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Resul
         Bfs2State::new_simple(n0, cf)
     });
 
+    // https://www.conwaylife.com/forums/viewtopic.php?f=2&t=2031&p=101273#p102081
     {
         let rs = ge.parse_bs2(&[
             "     |     |     |*.**.|*...*",
@@ -127,7 +128,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Resul
         let (xyt, rs) = ge.recenter_xyt((0, 0, 0), rs);
         let hn = ge.key_node(xyt, rs).lgol_hash_node();
 
-        ge.ends.insert(hn);
+        ge.ends.insert(hn, "misc 1");
     }
 
     assert!(ge.max_r1l <= B::size());
