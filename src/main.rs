@@ -77,32 +77,39 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Resul
 
     let ge = LGolGraphParams {
         vu: (mx, 0, 0),
-        vv: (0, -2, 3),
-        vw: (0, -1, 2),
+        vv: (0, -2, 5),
+        vw: (0, -1, 3),
 
-        bg_coord: PhantomData::<()>,
+        bg_coord: PhantomData::<LGolBgX2>,
 
         u_axis: LGolRecenteringAxis {
-            left_bg: LGolBgEmpty(),
+            left_bg: LGolBgVertStripes(),
             right_bg: LGolBgEmpty(),
         },
         v_axis: (LGolEdgeRead::Wrap, LGolEdgeRead::Wrap),
         constraints: (
             LGolConstraintUWindow {
                 w: (wx, mx),
-                left_bg: LGolBgEmpty(),
+                left_bg: LGolBgVertStripes(),
                 right_bg: LGolBgEmpty(),
             },
         ),
     };
-    let mut ge = ge.derived::<[B; 6], _>(HashSet::new());
+    let mut ge = ge.derived::<[B; 10], _>(HashSet::new());
 
     let cf = AnonMmapChunkFactory();
     let st = args.read_state_or(Bfs2CustomSerializer(cf), || {
         let rs = ge.parse_bs2(&[
-            "   |   |...",
-            ".*.|.*.|*.*",
-            "*.*|.*.|   ",
+            // "      |      |      |*.*.**|*.*...",
+            // "*.**..|*.**..|*.*...|*.*...|*.*.*.",
+            // "*.*...|*.*...|*.*...|      |      ",
+            // "z",
+
+
+            // test earlier segment?
+            "     |     |     |*...*|*...*",
+            "**.*.|*.*..|*.**.|*.**.|*.*.*",
+            "*.*..|*.*..|*....|     |     ",
             "z",
         ]);
         let (xyt, rs) = ge.recenter_xyt((0, 0, 0), rs);
@@ -113,9 +120,9 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Resul
 
     {
         let rs = ge.parse_bs2(&[
-            "    |    |.**.",
-            "***.|..*.|..**",
-            ".*.*|**.*|    ",
+            "     |     |     |*.**.|*...*",
+            "*....|*..*.|*....|*.**.|*.**.",
+            "*.*.*|*.*..|*.*..|     |     ",
             "z",
         ]);
         let (xyt, rs) = ge.recenter_xyt((0, 0, 0), rs);
