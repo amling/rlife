@@ -23,12 +23,12 @@ use dfs::res::DfsRes;
 
 #[derive(Clone)]
 pub struct Path<N: DfsNode> {
-    vec: Vec<N::KN>,
+    pub vec: Vec<N::KN>,
     map: HashMap<<N::KN as DfsKeyNode>::HN, usize>,
 }
 
 impl<N: DfsNode> Path<N> {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Path {
             vec: Vec::new(),
             map: HashMap::new(),

@@ -13,6 +13,7 @@ use serde::de::DeserializeOwned;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Debug;
+use std::io::BufRead;
 use std::marker::PhantomData;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -55,6 +56,8 @@ use lgol::constraints::LGolConstraintVPeriodDividing;
 use lgol::ends::LGolNoEnds;
 use lgol::graph::LGolGraphParams;
 use lgol::graph::LGolHashNode;
+use lgol::graph::LGolKeyNode;
+use lgol::graph::LGolNode;
 use lgol::lat1::Vec3;
 use sal::DeserializerFor;
 
@@ -68,10 +71,11 @@ fn main() {
 
     ars_rctl_main::spawn(ep.clone());
 
-    main1::<u8>(ep).unwrap();
+    main1_srch::<u8>(ep).unwrap();
+    //main1_ana::<u8>().unwrap();
 }
 
-fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
+fn main1_srch<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
     let mut args = env_args();
 
     let jx = args.parse();
@@ -147,6 +151,129 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Resul
     bfs::bfs2(st, &ge, &mut le);
 
     le.log(LogLevel::INFO, "Done");
+
+    Ok(())
+}
+
+fn main1_ana<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringError> {
+    let mut args = env_args();
+
+    let wx = args.parse();
+    let mx = args.parse();
+
+    let ge = LGolGraphParams {
+        vu: (mx, 0, 0),
+        vv: (0, -2, 5),
+        vw: (0, -1, 3),
+
+        bg_coord: PhantomData::<LGolBgY2>,
+
+        u_axis: LGolRecenteringAxis {
+            left_bg: LGolBgHorizStripes(),
+            right_bg: LGolBgEmpty(),
+        },
+        v_axis: (LGolEdgeRead::Wrap, LGolEdgeRead::Wrap),
+        constraints: (
+            LGolConstraintUWindow {
+                w: (wx, mx),
+                left_bg: LGolBgHorizStripes(),
+                right_bg: LGolBgEmpty(),
+            },
+        ),
+    };
+    let ge = ge.derived::<[B; 10], _>(());
+
+    let mut fw = HashMap::new();
+    let mut bw = HashMap::new();
+    let mut living = HashSet::new();
+    {
+        let t0 = std::time::Instant::now();
+        for line in std::io::stdin().lock().lines() {
+            let line = line.unwrap();
+
+            let extract = |p: &'static str| {
+                line.find(p).map(|idx| &line[(idx + p.len())..])
+            };
+
+            if let Some(end) = extract("End JSON: ") {
+                let path: Vec<LGolKeyNode<[B; 10], LGolBgY2>> = serde_json::from_str(end)?;
+
+                for i in 0..(path.len() - 1) {
+                    let n1 = &path[i];
+                    let n2 = &path[i + 1];
+                    let ushift = n2.du - n1.du;
+                    let vshift = n2.dv - n1.dv;
+                    let n1 = n1.lgol_hash_node();
+                    let n2 = n2.lgol_hash_node();
+                    fw.entry(n1.clone()).or_insert_with(|| HashSet::new()).insert((n2.clone(), (ushift, vshift)));
+                    bw.entry(n2.clone()).or_insert_with(|| HashSet::new()).insert((n1.clone(), (-ushift, -vshift)));
+                    living.insert(n1.clone());
+                    living.insert(n2.clone());
+                }
+            }
+        }
+        eprintln!("Read input in {:?}", t0.elapsed());
+    }
+
+    loop {
+        eprintln!("Loop: {} links, {} nodes", fw.iter().map(|(_, s)| s.len()).sum::<usize>(), living.len());
+
+        {
+            let t0 = std::time::Instant::now();
+            let ct0 = living.len();
+            for &m in &[&fw, &bw] {
+                living.retain(|n| m.get(n).map(|s| s.len()).unwrap_or(0) > 0);
+            }
+            eprintln!("Pruned living in {:?}", t0.elapsed());
+            if living.len() == ct0 {
+                break;
+            }
+        }
+
+        {
+            let prune_m = |m: &mut HashMap<LGolHashNode<[B; 10], LGolBgY2>, HashSet<(LGolHashNode<[B; 10], LGolBgY2>, (i16, i16))>>, label| {
+                let t0 = std::time::Instant::now();
+                m.retain(|n, _| living.contains(n));
+                for (_, s) in m.iter_mut() {
+                    s.retain(|(n, _)| living.contains(n));
+                }
+                eprintln!("Pruned {} in {:?}", label, t0.elapsed());
+            };
+            prune_m(&mut fw, "fw");
+            prune_m(&mut bw, "bw");
+        }
+    }
+    eprintln!("Done pruning");
+
+    let n0 = living.iter().next().unwrap().clone();
+
+    let (path, cycle, last) = (|| {
+        let mut path = dfs::Path::<LGolNode<[B; 10], LGolBgY2, ()>>::new();
+        let mut du = 0;
+        let mut dv = 0;
+        let mut n = n0.clone();
+        loop {
+            let kn = LGolKeyNode {
+                bg_coord: n.bg_coord,
+                du: du,
+                dv: dv,
+                rs: n.rs,
+            };
+            if let Some(idx) = path.find_or_push(&kn) {
+                return ((&path.vec[0..idx]).to_vec(), (&path.vec[idx..]).to_vec(), kn);
+            }
+
+            let (n2, (ushift, vshift)) = fw.get(&n).unwrap().iter().next().unwrap();
+
+            n = n2.clone();
+            du += ushift;
+            dv += vshift;
+        }
+    })();
+
+    for line in ge.format_cycle_rows(&path, &cycle, &last) {
+        eprintln!("{}", line);
+    }
 
     Ok(())
 }
