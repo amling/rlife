@@ -71,8 +71,8 @@ fn main() {
 
     ars_rctl_main::spawn(ep.clone());
 
-    main1_srch::<u8>(ep).unwrap();
-    //main1_ana::<u8>().unwrap();
+    main1_srch::<u16>(ep).unwrap();
+    //main1_ana::<u16>().unwrap();
 }
 
 fn main1_srch<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
