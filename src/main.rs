@@ -220,6 +220,20 @@ fn main1_ana<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringEr
 
         {
             let t0 = std::time::Instant::now();
+            if living.len() < 10 {
+                for n0 in living.iter() {
+                    eprintln!("n0");
+                    let kn = LGolKeyNode {
+                        bg_coord: n0.bg_coord,
+                        du: 0,
+                        dv: 0,
+                        rs: n0.rs,
+                    };
+                    for line in ge.format_rows(&vec![kn], None) {
+                        eprintln!("   {}", line);
+                    }
+                }
+            }
             let ct0 = living.len();
             for &m in &[&fw, &bw] {
                 living.retain(|n| m.get(n).map(|s| s.len()).unwrap_or(0) > 0);
