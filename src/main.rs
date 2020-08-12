@@ -71,8 +71,12 @@ fn main() {
 
     ars_rctl_main::spawn(ep.clone());
 
-    main1_srch::<u16>(ep).unwrap();
-    //main1_ana::<u16>().unwrap();
+    if std::env::var("RLIFE_ANA").is_ok() {
+        main1_ana::<u16>().unwrap();
+    }
+    else {
+        main1_srch::<u16>(ep).unwrap();
+    }
 }
 
 fn main1_srch<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
