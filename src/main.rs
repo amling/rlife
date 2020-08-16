@@ -13,8 +13,10 @@ use serde::de::DeserializeOwned;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Debug;
+use std::hash::Hash;
 use std::io::BufRead;
 use std::marker::PhantomData;
+use std::rc::Rc;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
@@ -219,6 +221,58 @@ fn main1_ana<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringEr
         eprintln!("Read input in {:?}", t0.elapsed());
     }
 
+    {
+        let mut cache = HashMap::new();
+        let mut best: Option<(_, Vec<_>)> = None;
+        for n in fw.keys().cloned() {
+            let (depth, paths) = find_best_paths(&mut cache, &fw, n);
+            match &mut best {
+                &mut Some((depth0, ref mut paths0)) => {
+                    if depth == depth0 {
+                        paths0.extend(paths);
+                    }
+                    else if depth > depth0 {
+                        best = Some((depth, paths));
+                    }
+                }
+                None => {
+                    best = Some((depth, paths));
+                }
+            }
+        }
+
+        for (n, path) in best.unwrap().1.into_iter().enumerate() {
+            let mut v = Vec::new();
+            let mut du = 0;
+            let mut dv = 0;
+
+            let mut p = Some(((0, 0), path));
+            loop {
+                match p {
+                    Some(((ddu, ddv), path)) => {
+                        du += ddu;
+                        dv += ddv;
+                        v.push(LGolKeyNode {
+                            bg_coord: path.0.bg_coord,
+                            du: du,
+                            dv: dv,
+                            rs: path.0.rs,
+                        });
+                        p = path.1.clone();
+                    }
+                    None => {
+                        break;
+                    }
+                }
+            }
+
+            eprintln!("Best path #{}:", n);
+            for line in ge.format_rows(&v, None) {
+                eprintln!("   {}", line);
+            }
+        }
+    }
+
     loop {
         eprintln!("Loop: {} links, {} nodes", fw.iter().map(|(_, s)| s.len()).sum::<usize>(), living.len());
 
@@ -294,6 +348,46 @@ fn main1_ana<B: UScalar + DeserializeOwned + Serialize>() -> Result<(), StringEr
     }
 
     Ok(())
+}
+
+struct Path<V, E>(V, Option<(E, Rc<Path<V, E>>)>);
+
+fn find_best_paths<N: Clone + Hash + Eq, R: Clone>(cache: &mut HashMap<N, (usize, Vec<Rc<Path<N, R>>>)>, fw: &HashMap<N, HashSet<(N, R)>>, n: N) -> (usize, Vec<Rc<Path<N, R>>>) {
+    if let Some(r) = cache.get(&n) {
+        return r.clone();
+    }
+
+    let r = match fw.get(&n) {
+        Some(next) => {
+            let mut best: Option<(_, Vec<_>)> = None;
+            for (n2, r) in next {
+                let (depth, paths) = find_best_paths(cache, fw, n2.clone());
+                let depth = depth + 1;
+                let paths: Vec<_> = paths.into_iter().map(|path| Rc::new(Path(n.clone(), Some((r.clone(), path))))).collect();
+                match &mut best {
+                    &mut Some((depth0, ref mut paths0)) => {
+                        if depth == depth0 {
+                            paths0.extend(paths);
+                        }
+                        else if depth > depth0 {
+                            best = Some((depth, paths));
+                        }
+                    }
+                    None => {
+                        best = Some((depth, paths));
+                    }
+                }
+            }
+            best.unwrap()
+        },
+        None => {
+            (1, vec![Rc::new(Path(n.clone(), None))])
+        },
+    };
+
+    cache.insert(n, r.clone());
+
+    r
 }
 
 #[allow(dead_code)]
