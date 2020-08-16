@@ -122,7 +122,18 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Resul
         ep: ep,
     };
 
-    bfs::bfs2(st, &ge, &mut le);
+    bfs::bfs2::bfs2_dedupe(st, &ge, &mut le, |hn| {
+        for r in hn.rs.iter() {
+            let division_walk = ge.lat2.v_shift_data.division_walks[5].as_ref().unwrap();
+            for (idx, &prev_idx) in division_walk.iter().enumerate() {
+                if r.get_bit(idx) != r.get_bit(prev_idx) {
+                    return false;
+                }
+            }
+        }
+
+        true
+    });
 
     le.log(LogLevel::INFO, "Done");
 
