@@ -66,43 +66,47 @@ fn main() {
 
     ars_rctl_main::spawn(ep.clone());
 
-    main1::<u16>(ep).unwrap();
+    main1::<u32>(ep).unwrap();
 }
 
 fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
     let mut args = env_args();
 
-    let wx = args.parse();
     let mx = args.parse();
 
     let ge = LGolGraphParams {
         vu: (mx, 0, 0),
-        vv: (0, -2, 3),
-        vw: (0, -1, 2),
+        vv: (0, -5, 5),
+        vw: (0, 1, 0),
 
         bg_coord: PhantomData::<()>,
 
-        u_axis: LGolRecenteringAxis {
-            left_bg: LGolBgEmpty(),
-            right_bg: LGolBgEmpty(),
+        u_axis: LGolSimpleAxis {
+            left_edge: LGolReflectEdge(0),
+            right_edge: LGolBgEdge(LGolBgEmpty()),
         },
         v_axis: (LGolEdgeRead::Wrap, LGolEdgeRead::Wrap),
-        constraints: (
-            LGolConstraintUWindow {
-                w: (wx, mx),
-                left_bg: LGolBgEmpty(),
-                right_bg: LGolBgEmpty(),
-            },
-        ),
+        constraints: (),
     };
-    let mut ge = ge.derived::<[B; 6], _>(HashSet::new());
+    let mut ge = ge.derived::<[B; 2], _>(HashSet::new());
 
     let cf = AnonMmapChunkFactory();
     let st = args.read_state_or(Bfs2CustomSerializer(cf), || {
         let rs = ge.parse_bs2(&[
-            "   |   |...",
-            ".*.|.*.|*.*",
-            "*.*|.*.|   ",
+            // " | | | |*",
+            // " | | |*|.",
+            // " | |*|.| ",
+            // " |*|.| | ",
+            // "*|.| | | ",
+            // ".| | | | ",
+            // "z",
+
+            "     |     |     |     |*.*.*",
+            "     |     |     |*.**.|*.*.*",
+            "     |     |*....|*..*.|     ",
+            "     |*.*.*|*.*.*|     |     ",
+            "*..*.|*.**.|     |     |     ",
+            "*....|     |     |     |     ",
             "z",
         ]);
         let (xyt, rs) = ge.recenter_xyt((0, 0, 0), rs);
@@ -113,9 +117,12 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Resul
 
     {
         let rs = ge.parse_bs2(&[
-            "    |    |.**.",
-            "***.|..*.|..**",
-            ".*.*|**.*|    ",
+            "     |     |     |     |*.**.",
+            "     |     |     |*....|*..*.",
+            "     |     |*.*.*|*.*.*|     ",
+            "     |*..*.|*.**.|     |     ",
+            "*.*.*|*....|     |     |     ",
+            "*.*.*|     |     |     |     ",
             "z",
         ]);
         let (xyt, rs) = ge.recenter_xyt((0, 0, 0), rs);
