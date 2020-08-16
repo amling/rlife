@@ -72,7 +72,6 @@ fn main() {
 fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
     let mut args = env_args();
 
-    let wx = args.parse();
     let mx = args.parse();
 
     let ge = LGolGraphParams {
@@ -82,55 +81,32 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Resul
 
         bg_coord: PhantomData::<()>,
 
-        u_axis: LGolRecenteringAxis {
-            left_bg: LGolBgEmpty(),
-            right_bg: LGolBgEmpty(),
+        u_axis: LGolSimpleAxis {
+            left_edge: LGolReflectEdge(0),
+            right_edge: LGolBgEdge(LGolBgEmpty()),
         },
         v_axis: (LGolEdgeRead::Wrap, LGolEdgeRead::Wrap),
-        constraints: (
-            LGolConstraintUWindow {
-                w: (wx, mx),
-                left_bg: LGolBgEmpty(),
-                right_bg: LGolBgEmpty(),
-            },
-        ),
+        constraints: (),
     };
     let mut ge = ge.derived::<[B; 2], _>(HashSet::new());
 
     let cf = AnonMmapChunkFactory();
     let st = args.read_state_or(Bfs2CustomSerializer(cf), || {
-        let rs = ge.parse_bs2(&[
-            " | | | |*",
-            " | | |*|.",
-            " | |*|.| ",
-            " |*|.| | ",
-            "*|.| | | ",
-            ".| | | | ",
-            "z",
-
-            // finds end
-            // "         |         |         |         |*.*.*.*.*",
-            // "         |         |         |.**.*.**.|*.*.*.*.*",
-            // "         |         |....*....|.*..*..*.|         ",
-            // "         |*.*.*.*.*|*.*.*.*.*|         |         ",
-            // ".*..*..*.|.**.*.**.|         |         |         ",
-            // "....*....|         |         |         |         ",
-            // "z",
-        ]);
-        let (xyt, rs) = ge.recenter_xyt((0, 0, 0), rs);
-        let n0 = ge.regular_node(xyt, rs);
+        let n0 = ge.cb_node((0, 0, 0), |(x, _y, _t)| {
+            x.rem_euclid(2) == 0
+        });
 
         Bfs2State::new_simple(n0, cf)
     });
 
     {
         let rs = ge.parse_bs2(&[
-            "         |         |         |         |.**.*.**.",
-            "         |         |         |....*....|.*..*..*.",
-            "         |         |*.*.*.*.*|*.*.*.*.*|         ",
-            "         |.*..*..*.|.**.*.**.|         |         ",
-            "*.*.*.*.*|....*....|         |         |         ",
-            "*.*.*.*.*|         |         |         |         ",
+            "     |     |     |     |*.**.",
+            "     |     |     |*....|*..*.",
+            "     |     |*.*.*|*.*.*|     ",
+            "     |*..*.|*.**.|     |     ",
+            "*.*.*|*....|     |     |     ",
+            "*.*.*|     |     |     |     ",
             "z",
         ]);
         let (xyt, rs) = ge.recenter_xyt((0, 0, 0), rs);
