@@ -93,21 +93,22 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Resul
     let cf = AnonMmapChunkFactory();
     let st = args.read_state_or(Bfs2CustomSerializer(cf), || {
         let rs = ge.parse_bs2(&[
-            // " | | | |*",
-            // " | | |*|.",
-            // " | |*|.| ",
-            // " |*|.| | ",
-            // "*|.| | | ",
-            // ".| | | | ",
-            // "z",
-
-            "     |     |     |     |*.*.*",
-            "     |     |     |*.**.|*.*.*",
-            "     |     |*....|*..*.|     ",
-            "     |*.*.*|*.*.*|     |     ",
-            "*..*.|*.**.|     |     |     ",
-            "*....|     |     |     |     ",
+            " | | | |*",
+            " | | |*|.",
+            " | |*|.| ",
+            " |*|.| | ",
+            "*|.| | | ",
+            ".| | | | ",
             "z",
+
+            // finds end
+            // "     |     |     |     |*.*.*",
+            // "     |     |     |*.**.|*.*.*",
+            // "     |     |*....|*..*.|     ",
+            // "     |*.*.*|*.*.*|     |     ",
+            // "*..*.|*.**.|     |     |     ",
+            // "*....|     |     |     |     ",
+            // "z",
         ]);
         let (xyt, rs) = ge.recenter_xyt((0, 0, 0), rs);
         let n0 = ge.regular_node(xyt, rs);
