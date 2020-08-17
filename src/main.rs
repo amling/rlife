@@ -58,9 +58,9 @@ use sal::DeserializerFor;
 
 fn main() {
     let ep = Arc::new(GolRctlEp {
-        threads: AtomicUsize::new(8),
+        threads: AtomicUsize::new(12),
         recollect_ms: AtomicU64::new(5000),
-        max_mem: AtomicUsize::new(2 << 30),
+        max_mem: AtomicUsize::new(24 << 30),
         checkpt_rq: RctlRunQueue::new(),
     });
 
