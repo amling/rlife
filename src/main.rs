@@ -72,6 +72,7 @@ fn main() {
 fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
     let mut args = env_args();
 
+    let wx = args.parse();
     let mx = args.parse();
 
     let ge = LGolGraphParams {
@@ -79,14 +80,20 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Resul
         vv: (0, -5, 5),
         vw: (0, 1, 0),
 
-        bg_coord: PhantomData::<()>,
+        bg_coord: PhantomData::<LGolBgX2>,
 
-        u_axis: LGolSimpleAxis {
-            left_edge: LGolReflectEdge(0),
-            right_edge: LGolBgEdge(LGolBgEmpty()),
+        u_axis: LGolRecenteringAxis {
+            left_bg: LGolBgVertStripes(),
+            right_bg: LGolBgEmpty(),
         },
         v_axis: (LGolEdgeRead::Wrap, LGolEdgeRead::Wrap),
-        constraints: (),
+        constraints: (
+            LGolConstraintUWindow {
+                w: (wx, mx),
+                left_bg: LGolBgVertStripes(),
+                right_bg: LGolBgEmpty(),
+            },
+        ),
     };
     let mut ge = ge.derived::<[B; 2], _>(HashSet::new());
 
