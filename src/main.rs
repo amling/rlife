@@ -60,7 +60,7 @@ fn main() {
     let ep = Arc::new(GolRctlEp {
         threads: AtomicUsize::new(12),
         recollect_ms: AtomicU64::new(5000),
-        max_mem: AtomicUsize::new(24 << 30),
+        max_mem: AtomicUsize::new(12 << 30),
         checkpt_rq: RctlRunQueue::new(),
     });
 
@@ -129,18 +129,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Resul
         ep: ep,
     };
 
-    bfs::bfs2::bfs2_dedupe(st, &ge, &mut le, |hn| {
-        for r in hn.rs.iter() {
-            let division_walk = ge.lat2.v_shift_data.division_walks[5].as_ref().unwrap();
-            for (idx, &prev_idx) in division_walk.iter().enumerate() {
-                if r.get_bit(idx) != r.get_bit(prev_idx) {
-                    return false;
-                }
-            }
-        }
-
-        true
-    });
+    bfs::bfs2::bfs2_dedupe(st, &ge, &mut le, |_| true);
 
     le.log(LogLevel::INFO, "Done");
 
