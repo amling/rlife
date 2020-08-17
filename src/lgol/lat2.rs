@@ -56,7 +56,7 @@ impl<BC: LGolBgCoord> LGolLat2<BC> {
             // Ugh, in order to get u and v handled sanely in the "single w layer" case we have to
             // ignore w (since some of them are shifted up in w space).  This will likely need
             // revisitting when/if we do any "multiple w layer" searches...
-            (v, u)
+            (u, v)
         });
 
         // immutable
