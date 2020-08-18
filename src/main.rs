@@ -44,6 +44,7 @@ use lgol::axis::LGolEdgeRead;
 use lgol::axis::LGolRecenteringAxis;
 use lgol::axis::LGolReflectEdge;
 use lgol::axis::LGolSimpleAxis;
+use lgol::bg::LGolBg;
 use lgol::bg::LGolBgEmpty;
 use lgol::bg::LGolBgHorizStripes;
 use lgol::bg::LGolBgVertStripes;
@@ -74,6 +75,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Resul
 
     let wx = args.parse();
     let mx = args.parse();
+    let dx: isize = args.parse();
 
     let ge = LGolGraphParams {
         vu: (mx, 0, 0),
@@ -148,7 +150,25 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Resul
         ep: ep,
     };
 
-    bfs::bfs2::bfs2_dedupe(st, &ge, &mut le, |_| true);
+    let dx_u = dx * ge.lat1.adet / mx;
+    bfs::bfs2::bfs2_dedupe(st, &ge, &mut le, |hn| {
+        let min = LGolBgVertStripes().find_min(&ge.lat2.u_shift_data, &hn);
+        let max = LGolBgEmpty().find_max(&ge.lat2.u_shift_data, &hn);
+        if (max - min) < dx_u {
+            return true;
+        }
+
+        for r in hn.rs.iter() {
+            let division_walk = ge.lat2.v_shift_data.division_walks[5].as_ref().unwrap();
+            for (idx, &prev_idx) in division_walk.iter().enumerate() {
+                if r.get_bit(idx) != r.get_bit(prev_idx) {
+                    return false;
+                }
+            }
+        }
+
+        true
+    });
 
     le.log(LogLevel::INFO, "Done");
 
