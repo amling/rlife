@@ -8,15 +8,18 @@ use ars_ds::scalar::UScalar;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::marker::PhantomData;
 
+use crate::bfs;
 use crate::chunk_store;
 use crate::dfs;
 use crate::gol;
 use crate::lgol;
 
+use bfs::bfs2::Bfs2Dedupe;
 use chunk_store::MmapChunkSafe;
 use dfs::graph::DfsGraph;
 use dfs::graph::DfsKeyNode;
@@ -821,5 +824,32 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, CS: LGol
             hn = self.justify(hn).2;
         }
         self.ends.end(&hn)
+    }
+}
+
+pub struct LGolDedupeHack<BS: RowTuple>(Vec<HashSet<BS>>);
+
+impl<BS: RowTuple, BC: LGolBgCoord, CSS: Nice> Bfs2Dedupe<LGolNode<BS, BC, CSS>> for LGolDedupeHack<BS> {
+    fn new() -> Self {
+        LGolDedupeHack((0..BC::max_idx()).map(|_| HashSet::new()).collect())
+    }
+
+    fn len(&self) -> usize {
+        self.0.iter().map(|s| s.len()).sum()
+    }
+
+    fn cloned_iter<'a>(&'a self) -> Box<dyn Iterator<Item=LGolHashNode<BS, BC>> + 'a> {
+        Box::new(self.0.iter().enumerate().flat_map(|(i, s)| {
+            s.iter().map(move |rs| {
+                LGolHashNode {
+                    bg_coord: BC::from_idx(i),
+                    rs: rs.clone(),
+                }
+            })
+        }))
+    }
+
+    fn insert(&mut self, n: LGolHashNode<BS, BC>) -> bool {
+        self.0[n.bg_coord.to_idx()].insert(n.rs)
     }
 }
