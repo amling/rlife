@@ -2,6 +2,7 @@ use crate::bfs;
 use crate::dfs;
 
 use bfs::bfs2::Bfs2ChunkFactory;
+use bfs::bfs2::Bfs2Dedupe;
 use bfs::bfs2::Bfs2State;
 use dfs::Tree;
 use dfs::graph::DfsNode;
@@ -41,7 +42,7 @@ pub trait DfsLifecycle<N: DfsNode> {
     fn debug_dfs_checkpoint(&mut self, _tree: &Tree<N>) {
     }
 
-    fn debug_bfs2_checkpoint<'a, CF: Bfs2ChunkFactory<N> + 'a>(&mut self, _get_state: impl FnOnce(&mut Self) -> &'a Bfs2State<N, CF>) where N: 'a {
+    fn debug_bfs2_checkpoint<'a, CF: Bfs2ChunkFactory<N> + 'a, D: Bfs2Dedupe<N> + 'a>(&mut self, _get_state: impl FnOnce(&mut Self) -> &'a Bfs2State<N, CF, D>) where N: 'a {
     }
 
     fn debug_longest(&mut self, _path: &Vec<N::KN>) {

@@ -56,18 +56,43 @@ impl<N: DfsNode, CF: Bfs2ChunkFactory<N>> WorkUnit<N, CF> {
     }
 }
 
-pub struct Bfs2State<N: DfsNode, CF: Bfs2ChunkFactory<N>> {
+pub trait Bfs2Dedupe<N: DfsNode> {
+    fn new() -> Self;
+    fn len(&self) -> usize;
+    fn cloned_iter<'a>(&'a self) -> Box<dyn Iterator<Item=<N::KN as DfsKeyNode>::HN> + 'a>;
+    fn insert(&mut self, n: <N::KN as DfsKeyNode>::HN) -> bool;
+}
+
+impl<N: DfsNode> Bfs2Dedupe<N> for HashSet<<N::KN as DfsKeyNode>::HN> {
+    fn new() -> Self {
+        HashSet::new()
+    }
+
+    fn len(&self) -> usize {
+        HashSet::len(self)
+    }
+
+    fn cloned_iter<'a>(&'a self) -> Box<dyn Iterator<Item=<N::KN as DfsKeyNode>::HN> + 'a> {
+        Box::new(HashSet::iter(self).cloned())
+    }
+
+    fn insert(&mut self, n: <N::KN as DfsKeyNode>::HN) -> bool {
+        HashSet::insert(self, n)
+    }
+}
+
+pub struct Bfs2State<N: DfsNode, CF: Bfs2ChunkFactory<N>, D: Bfs2Dedupe<N>> {
     kns: KnPile<N::KN, CF>,
     q: ChunkQueue<(usize, N), CF>,
-    dedupe: HashSet<<N::KN as DfsKeyNode>::HN>,
+    dedupe: D,
     foresight: usize,
     depth: usize,
 }
 
 pub struct Bfs2CustomSerializer<CF>(pub CF);
 
-impl<N: DfsNode, CF: Bfs2ChunkFactory<N>> SerializerFor<Bfs2State<N, CF>> for Bfs2CustomSerializer<CF> where N: Serialize, N::KN: Serialize, <N::KN as DfsKeyNode>::HN: Serialize {
-    fn to_writer(&self, mut w: impl Write, s: &Bfs2State<N, CF>) -> Result<(), StringError> {
+impl<N: DfsNode, CF: Bfs2ChunkFactory<N>, D: Bfs2Dedupe<N>> SerializerFor<Bfs2State<N, CF, D>> for Bfs2CustomSerializer<CF> where N: Serialize, N::KN: Serialize, <N::KN as DfsKeyNode>::HN: Serialize {
+    fn to_writer(&self, mut w: impl Write, s: &Bfs2State<N, CF, D>) -> Result<(), StringError> {
         w.write_u64::<BigEndian>(s.kns.len() as u64)?;
         for e in s.kns.iter().skip(1) {
             let e: (usize, &N::KN) = e;
@@ -81,9 +106,9 @@ impl<N: DfsNode, CF: Bfs2ChunkFactory<N>> SerializerFor<Bfs2State<N, CF>> for Bf
         }
 
         w.write_u64::<BigEndian>(s.dedupe.len() as u64)?;
-        for e in s.dedupe.iter() {
-            let e: &<N::KN as DfsKeyNode>::HN = e;
-            bincode::serialize_into(w.by_ref(), e)?;
+        for e in s.dedupe.cloned_iter() {
+            let e: <N::KN as DfsKeyNode>::HN = e;
+            bincode::serialize_into(w.by_ref(), &e)?;
         }
 
         w.write_u64::<BigEndian>(s.foresight as u64)?;
@@ -92,8 +117,8 @@ impl<N: DfsNode, CF: Bfs2ChunkFactory<N>> SerializerFor<Bfs2State<N, CF>> for Bf
     }
 }
 
-impl<N: DfsNode, CF: Bfs2ChunkFactory<N>> DeserializerFor<Bfs2State<N, CF>> for Bfs2CustomSerializer<CF> where N: DeserializeOwned + Copy, N::KN: DeserializeOwned, <N::KN as DfsKeyNode>::HN: DeserializeOwned {
-    fn from_reader(&self, mut r: impl Read) -> Result<Bfs2State<N, CF>, StringError> {
+impl<N: DfsNode, CF: Bfs2ChunkFactory<N>, D: Bfs2Dedupe<N>> DeserializerFor<Bfs2State<N, CF, D>> for Bfs2CustomSerializer<CF> where N: DeserializeOwned + Copy, N::KN: DeserializeOwned, <N::KN as DfsKeyNode>::HN: DeserializeOwned {
+    fn from_reader(&self, mut r: impl Read) -> Result<Bfs2State<N, CF, D>, StringError> {
         let kns = {
             let len = r.read_u64::<BigEndian>()? as usize;
             let mut kns = KnPile::new(self.0);
@@ -116,7 +141,7 @@ impl<N: DfsNode, CF: Bfs2ChunkFactory<N>> DeserializerFor<Bfs2State<N, CF>> for 
 
         let dedupe = {
             let len = r.read_u64::<BigEndian>()? as usize;
-            let mut dedupe = HashSet::new();
+            let mut dedupe = D::new();
             for _ in 0..len {
                 let e: <N::KN as DfsKeyNode>::HN = bincode::deserialize_from(r.by_ref())?;
                 dedupe.insert(e);
@@ -136,12 +161,12 @@ impl<N: DfsNode, CF: Bfs2ChunkFactory<N>> DeserializerFor<Bfs2State<N, CF>> for 
     }
 }
 
-impl<N: DfsNode, CF: Bfs2ChunkFactory<N>> Bfs2State<N, CF> {
-    pub fn new_simple(n0: N, cf: CF) -> Bfs2State<N, CF> where N: Copy {
+impl<N: DfsNode, CF: Bfs2ChunkFactory<N>, D: Bfs2Dedupe<N>> Bfs2State<N, CF, D> {
+    pub fn new_simple(n0: N, cf: CF) -> Bfs2State<N, CF, D> where N: Copy {
         Self::new(vec![(vec![n0.key_node().unwrap()], n0)], cf)
     }
 
-    pub fn new(init: impl IntoIterator<Item=(Vec<N::KN>, N)>, cf: CF) -> Bfs2State<N, CF> where N: Copy {
+    pub fn new(init: impl IntoIterator<Item=(Vec<N::KN>, N)>, cf: CF) -> Bfs2State<N, CF, D> where N: Copy {
         let mut kns = KnPile::new(cf);
         let mut q = ChunkQueue::new(cf);
 
@@ -158,13 +183,13 @@ impl<N: DfsNode, CF: Bfs2ChunkFactory<N>> Bfs2State<N, CF> {
             q: q,
             // Dubious that we miss the initial states?  Unfortunately there's no way to get access
             // to dedupe predicate here.
-            dedupe: HashSet::new(),
+            dedupe: D::new(),
             foresight: 0,
             depth: 0,
         }
     }
 
-    pub fn serializer(&self) -> impl SerializerFor<Bfs2State<N, CF>> where N: Serialize, N::KN: Serialize, <N::KN as DfsKeyNode>::HN: Serialize {
+    pub fn serializer(&self) -> impl SerializerFor<Bfs2State<N, CF, D>> where N: Serialize, N::KN: Serialize, <N::KN as DfsKeyNode>::HN: Serialize {
         Bfs2CustomSerializer(self.q.cf)
     }
 }
@@ -197,11 +222,11 @@ impl<A: KnsRebuildable, B: KnsRebuildable> KnsRebuildable for (A, B) {
     }
 }
 
-pub fn bfs2<N: DfsNode + Copy, CF: Bfs2ChunkFactory<N>, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(state: Bfs2State<N, CF>, ge: &GE, le: &mut LE) {
+pub fn bfs2<N: DfsNode + Copy, CF: Bfs2ChunkFactory<N>, D: Bfs2Dedupe<N>, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(state: Bfs2State<N, CF, D>, ge: &GE, le: &mut LE) {
     bfs2_dedupe(state, ge, le, |_| false)
 }
 
-pub fn bfs2_dedupe<N: DfsNode + Copy, CF: Bfs2ChunkFactory<N>, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(mut state: Bfs2State<N, CF>, ge: &GE, le: &mut LE, should_dedupe: impl Fn(&<N::KN as DfsKeyNode>::HN) -> bool) {
+pub fn bfs2_dedupe<N: DfsNode + Copy, CF: Bfs2ChunkFactory<N>, D: Bfs2Dedupe<N>, GE: DfsGraph<N> + Sync, LE: DfsLifecycle<N> + Sync>(mut state: Bfs2State<N, CF, D>, ge: &GE, le: &mut LE, should_dedupe: impl Fn(&<N::KN as DfsKeyNode>::HN) -> bool) {
     loop {
         let cf = state.q.cf;
 
