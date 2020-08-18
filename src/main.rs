@@ -95,7 +95,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Resul
             },
         ),
     };
-    let mut ge = ge.derived::<[B; 2], _>(HashSet::new());
+    let mut ge = ge.derived::<[B; 2], _>(HashMap::new());
 
     let cf = AnonMmapChunkFactory();
     let st = args.read_state_or(Bfs2CustomSerializer(cf), || {
@@ -107,19 +107,38 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Resul
     });
 
     {
-        let rs = ge.parse_bs2(&[
-            "     |     |     |     |*.**.",
-            "     |     |     |*....|*..*.",
-            "     |     |*.*.*|*.*.*|     ",
-            "     |*..*.|*.**.|     |     ",
-            "*.*.*|*....|     |     |     ",
-            "*.*.*|     |     |     |     ",
-            "z",
-        ]);
-        let (xyt, rs) = ge.recenter_xyt((0, 0, 0), rs);
-        let hn = ge.key_node(xyt, rs).lgol_hash_node();
-
-        ge.ends.insert(hn);
+        let ends = vec![
+            (
+                &[
+                    "     |     |     |     |*.**.",
+                    "     |     |     |*....|*..*.",
+                    "     |     |*.*.*|*.*.*|     ",
+                    "     |*..*.|*.**.|     |     ",
+                    "*.*.*|*....|     |     |     ",
+                    "*.*.*|     |     |     |     ",
+                    "z",
+                ],
+                "2c/3 back wick",
+            ),
+            (
+                &[
+                    "      |      |      |      |*.....",
+                    "      |      |      |*.***.|*.*.*.",
+                    "      |      |*..*.*|*...*.|      ",
+                    "      |*.....|*.....|      |      ",
+                    "*.....|**....|      |      |      ",
+                    "*.....|      |      |      |      ",
+                    "z",
+                ],
+                "space clearer",
+            ),
+        ];
+        for (rs, label) in ends {
+            let rs = ge.parse_bs2(rs);
+            let (xyt, rs) = ge.recenter_xyt((0, 0, 0), rs);
+            let hn = ge.key_node(xyt, rs).lgol_hash_node();
+            ge.ends.insert(hn, label);
+        }
     }
 
     assert!(ge.max_r1l <= B::size());
