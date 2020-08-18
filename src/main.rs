@@ -52,6 +52,7 @@ use lgol::bg::LGolBgY2;
 use lgol::constraints::LGolConstraintUWindow;
 use lgol::constraints::LGolConstraintVPeriodDividing;
 use lgol::ends::LGolNoEnds;
+use lgol::graph::LGolDedupeHack;
 use lgol::graph::LGolGraphParams;
 use lgol::lat1::Vec3;
 use sal::DeserializerFor;
@@ -98,7 +99,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Resul
     let mut ge = ge.derived::<[B; 2], _>(HashMap::new());
 
     let cf = AnonMmapChunkFactory();
-    let st: Bfs2State<_, _, HashSet<_>> = args.read_state_or(Bfs2CustomSerializer(cf), || {
+    let st: Bfs2State<_, _, LGolDedupeHack<_>> = args.read_state_or(Bfs2CustomSerializer(cf), || {
         let n0 = ge.cb_node((0, 0, 0), |(x, _y, _t)| {
             x.rem_euclid(2) == 0
         });
