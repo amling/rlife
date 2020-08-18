@@ -59,7 +59,7 @@ impl<N: DfsNode, CF: Bfs2ChunkFactory<N>> WorkUnit<N, CF> {
 pub trait Bfs2Dedupe<N: DfsNode> {
     fn new() -> Self;
     fn len(&self) -> usize;
-    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item=&'a <N::KN as DfsKeyNode>::HN> + 'a>;
+    fn cloned_iter<'a>(&'a self) -> Box<dyn Iterator<Item=<N::KN as DfsKeyNode>::HN> + 'a>;
     fn insert(&mut self, n: <N::KN as DfsKeyNode>::HN) -> bool;
 }
 
@@ -72,8 +72,8 @@ impl<N: DfsNode> Bfs2Dedupe<N> for HashSet<<N::KN as DfsKeyNode>::HN> {
         HashSet::len(self)
     }
 
-    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item=&'a <N::KN as DfsKeyNode>::HN> + 'a> {
-        Box::new(HashSet::iter(self))
+    fn cloned_iter<'a>(&'a self) -> Box<dyn Iterator<Item=<N::KN as DfsKeyNode>::HN> + 'a> {
+        Box::new(HashSet::iter(self).cloned())
     }
 
     fn insert(&mut self, n: <N::KN as DfsKeyNode>::HN) -> bool {
@@ -106,9 +106,9 @@ impl<N: DfsNode, CF: Bfs2ChunkFactory<N>, D: Bfs2Dedupe<N>> SerializerFor<Bfs2St
         }
 
         w.write_u64::<BigEndian>(s.dedupe.len() as u64)?;
-        for e in s.dedupe.iter() {
-            let e: &<N::KN as DfsKeyNode>::HN = e;
-            bincode::serialize_into(w.by_ref(), e)?;
+        for e in s.dedupe.cloned_iter() {
+            let e: <N::KN as DfsKeyNode>::HN = e;
+            bincode::serialize_into(w.by_ref(), &e)?;
         }
 
         w.write_u64::<BigEndian>(s.foresight as u64)?;
