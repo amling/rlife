@@ -21,6 +21,7 @@ use std::sync::atomic::AtomicUsize;
 
 mod bfs;
 mod chunk_store;
+mod dedupe;
 mod dfs;
 mod gol;
 mod lgol;
@@ -29,7 +30,9 @@ mod sal;
 use bfs::bfs2::Bfs2CustomSerializer;
 use bfs::bfs2::Bfs2State;
 use chunk_store::AnonMmapChunkFactory;
+use chunk_store::MmapChunkSafe;
 use chunk_store::VecChunkFactory;
+use dedupe::CfHashSet;
 use dfs::lifecycle::DfsLifecycle;
 use dfs::lifecycle::LogLevel;
 use gol::graph::GolEdge;
@@ -57,6 +60,14 @@ use lgol::graph::LGolGraphParams;
 use lgol::lat1::Vec3;
 use sal::DeserializerFor;
 
+marker_trait! {
+    MainB:
+    [UScalar]
+    [DeserializeOwned]
+    [Serialize]
+    [MmapChunkSafe]
+}
+
 fn main() {
     let ep = Arc::new(GolRctlEp {
         threads: AtomicUsize::new(12),
@@ -70,7 +81,7 @@ fn main() {
     main1::<u128>(ep).unwrap();
 }
 
-fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
+fn main1<B: MainB>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
     let mut args = env_args();
 
     let wx = args.parse();
@@ -99,7 +110,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Resul
     let mut ge = ge.derived::<[B; 2], _>(HashMap::new());
 
     let cf = AnonMmapChunkFactory();
-    let st: Bfs2State<_, _, LGolDedupeHack<_>> = args.read_state_or(Bfs2CustomSerializer(cf), || {
+    let st: Bfs2State<_, _, LGolDedupeHack<CfHashSet<_, _>>> = args.read_state_or(Bfs2CustomSerializer(cf), || {
         let n0 = ge.cb_node((0, 0, 0), |(x, _y, _t)| {
             x.rem_euclid(2) == 0
         });
@@ -157,7 +168,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Resul
 }
 
 #[allow(dead_code)]
-fn demo___bfs2___main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
+fn demo___bfs2___main1<B: MainB>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
     let mut args = env_args();
 
     let wx = args.parse();
@@ -204,7 +215,7 @@ fn demo___bfs2___main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRct
 }
 
 #[allow(dead_code)]
-fn demo___bfs2___ends_db___main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
+fn demo___bfs2___ends_db___main1<B: MainB>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
     let mut args = env_args();
 
     let wx = args.parse();
@@ -276,7 +287,7 @@ fn demo___bfs2___ends_db___main1<B: UScalar + DeserializeOwned + Serialize>(ep: 
 }
 
 #[allow(dead_code)]
-fn demo___lgol___main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
+fn demo___lgol___main1<B: MainB>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
     let mut args = env_args();
 
     let wx = args.parse();
@@ -305,7 +316,7 @@ fn demo___lgol___main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRct
     let ge = ge.derived::<[B; 6], _>(());
 
     let cf = VecChunkFactory();
-    let st: Bfs2State<_, _, HashSet<_>> = args.read_state_or(Bfs2CustomSerializer(cf), || {
+    let st: Bfs2State<_, _, LGolDedupeHack<CfHashSet<_, _>>> = args.read_state_or(Bfs2CustomSerializer(cf), || {
         let n0 = ge.zero_node();
 
         Bfs2State::new_simple(n0, cf)
@@ -326,7 +337,7 @@ fn demo___lgol___main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRct
 }
 
 #[allow(dead_code)]
-fn demo___lgol___oob_agar___main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
+fn demo___lgol___oob_agar___main1<B: MainB>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
     let mut args = env_args();
 
     let wx = args.parse();
@@ -355,7 +366,7 @@ fn demo___lgol___oob_agar___main1<B: UScalar + DeserializeOwned + Serialize>(ep:
     let mut ge = ge.derived::<[B; 10], _>(HashSet::new());
 
     let cf = VecChunkFactory();
-    let st: Bfs2State<_, _, HashSet<_>> = args.read_state_or(Bfs2CustomSerializer(cf), || {
+    let st: Bfs2State<_, _, LGolDedupeHack<CfHashSet<_, _>>> = args.read_state_or(Bfs2CustomSerializer(cf), || {
         let rs = ge.parse_bs2(&[
             "*...|*...|*...|*...|*...",
             "*...|*...|*...|*...|*...",
@@ -400,7 +411,7 @@ fn demo___lgol___oob_agar___main1<B: UScalar + DeserializeOwned + Serialize>(ep:
 }
 
 #[allow(dead_code)]
-fn demo___lgol___periodic_edge___main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
+fn demo___lgol___periodic_edge___main1<B: MainB>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
     let mut args = env_args();
 
     let mt = args.parse();
@@ -428,7 +439,7 @@ fn demo___lgol___periodic_edge___main1<B: UScalar + DeserializeOwned + Serialize
     let ge = ge.derived::<[B; 2], _>(());
 
     let cf = VecChunkFactory();
-    let st: Bfs2State<_, _, HashSet<_>> = args.read_state_or(Bfs2CustomSerializer(cf), || {
+    let st: Bfs2State<_, _, LGolDedupeHack<CfHashSet<_, _>>> = args.read_state_or(Bfs2CustomSerializer(cf), || {
         let n0 = ge.cb_node((0, 0, 0), |(x, _y, _t)| {
             x.rem_euclid(2) == 0
         });
@@ -451,7 +462,7 @@ fn demo___lgol___periodic_edge___main1<B: UScalar + DeserializeOwned + Serialize
 }
 
 #[allow(dead_code)]
-fn demo___lgol___reflect___main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
+fn demo___lgol___reflect___main1<B: MainB>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
     let mut args = env_args();
 
     let mx = args.parse();
@@ -473,7 +484,7 @@ fn demo___lgol___reflect___main1<B: UScalar + DeserializeOwned + Serialize>(ep: 
     let ge = ge.derived::<[B; 6], _>(());
 
     let cf = VecChunkFactory();
-    let st: Bfs2State<_, _, HashSet<_>> = args.read_state_or(Bfs2CustomSerializer(cf), || {
+    let st: Bfs2State<_, _, LGolDedupeHack<CfHashSet<_, _>>> = args.read_state_or(Bfs2CustomSerializer(cf), || {
         let n0 = ge.zero_node();
 
         Bfs2State::new_simple(n0, cf)
@@ -494,7 +505,7 @@ fn demo___lgol___reflect___main1<B: UScalar + DeserializeOwned + Serialize>(ep: 
 }
 
 #[allow(dead_code)]
-fn demo___lgol___period_divison___main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
+fn demo___lgol___period_divison___main1<B: MainB>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
     let mut args = env_args();
 
     let wx = args.parse();
@@ -528,7 +539,7 @@ fn demo___lgol___period_divison___main1<B: UScalar + DeserializeOwned + Serializ
     let ge = ge.derived::<[B; 6], _>(LGolNoEnds());
 
     let cf = AnonMmapChunkFactory();
-    let st: Bfs2State<_, _, HashSet<_>> = args.read_state_or(Bfs2CustomSerializer(cf), || {
+    let st: Bfs2State<_, _, LGolDedupeHack<CfHashSet<_, _>>> = args.read_state_or(Bfs2CustomSerializer(cf), || {
         let rs = ge.parse_bs2(&[
             "     |     |     |     |     |..*..",
             "     |     |     |**...|**...|**...",

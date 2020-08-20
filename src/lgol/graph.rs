@@ -8,19 +8,18 @@ use ars_ds::scalar::UScalar;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap;
-use std::collections::HashSet;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::marker::PhantomData;
 
-use crate::bfs;
 use crate::chunk_store;
+use crate::dedupe;
 use crate::dfs;
 use crate::gol;
 use crate::lgol;
 
-use bfs::bfs2::Bfs2Dedupe;
 use chunk_store::MmapChunkSafe;
+use dedupe::Dedupe;
 use dfs::graph::DfsGraph;
 use dfs::graph::DfsKeyNode;
 use dfs::graph::DfsNode;
@@ -38,7 +37,7 @@ use lgol::lat1::Vec3;
 use lgol::lat2::LGolLat2;
 use lgol::lat2::LGolShiftData;
 
-pub trait RowTuple: Copy + Debug + Default + Eq + Hash + Send + Sync {
+pub trait RowTuple: Nice {
     type Item: UScalar;
 
     fn len() -> usize;
@@ -827,11 +826,11 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, CS: LGol
     }
 }
 
-pub struct LGolDedupeHack<BS: RowTuple>(Vec<HashSet<BS>>);
+pub struct LGolDedupeHack<D>(Vec<D>);
 
-impl<BS: RowTuple, BC: LGolBgCoord, CSS: Nice> Bfs2Dedupe<LGolNode<BS, BC, CSS>> for LGolDedupeHack<BS> {
-    fn new() -> Self {
-        LGolDedupeHack((0..BC::max_idx()).map(|_| HashSet::new()).collect())
+impl<BS: RowTuple, BC: LGolBgCoord, CF: Copy, D: Dedupe<BS, CF>> Dedupe<LGolHashNode<BS, BC>, CF> for LGolDedupeHack<D> {
+    fn new(cf: CF) -> Self {
+        LGolDedupeHack((0..BC::max_idx()).map(|_| D::new(cf)).collect())
     }
 
     fn len(&self) -> usize {
@@ -839,11 +838,12 @@ impl<BS: RowTuple, BC: LGolBgCoord, CSS: Nice> Bfs2Dedupe<LGolNode<BS, BC, CSS>>
     }
 
     fn cloned_iter<'a>(&'a self) -> Box<dyn Iterator<Item=LGolHashNode<BS, BC>> + 'a> {
-        Box::new(self.0.iter().enumerate().flat_map(|(i, s)| {
-            s.iter().map(move |rs| {
+        Box::new(self.0.iter().enumerate().flat_map(|(i, d)| {
+            let bg_coord = BC::from_idx(i);
+            d.cloned_iter().map(move |rs| {
                 LGolHashNode {
-                    bg_coord: BC::from_idx(i),
-                    rs: rs.clone(),
+                    bg_coord: bg_coord,
+                    rs: rs,
                 }
             })
         }))

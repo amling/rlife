@@ -73,6 +73,39 @@ impl_mmap_chunk_safe!([] u32);
 impl_mmap_chunk_safe!([] u64);
 impl_mmap_chunk_safe!([] usize);
 impl_mmap_chunk_safe!([] isize);
+impl_mmap_chunk_safe!([E] [E; 0]);
+impl_mmap_chunk_safe!([E] [E; 1]);
+impl_mmap_chunk_safe!([E] [E; 2]);
+impl_mmap_chunk_safe!([E] [E; 3]);
+impl_mmap_chunk_safe!([E] [E; 4]);
+impl_mmap_chunk_safe!([E] [E; 5]);
+impl_mmap_chunk_safe!([E] [E; 6]);
+impl_mmap_chunk_safe!([E] [E; 7]);
+impl_mmap_chunk_safe!([E] [E; 8]);
+impl_mmap_chunk_safe!([E] [E; 9]);
+impl_mmap_chunk_safe!([E] [E; 10]);
+impl_mmap_chunk_safe!([E] [E; 11]);
+impl_mmap_chunk_safe!([E] [E; 12]);
+impl_mmap_chunk_safe!([E] [E; 13]);
+impl_mmap_chunk_safe!([E] [E; 14]);
+impl_mmap_chunk_safe!([E] [E; 15]);
+impl_mmap_chunk_safe!([E] [E; 16]);
+impl_mmap_chunk_safe!([E] [E; 17]);
+impl_mmap_chunk_safe!([E] [E; 18]);
+impl_mmap_chunk_safe!([E] [E; 19]);
+impl_mmap_chunk_safe!([E] [E; 20]);
+impl_mmap_chunk_safe!([E] [E; 21]);
+impl_mmap_chunk_safe!([E] [E; 22]);
+impl_mmap_chunk_safe!([E] [E; 23]);
+impl_mmap_chunk_safe!([E] [E; 24]);
+impl_mmap_chunk_safe!([E] [E; 25]);
+impl_mmap_chunk_safe!([E] [E; 26]);
+impl_mmap_chunk_safe!([E] [E; 27]);
+impl_mmap_chunk_safe!([E] [E; 28]);
+impl_mmap_chunk_safe!([E] [E; 29]);
+impl_mmap_chunk_safe!([E] [E; 30]);
+impl_mmap_chunk_safe!([E] [E; 31]);
+impl_mmap_chunk_safe!([E] [E; 32]);
 
 #[derive(Clone)]
 #[derive(Copy)]
@@ -373,5 +406,90 @@ impl<T, C: ChunkRaw<T>> IndexMut<usize> for ChunkVecDeque<T, C> {
         debug_assert!(i < self.len);
         let i = (self.off + i) % self.c.cap();
         &mut self.c[i]
+    }
+}
+
+
+
+pub struct ChunksVec<T, CF: ChunkFactory<T>> {
+    cf: CF,
+    pile: Vec<ChunkVec<T, CF::Output>>,
+}
+
+impl<T, CF: ChunkFactory<T>> ChunksVec<T, CF> {
+    pub fn new(cf: CF) -> Self {
+        ChunksVec {
+            cf: cf,
+            pile: Vec::new(),
+        }
+    }
+
+    pub fn esize(&self) -> usize {
+        std::mem::size_of::<T>()
+    }
+
+    fn shard_size(&self) -> usize {
+        (1 << 20) / self.esize()
+    }
+
+    fn split_index(&self, idx: usize) -> (usize, usize) {
+        let shard_size = self.shard_size();
+        (idx / shard_size, idx % shard_size)
+    }
+
+    fn join_index(&self, outer: usize, inner: usize) -> usize {
+        outer * self.shard_size() + inner
+    }
+
+    pub fn push(&mut self, t: T) -> usize {
+        let shard_size = self.shard_size();
+        let len = self.pile.len();
+        if let Some(last) = self.pile.last_mut() {
+            if last.len() < shard_size {
+                let outer = len - 1;
+                let inner = last.len();
+                assert!(last.offer(t));
+                return self.join_index(outer, inner);
+            }
+        }
+        self.pile.push(self.cf.new_chunk_vec(shard_size));
+        assert!(self.pile.last_mut().unwrap().offer(t));
+        self.join_index(len, 0)
+    }
+
+    pub fn len(&self) -> usize {
+        let len = match self.pile.last() {
+            Some(last) => (self.pile.len() - 1) * self.shard_size() + last.len(),
+            None => 0,
+        };
+        debug_assert_eq!(len, self.pile.iter().map(|v| v.len()).sum::<usize>());
+        len
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item=&T> {
+        self.pile.iter().flat_map(|c| c.iter())
+    }
+
+    pub fn truncate(&mut self, len: usize) {
+        let (outer, inner) = self.split_index(len - 1);
+        self.pile.truncate(outer + 1);
+        self.pile[outer].truncate(inner + 1);
+    }
+
+}
+
+impl<T, CF: ChunkFactory<T>> Index<usize> for ChunksVec<T, CF> {
+    type Output = T;
+
+    fn index(&self, i: usize) -> &T {
+        let (outer, inner) = self.split_index(i);
+        &self.pile[outer][inner]
+    }
+}
+
+impl<T, CF: ChunkFactory<T>> IndexMut<usize> for ChunksVec<T, CF> {
+    fn index_mut(&mut self, i: usize) -> &mut T {
+        let (outer, inner) = self.split_index(i);
+        &mut self.pile[outer][inner]
     }
 }
