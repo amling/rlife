@@ -99,7 +99,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Resul
     let mut ge = ge.derived::<[B; 6], _>(HashSet::new());
 
     let cf = AnonMmapChunkFactory();
-    let st: Bfs2State<_, _, LGolDedupeHack<_>> = args.read_state_or(Bfs2CustomSerializer(cf), || {
+    let st: Bfs2State<_, _, LGolDedupeHack<HashSet<_>>> = args.read_state_or(Bfs2CustomSerializer(cf), || {
         let rs = ge.parse_bs2(&[
             "   |   |...",
             ".*.|.*.|*.*",
