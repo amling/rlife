@@ -8,8 +8,6 @@ use crossbeam::queue::PopError;
 use crossbeam::queue::SegQueue;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
-use std::collections::HashSet;
-use std::hash::Hash;
 use std::io::Read;
 use std::io::Write;
 use std::sync::atomic::AtomicBool;
@@ -18,6 +16,7 @@ use std::sync::atomic::Ordering;
 
 use crate::bfs;
 use crate::chunk_store;
+use crate::dedupe;
 use crate::dfs;
 use crate::sal;
 
@@ -25,6 +24,7 @@ use bfs::chunk_queue::ChunkQueue;
 use bfs::kn_pile::KnPile;
 use bfs::kn_pile::KnsRebuildable;
 use chunk_store::ChunkFactory;
+use dedupe::Dedupe;
 use dfs::graph::DfsGraph;
 use dfs::graph::DfsKeyNode;
 use dfs::graph::DfsNode;
@@ -57,35 +57,10 @@ impl<N: DfsNode, CF: Bfs2ChunkFactory<N>> WorkUnit<N, CF> {
     }
 }
 
-pub trait Dedupe<E, CF> {
-    fn new(cf: CF) -> Self;
-    fn len(&self) -> usize;
-    fn cloned_iter<'a>(&'a self) -> Box<dyn Iterator<Item=E> + 'a>;
-    fn insert(&mut self, e: E) -> bool;
-}
-
 pub trait Bfs2Dedupe<N: DfsNode, CF>: Dedupe<<N::KN as DfsKeyNode>::HN, CF> {
 }
 
 impl<N: DfsNode, CF, T: Dedupe<<N::KN as DfsKeyNode>::HN, CF>> Bfs2Dedupe<N, CF> for T {
-}
-
-impl<E: Clone + Hash + Eq, CF> Dedupe<E, CF> for HashSet<E> {
-    fn new(_cf: CF) -> Self {
-        HashSet::new()
-    }
-
-    fn len(&self) -> usize {
-        HashSet::len(self)
-    }
-
-    fn cloned_iter<'a>(&'a self) -> Box<dyn Iterator<Item=E> + 'a> {
-        Box::new(HashSet::iter(self).cloned())
-    }
-
-    fn insert(&mut self, e: E) -> bool {
-        HashSet::insert(self, e)
-    }
 }
 
 pub struct Bfs2State<N: DfsNode, CF: Bfs2ChunkFactory<N>, D: Bfs2Dedupe<N, CF>> {

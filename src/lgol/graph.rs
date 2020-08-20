@@ -12,14 +12,14 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::marker::PhantomData;
 
-use crate::bfs;
 use crate::chunk_store;
+use crate::dedupe;
 use crate::dfs;
 use crate::gol;
 use crate::lgol;
 
-use bfs::bfs2::Dedupe;
 use chunk_store::MmapChunkSafe;
+use dedupe::Dedupe;
 use dfs::graph::DfsGraph;
 use dfs::graph::DfsKeyNode;
 use dfs::graph::DfsNode;

@@ -21,6 +21,7 @@ use std::sync::atomic::AtomicUsize;
 
 mod bfs;
 mod chunk_store;
+mod dedupe;
 mod dfs;
 mod gol;
 mod lgol;
