@@ -829,8 +829,8 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, CS: LGol
 
 pub struct LGolDedupeHack<BS: RowTuple>(Vec<HashSet<BS>>);
 
-impl<BS: RowTuple, BC: LGolBgCoord, CSS: Nice> Bfs2Dedupe<LGolNode<BS, BC, CSS>> for LGolDedupeHack<BS> {
-    fn new() -> Self {
+impl<BS: RowTuple, BC: LGolBgCoord, CSS: Nice, CF> Bfs2Dedupe<LGolNode<BS, BC, CSS>, CF> for LGolDedupeHack<BS> {
+    fn new(_cf: CF) -> Self {
         LGolDedupeHack((0..BC::max_idx()).map(|_| HashSet::new()).collect())
     }
 

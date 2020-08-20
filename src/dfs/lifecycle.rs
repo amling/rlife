@@ -42,7 +42,7 @@ pub trait DfsLifecycle<N: DfsNode> {
     fn debug_dfs_checkpoint(&mut self, _tree: &Tree<N>) {
     }
 
-    fn debug_bfs2_checkpoint<'a, CF: Bfs2ChunkFactory<N> + 'a, D: Bfs2Dedupe<N> + 'a>(&mut self, _get_state: impl FnOnce(&mut Self) -> &'a Bfs2State<N, CF, D>) where N: 'a {
+    fn debug_bfs2_checkpoint<'a, CF: Bfs2ChunkFactory<N> + 'a, D: Bfs2Dedupe<N, CF> + 'a>(&mut self, _get_state: impl FnOnce(&mut Self) -> &'a Bfs2State<N, CF, D>) where N: 'a {
     }
 
     fn debug_longest(&mut self, _path: &Vec<N::KN>) {

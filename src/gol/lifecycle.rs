@@ -212,7 +212,7 @@ impl<'a, GE: GolGraphTrait> DfsLifecycle<GE::N> for GolLifecycle<'a, GE> where <
         });
     }
 
-    fn debug_bfs2_checkpoint<'b, CF: Bfs2ChunkFactory<GE::N> + 'b, D: Bfs2Dedupe<GE::N> + 'b>(&mut self, get_state: impl FnOnce(&mut Self) -> &'b Bfs2State<GE::N, CF, D>) where GE::N: 'b {
+    fn debug_bfs2_checkpoint<'b, CF: Bfs2ChunkFactory<GE::N> + 'b, D: Bfs2Dedupe<GE::N, CF> + 'b>(&mut self, get_state: impl FnOnce(&mut Self) -> &'b Bfs2State<GE::N, CF, D>) where GE::N: 'b {
         // clone ep so self is still available for closure to take
         let ep = self.ep.clone();
 
