@@ -30,7 +30,9 @@ mod sal;
 use bfs::bfs2::Bfs2CustomSerializer;
 use bfs::bfs2::Bfs2State;
 use chunk_store::AnonMmapChunkFactory;
+use chunk_store::MmapChunkSafe;
 use chunk_store::VecChunkFactory;
+use dedupe::CfHashSet;
 use dfs::lifecycle::DfsLifecycle;
 use dfs::lifecycle::LogLevel;
 use gol::graph::GolEdge;
@@ -71,7 +73,7 @@ fn main() {
     main1::<u16>(ep).unwrap();
 }
 
-fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
+fn main1<B: UScalar + DeserializeOwned + Serialize + MmapChunkSafe>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
     let mut args = env_args();
 
     let wx = args.parse();
@@ -100,7 +102,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Resul
     let mut ge = ge.derived::<[B; 6], _>(HashSet::new());
 
     let cf = AnonMmapChunkFactory();
-    let st: Bfs2State<_, _, LGolDedupeHack<HashSet<_>>> = args.read_state_or(Bfs2CustomSerializer(cf), || {
+    let st: Bfs2State<_, _, LGolDedupeHack<CfHashSet<_, _>>> = args.read_state_or(Bfs2CustomSerializer(cf), || {
         let rs = ge.parse_bs2(&[
             "   |   |...",
             ".*.|.*.|*.*",
