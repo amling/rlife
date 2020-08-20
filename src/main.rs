@@ -299,7 +299,7 @@ fn demo___lgol___main1<B: MainB>(ep: Arc<GolRctlEp>) -> Result<(), StringError> 
     let ge = ge.derived::<[B; 6], _>(());
 
     let cf = VecChunkFactory();
-    let st: Bfs2State<_, _, HashSet<_>> = args.read_state_or(Bfs2CustomSerializer(cf), || {
+    let st: Bfs2State<_, _, LGolDedupeHack<CfHashSet<_, _>>> = args.read_state_or(Bfs2CustomSerializer(cf), || {
         let n0 = ge.zero_node();
 
         Bfs2State::new_simple(n0, cf)
@@ -349,7 +349,7 @@ fn demo___lgol___oob_agar___main1<B: MainB>(ep: Arc<GolRctlEp>) -> Result<(), St
     let mut ge = ge.derived::<[B; 10], _>(HashSet::new());
 
     let cf = VecChunkFactory();
-    let st: Bfs2State<_, _, HashSet<_>> = args.read_state_or(Bfs2CustomSerializer(cf), || {
+    let st: Bfs2State<_, _, LGolDedupeHack<CfHashSet<_, _>>> = args.read_state_or(Bfs2CustomSerializer(cf), || {
         let rs = ge.parse_bs2(&[
             "*...|*...|*...|*...|*...",
             "*...|*...|*...|*...|*...",
@@ -422,7 +422,7 @@ fn demo___lgol___periodic_edge___main1<B: MainB>(ep: Arc<GolRctlEp>) -> Result<(
     let ge = ge.derived::<[B; 2], _>(());
 
     let cf = VecChunkFactory();
-    let st: Bfs2State<_, _, HashSet<_>> = args.read_state_or(Bfs2CustomSerializer(cf), || {
+    let st: Bfs2State<_, _, LGolDedupeHack<CfHashSet<_, _>>> = args.read_state_or(Bfs2CustomSerializer(cf), || {
         let n0 = ge.cb_node((0, 0, 0), |(x, _y, _t)| {
             x.rem_euclid(2) == 0
         });
@@ -467,7 +467,7 @@ fn demo___lgol___reflect___main1<B: MainB>(ep: Arc<GolRctlEp>) -> Result<(), Str
     let ge = ge.derived::<[B; 6], _>(());
 
     let cf = VecChunkFactory();
-    let st: Bfs2State<_, _, HashSet<_>> = args.read_state_or(Bfs2CustomSerializer(cf), || {
+    let st: Bfs2State<_, _, LGolDedupeHack<CfHashSet<_, _>>> = args.read_state_or(Bfs2CustomSerializer(cf), || {
         let n0 = ge.zero_node();
 
         Bfs2State::new_simple(n0, cf)
@@ -522,7 +522,7 @@ fn demo___lgol___period_divison___main1<B: MainB>(ep: Arc<GolRctlEp>) -> Result<
     let ge = ge.derived::<[B; 6], _>(LGolNoEnds());
 
     let cf = AnonMmapChunkFactory();
-    let st: Bfs2State<_, _, HashSet<_>> = args.read_state_or(Bfs2CustomSerializer(cf), || {
+    let st: Bfs2State<_, _, LGolDedupeHack<CfHashSet<_, _>>> = args.read_state_or(Bfs2CustomSerializer(cf), || {
         let rs = ge.parse_bs2(&[
             "     |     |     |     |     |..*..",
             "     |     |     |**...|**...|**...",
