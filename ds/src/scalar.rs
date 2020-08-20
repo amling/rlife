@@ -1,7 +1,5 @@
 #![allow(unused_parens)]
 
-use std::fmt::Debug;
-use std::hash::Hash;
 use std::ops::Add;
 use std::ops::AddAssign;
 use std::ops::BitAnd;
@@ -18,6 +16,10 @@ use std::ops::ShrAssign;
 use std::ops::Sub;
 use std::ops::SubAssign;
 
+use crate::nice;
+
+use nice::Nice;
+
 marker_trait! {
     ScalarMarker:
     [Add<Output=Self>]
@@ -26,25 +28,16 @@ marker_trait! {
     [BitAndAssign]
     [BitOr<Output=Self>]
     [BitOrAssign]
-    [Copy]
-    [Debug]
-    [Default]
     [Div<Output=Self>]
-    [Eq]
-    [Hash]
     [Mul<Output=Self>]
     [Not<Output=Self>]
-    [Ord]
-    [PartialOrd]
-    [Send]
     [Shl<usize, Output=Self>]
     [ShlAssign<usize>]
     [Shr<usize, Output=Self>]
     [ShrAssign<usize>]
-    [Sized]
     [Sub<Output=Self>]
     [SubAssign]
-    [Sync]
+    [Nice]
 }
 
 pub trait Scalar: ScalarMarker {
