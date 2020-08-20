@@ -19,7 +19,7 @@ use crate::dfs;
 use crate::gol;
 use crate::lgol;
 
-use bfs::bfs2::Bfs2Dedupe;
+use bfs::bfs2::Dedupe;
 use chunk_store::MmapChunkSafe;
 use dfs::graph::DfsGraph;
 use dfs::graph::DfsKeyNode;
@@ -829,7 +829,7 @@ impl<BS: RowTuple, BC: LGolBgCoord, UA: LGolAxis<BC>, VA: LGolAxis<BC>, CS: LGol
 
 pub struct LGolDedupeHack<BS: RowTuple>(Vec<HashSet<BS>>);
 
-impl<BS: RowTuple, BC: LGolBgCoord, CSS: Nice, CF> Bfs2Dedupe<LGolNode<BS, BC, CSS>, CF> for LGolDedupeHack<BS> {
+impl<BS: RowTuple, BC: LGolBgCoord, CF> Dedupe<LGolHashNode<BS, BC>, CF> for LGolDedupeHack<BS> {
     fn new(_cf: CF) -> Self {
         LGolDedupeHack((0..BC::max_idx()).map(|_| HashSet::new()).collect())
     }

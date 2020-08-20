@@ -9,6 +9,7 @@ use crossbeam::queue::SegQueue;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use std::collections::HashSet;
+use std::hash::Hash;
 use std::io::Read;
 use std::io::Write;
 use std::sync::atomic::AtomicBool;
@@ -56,14 +57,20 @@ impl<N: DfsNode, CF: Bfs2ChunkFactory<N>> WorkUnit<N, CF> {
     }
 }
 
-pub trait Bfs2Dedupe<N: DfsNode, CF> {
+pub trait Dedupe<E, CF> {
     fn new(cf: CF) -> Self;
     fn len(&self) -> usize;
-    fn cloned_iter<'a>(&'a self) -> Box<dyn Iterator<Item=<N::KN as DfsKeyNode>::HN> + 'a>;
-    fn insert(&mut self, n: <N::KN as DfsKeyNode>::HN) -> bool;
+    fn cloned_iter<'a>(&'a self) -> Box<dyn Iterator<Item=E> + 'a>;
+    fn insert(&mut self, e: E) -> bool;
 }
 
-impl<N: DfsNode, CF> Bfs2Dedupe<N, CF> for HashSet<<N::KN as DfsKeyNode>::HN> {
+pub trait Bfs2Dedupe<N: DfsNode, CF>: Dedupe<<N::KN as DfsKeyNode>::HN, CF> {
+}
+
+impl<N: DfsNode, CF, T: Dedupe<<N::KN as DfsKeyNode>::HN, CF>> Bfs2Dedupe<N, CF> for T {
+}
+
+impl<E: Clone + Hash + Eq, CF> Dedupe<E, CF> for HashSet<E> {
     fn new(_cf: CF) -> Self {
         HashSet::new()
     }
@@ -72,12 +79,12 @@ impl<N: DfsNode, CF> Bfs2Dedupe<N, CF> for HashSet<<N::KN as DfsKeyNode>::HN> {
         HashSet::len(self)
     }
 
-    fn cloned_iter<'a>(&'a self) -> Box<dyn Iterator<Item=<N::KN as DfsKeyNode>::HN> + 'a> {
+    fn cloned_iter<'a>(&'a self) -> Box<dyn Iterator<Item=E> + 'a> {
         Box::new(HashSet::iter(self).cloned())
     }
 
-    fn insert(&mut self, n: <N::KN as DfsKeyNode>::HN) -> bool {
-        HashSet::insert(self, n)
+    fn insert(&mut self, e: E) -> bool {
+        HashSet::insert(self, e)
     }
 }
 
