@@ -60,6 +60,14 @@ use lgol::graph::LGolGraphParams;
 use lgol::lat1::Vec3;
 use sal::DeserializerFor;
 
+marker_trait! {
+    MainB:
+    [UScalar]
+    [DeserializeOwned]
+    [Serialize]
+    [MmapChunkSafe]
+}
+
 fn main() {
     let ep = Arc::new(GolRctlEp {
         threads: AtomicUsize::new(8),
@@ -73,7 +81,7 @@ fn main() {
     main1::<u16>(ep).unwrap();
 }
 
-fn main1<B: UScalar + DeserializeOwned + Serialize + MmapChunkSafe>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
+fn main1<B: MainB>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
     let mut args = env_args();
 
     let wx = args.parse();
@@ -143,7 +151,7 @@ fn main1<B: UScalar + DeserializeOwned + Serialize + MmapChunkSafe>(ep: Arc<GolR
 }
 
 #[allow(dead_code)]
-fn demo___bfs2___main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
+fn demo___bfs2___main1<B: MainB>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
     let mut args = env_args();
 
     let wx = args.parse();
@@ -190,7 +198,7 @@ fn demo___bfs2___main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRct
 }
 
 #[allow(dead_code)]
-fn demo___bfs2___ends_db___main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
+fn demo___bfs2___ends_db___main1<B: MainB>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
     let mut args = env_args();
 
     let wx = args.parse();
@@ -262,7 +270,7 @@ fn demo___bfs2___ends_db___main1<B: UScalar + DeserializeOwned + Serialize>(ep: 
 }
 
 #[allow(dead_code)]
-fn demo___lgol___main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
+fn demo___lgol___main1<B: MainB>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
     let mut args = env_args();
 
     let wx = args.parse();
@@ -312,7 +320,7 @@ fn demo___lgol___main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRct
 }
 
 #[allow(dead_code)]
-fn demo___lgol___oob_agar___main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
+fn demo___lgol___oob_agar___main1<B: MainB>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
     let mut args = env_args();
 
     let wx = args.parse();
@@ -386,7 +394,7 @@ fn demo___lgol___oob_agar___main1<B: UScalar + DeserializeOwned + Serialize>(ep:
 }
 
 #[allow(dead_code)]
-fn demo___lgol___periodic_edge___main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
+fn demo___lgol___periodic_edge___main1<B: MainB>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
     let mut args = env_args();
 
     let mt = args.parse();
@@ -437,7 +445,7 @@ fn demo___lgol___periodic_edge___main1<B: UScalar + DeserializeOwned + Serialize
 }
 
 #[allow(dead_code)]
-fn demo___lgol___reflect___main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
+fn demo___lgol___reflect___main1<B: MainB>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
     let mut args = env_args();
 
     let mx = args.parse();
@@ -480,7 +488,7 @@ fn demo___lgol___reflect___main1<B: UScalar + DeserializeOwned + Serialize>(ep: 
 }
 
 #[allow(dead_code)]
-fn demo___lgol___period_divison___main1<B: UScalar + DeserializeOwned + Serialize>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
+fn demo___lgol___period_divison___main1<B: MainB>(ep: Arc<GolRctlEp>) -> Result<(), StringError> {
     let mut args = env_args();
 
     let wx = args.parse();
