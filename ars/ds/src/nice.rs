@@ -10,5 +10,7 @@ marker_trait! {
     [Hash]
     [Ord]
     [Send]
+    [Sized]
     [Sync]
+    ['static]
 }
