@@ -71,6 +71,7 @@ impl_mmap_chunk_safe!([] u8);
 impl_mmap_chunk_safe!([] u16);
 impl_mmap_chunk_safe!([] u32);
 impl_mmap_chunk_safe!([] u64);
+impl_mmap_chunk_safe!([] u128);
 impl_mmap_chunk_safe!([] usize);
 impl_mmap_chunk_safe!([] isize);
 impl_mmap_chunk_safe!([E] [E; 0]);
